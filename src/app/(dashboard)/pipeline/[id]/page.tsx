@@ -18,7 +18,7 @@ import {
 } from '@/lib/utils'
 import type { PipelineLead, PipelineHistory, User } from '@/types/database'
 import { toast } from 'sonner'
-import { ArrowLeft, Edit2, Save, X, Clock, AlertCircle, Plus, Send, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, X, Clock, AlertCircle, Plus, Send, MessageSquare, Link2, Building2, ExternalLink } from 'lucide-react'
 
 const STAGES = ['신규리드', '컨택', '미팅', '제안', '계약', '도입완료']
 const PRIORITY_OPTIONS = [
@@ -69,6 +69,11 @@ export default function LeadDetailPage() {
   const [editForm, setEditForm] = useState<Partial<PipelineLead>>({})
   const [saving, setSaving] = useState(false)
 
+  // Customer matching
+  const [customers, setCustomers] = useState<any[]>([])
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [linkedCustomer, setLinkedCustomer] = useState<any>(null)
+
   // Activity form
   const [showActivityForm, setShowActivityForm] = useState(false)
   const [activityForm, setActivityForm] = useState({
@@ -83,7 +88,7 @@ export default function LeadDetailPage() {
   }, [id])
 
   async function fetchAll() {
-    const [leadRes, historyRes, activitiesRes, usersRes] = await Promise.all([
+    const [leadRes, historyRes, activitiesRes, usersRes, customersRes] = await Promise.all([
       supabase
         .from('pipeline_leads')
         .select('*, assigned_user:users!pipeline_leads_assigned_to_fkey(id, name)')
@@ -100,10 +105,20 @@ export default function LeadDetailPage() {
         .eq('lead_id', id)
         .order('performed_at', { ascending: false }),
       supabase.from('users').select('*').eq('is_active', true),
+      supabase.from('customers').select('id, company_name, company_type, customer_code').order('company_name'),
     ])
 
     setLead(leadRes.data)
     setUsers(usersRes.data || [])
+    setCustomers(customersRes.data || [])
+
+    // Load linked customer if exists
+    if (leadRes.data?.customer_id) {
+      const linked = (customersRes.data || []).find((c: any) => c.id === leadRes.data.customer_id)
+      setLinkedCustomer(linked || null)
+    } else {
+      setLinkedCustomer(null)
+    }
 
     // Build unified timeline
     const items: TimelineItem[] = []
@@ -193,6 +208,24 @@ export default function LeadDetailPage() {
     toast.success('담당자가 변경되었습니다.')
     fetchAll()
   }
+
+  const linkCustomer = async (customerId: string | null) => {
+    const { error } = await supabase
+      .from('pipeline_leads')
+      .update({ customer_id: customerId })
+      .eq('id', id)
+    if (error) {
+      toast.error('고객사 연결에 실패했습니다.')
+    } else {
+      toast.success(customerId ? '고객사가 연결되었습니다.' : '고객사 연결이 해제되었습니다.')
+      fetchAll()
+    }
+  }
+
+  const filteredCustomers = customers.filter(c =>
+    c.company_name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    (c.customer_code || '').includes(customerSearch)
+  ).slice(0, 10)
 
   const submitActivity = async () => {
     if (!user || !activityForm.title.trim()) {
@@ -470,12 +503,72 @@ export default function LeadDetailPage() {
             </div>
           </div>
 
-          {lead.customer_code && (
-            <div className="card p-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">고객사 ID</h3>
-              <p className="text-sm font-mono text-gray-900">{lead.customer_code}</p>
-            </div>
-          )}
+          {/* 고객사 연결 */}
+          <div className="card p-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+              <Link2 className="w-4 h-4" /> 고객사 연결
+            </h3>
+
+            {linkedCustomer ? (
+              <div className="space-y-3">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-green-800">{linkedCustomer.company_name}</p>
+                      {linkedCustomer.company_type && (
+                        <p className="text-xs text-green-600 mt-0.5">{linkedCustomer.company_type}</p>
+                      )}
+                      {linkedCustomer.customer_code && (
+                        <p className="text-xs text-green-500 font-mono mt-1">ID: {linkedCustomer.customer_code}</p>
+                      )}
+                    </div>
+                    <Link href={`/customers/${linkedCustomer.id}`}>
+                      <Button variant="ghost" size="sm"><ExternalLink className="w-3.5 h-3.5" /></Button>
+                    </Link>
+                  </div>
+                </div>
+                <button
+                  onClick={() => linkCustomer(null)}
+                  className="text-xs text-red-400 hover:text-red-600"
+                >
+                  연결 해제
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400 mb-2">
+                  문의사: <span className="font-medium text-gray-600">{lead.company_name}</span>
+                </p>
+                <Input
+                  placeholder="고객사 검색..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  className="text-sm"
+                />
+                {customerSearch && (
+                  <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                    {filteredCustomers.length === 0 ? (
+                      <p className="text-xs text-gray-400 p-2">검색 결과 없음</p>
+                    ) : (
+                      filteredCustomers.map(c => (
+                        <button
+                          key={c.id}
+                          onClick={() => { linkCustomer(c.id); setCustomerSearch('') }}
+                          className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors"
+                        >
+                          <p className="text-sm font-medium text-gray-800">{c.company_name}</p>
+                          <p className="text-xs text-gray-400">
+                            {c.company_type || ''}
+                            {c.customer_code && <span className="ml-2 font-mono">ID: {c.customer_code}</span>}
+                          </p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
