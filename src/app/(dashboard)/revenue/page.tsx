@@ -144,11 +144,11 @@ export default function RevenuePage() {
       {loading ? (
         <Loading />
       ) : (
-        <div className="table-container overflow-x-auto">
-          <table className="data-table">
-            <thead>
+        <div className="card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="sticky left-0 bg-gray-50 z-10 min-w-[200px]">고객사 / 현장</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase min-w-[200px]">고객사 / 현장</th>
                 {months.map((m) => (
                   <th key={m} className={`text-center min-w-[90px] ${m === currentMonth && year === new Date().getFullYear() ? 'bg-blue-50' : ''}`}>
                     {m}월
@@ -167,7 +167,7 @@ export default function RevenuePage() {
                       className="cursor-pointer hover:bg-blue-50/50 transition-colors"
                       onClick={() => toggleCustomer(row.customer_id)}
                     >
-                      <td className="sticky left-0 bg-white z-10">
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {isExpanded
                             ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
@@ -193,7 +193,7 @@ export default function RevenuePage() {
                     {/* 프로젝트 상세 행 (펼침) */}
                     {isExpanded && row.projects.sort((a, b) => b.total - a.total).map((proj) => (
                       <tr key={proj.project_id} className="bg-gray-50/70">
-                        <td className="sticky left-0 bg-gray-50/70 z-10 pl-10">
+                        <td className="px-4 py-3 pl-10">
                           <div className="flex items-center gap-2">
                             <MapPin className="w-3.5 h-3.5 text-gray-300 shrink-0" />
                             <div>
@@ -219,7 +219,7 @@ export default function RevenuePage() {
               })}
               {data.length > 0 && (
                 <tr className="bg-gray-100 font-semibold border-t-2 border-gray-300">
-                  <td className="sticky left-0 bg-gray-100 z-10">합계</td>
+                  <td className="px-4 py-3 font-semibold">합계</td>
                   {monthlyTotals.map((t, i) => (
                     <td key={i} className={`text-right ${i + 1 === currentMonth && year === new Date().getFullYear() ? 'bg-blue-100/50' : ''}`}>
                       {t ? formatCurrency(t) : '-'}
