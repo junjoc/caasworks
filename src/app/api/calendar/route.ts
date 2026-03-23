@@ -4,7 +4,15 @@ import { google } from 'googleapis'
 const CALENDAR_ID = 'c_036pj2g4597caud3s5i654hcts@group.calendar.google.com'
 
 function getAuth() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || '{}')
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY || ''
+  let credentials: any
+  try {
+    // Try direct JSON parse first
+    credentials = JSON.parse(raw)
+  } catch {
+    // If that fails, try base64 decode
+    credentials = JSON.parse(Buffer.from(raw, 'base64').toString('utf-8'))
+  }
   return new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
