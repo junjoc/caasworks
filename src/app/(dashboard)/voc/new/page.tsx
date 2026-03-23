@@ -19,7 +19,7 @@ export default function NewVocPage() {
   const { user } = useAuth()
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
   const [users, setUsers] = useState<User[]>([])
 
   const [form, setForm] = useState({

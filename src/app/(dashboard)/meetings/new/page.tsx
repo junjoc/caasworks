@@ -18,7 +18,7 @@ export default function NewMeetingPage() {
   const { user } = useAuth()
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
 
   const [form, setForm] = useState({
     customer_id: '',
