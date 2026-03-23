@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Loading } from '@/components/ui/loading'
 import { Select } from '@/components/ui/select'
@@ -161,10 +161,9 @@ export default function RevenuePage() {
               {data.map((row) => {
                 const isExpanded = expandedCustomers.has(row.customer_id)
                 return (
-                  <>
-                    {/* 고객사 행 */}
+                  <React.Fragment key={row.customer_id}>
+                    {/* 고객사 행 — 클릭하면 현장별 상세 펼침 */}
                     <tr
-                      key={row.customer_id}
                       className="cursor-pointer hover:bg-blue-50/50 transition-colors"
                       onClick={() => toggleCustomer(row.customer_id)}
                     >
@@ -215,7 +214,7 @@ export default function RevenuePage() {
                         <td className="text-right text-sm text-gray-600">{formatCurrency(proj.total)}</td>
                       </tr>
                     ))}
-                  </>
+                  </React.Fragment>
                 )
               })}
               {data.length > 0 && (
