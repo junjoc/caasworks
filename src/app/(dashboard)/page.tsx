@@ -42,11 +42,19 @@ export default function DashboardPage() {
   }, [])
 
   async function fetchDashboard() {
+    try {
     const now = new Date()
     const year = now.getFullYear()
     const month = now.getMonth() + 1
     const prevMonth = month === 1 ? 12 : month - 1
     const prevYear = month === 1 ? year - 1 : year
+
+    // Timeout wrapper - don't hang forever
+    const withTimeout = <T,>(promise: Promise<T>, ms = 8000): Promise<T> =>
+      Promise.race([
+        promise,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+      ])
 
     const [
       revenueRes,
@@ -58,33 +66,24 @@ export default function DashboardPage() {
       recentRes,
       unassignedRes,
       vocRes,
-    ] = await Promise.all([
-      // 이번 달 매출
+    ] = await withTimeout(Promise.all([
       supabase.from('monthly_revenues').select('amount').eq('year', year).eq('month', month),
-      // 전월 매출
       supabase.from('monthly_revenues').select('amount').eq('year', prevYear).eq('month', prevMonth),
-      // 이번 달 신규 리드
       supabase.from('pipeline_leads').select('id', { count: 'exact' })
         .gte('created_at', `${year}-${String(month).padStart(2, '0')}-01`),
-      // 이번 달 전환
       supabase.from('pipeline_leads').select('id', { count: 'exact' })
         .in('stage', ['계약', '도입완료'])
         .gte('converted_at', `${year}-${String(month).padStart(2, '0')}-01`),
-      // 미납 청구서
       supabase.from('invoices').select('total').in('status', ['sent', 'overdue']),
-      // 파이프라인 단계별
       supabase.from('pipeline_leads').select('stage'),
-      // 최근 리드
       supabase.from('pipeline_leads')
         .select('id, company_name, stage, created_at')
         .order('created_at', { ascending: false })
         .limit(8),
-      // 담당자 미지정
       supabase.from('pipeline_leads').select('id', { count: 'exact' }).is('assigned_to', null),
-      // 미처리 VoC
       supabase.from('voc_tickets').select('id', { count: 'exact' })
         .in('status', ['received', 'reviewing', 'in_progress']),
-    ])
+    ]))
 
     const monthlyRevenue = (revenueRes.data || []).reduce((sum, r) => sum + Number(r.amount), 0)
     const prevMonthRevenue = (prevRevenueRes.data || []).reduce((sum, r) => sum + Number(r.amount), 0)
@@ -118,9 +117,20 @@ export default function DashboardPage() {
       },
     })
     setLoading(false)
+    } catch (err) {
+      console.error('Dashboard fetch error:', err)
+      // Show empty state instead of hanging
+      setData({
+        monthlyRevenue: 0, prevMonthRevenue: 0, newLeadsCount: 0, convertedCount: 0,
+        unpaidInvoices: 0, unpaidAmount: 0, pipelineByStage: [], recentLeads: [],
+        pendingItems: { unassignedLeads: 0, unpaidOver30: 0, openVocTickets: 0, expiringBilling: 0 },
+      })
+      setLoading(false)
+    }
   }
 
-  if (loading || !data) return <Loading />
+  if (loading) return <Loading />
+  if (!data) return <Loading />
 
   const revenueChange = data.prevMonthRevenue > 0
     ? ((data.monthlyRevenue - data.prevMonthRevenue) / data.prevMonthRevenue) * 100

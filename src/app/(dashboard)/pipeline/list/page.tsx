@@ -44,6 +44,7 @@ export default function PipelineListPage() {
 
   async function fetchLeads() {
     setLoading(true)
+    try {
     let query = supabase
       .from('pipeline_leads')
       .select('*, assigned_user:users!pipeline_leads_assigned_to_fkey(id, name)')
@@ -57,7 +58,6 @@ export default function PipelineListPage() {
     const { data, error } = await query
     if (error) {
       console.error('Pipeline query error:', error)
-      // Fallback without join
       const { data: fallback } = await supabase
         .from('pipeline_leads')
         .select('*')
@@ -65,6 +65,10 @@ export default function PipelineListPage() {
       setLeads(fallback || [])
     } else {
       setLeads(data || [])
+    }
+    } catch (err) {
+      console.error('Fetch error:', err)
+      setLeads([])
     }
     setLoading(false)
   }
