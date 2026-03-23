@@ -107,3 +107,45 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   FOLLOWUP: '후속 조치',
   NOTE: '메모',
 }
+
+export const ACTIVITY_TYPE_ICONS: Record<string, string> = {
+  CALL_OUT: '📞',
+  CALL_IN: '📲',
+  EMAIL_SENT: '✉️',
+  EMAIL_RECV: '📩',
+  MEETING: '🤝',
+  DEMO: '🖥️',
+  PROPOSAL: '📋',
+  CONTRACT: '📝',
+  ONBOARDING: '🚀',
+  FOLLOWUP: '🔄',
+  NOTE: '💬',
+}
+
+export const ACTIVITY_TYPE_COLORS: Record<string, string> = {
+  CALL_OUT: 'bg-blue-50 border-blue-200 text-blue-700',
+  CALL_IN: 'bg-green-50 border-green-200 text-green-700',
+  EMAIL_SENT: 'bg-blue-50 border-blue-200 text-blue-700',
+  EMAIL_RECV: 'bg-green-50 border-green-200 text-green-700',
+  MEETING: 'bg-purple-50 border-purple-200 text-purple-700',
+  DEMO: 'bg-orange-50 border-orange-200 text-orange-700',
+  PROPOSAL: 'bg-yellow-50 border-yellow-200 text-yellow-700',
+  CONTRACT: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+  ONBOARDING: 'bg-indigo-50 border-indigo-200 text-indigo-700',
+  FOLLOWUP: 'bg-gray-50 border-gray-200 text-gray-600',
+  NOTE: 'bg-gray-50 border-gray-200 text-gray-600',
+}
+
+export const ACTIVITY_TYPE_OPTIONS = [
+  { value: 'NOTE', label: '💬 메모' },
+  { value: 'CALL_OUT', label: '📞 전화 (아웃)' },
+  { value: 'CALL_IN', label: '📲 전화 (인)' },
+  { value: 'EMAIL_SENT', label: '✉️ 이메일 발송' },
+  { value: 'EMAIL_RECV', label: '📩 이메일 수신' },
+  { value: 'MEETING', label: '🤝 미팅' },
+  { value: 'DEMO', label: '🖥️ 데모/시연' },
+  { value: 'PROPOSAL', label: '📋 제안서' },
+  { value: 'CONTRACT', label: '📝 계약' },
+  { value: 'ONBOARDING', label: '🚀 온보딩' },
+  { value: 'FOLLOWUP', label: '🔄 후속 조치' },
+]

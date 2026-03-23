@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
-import { STAGE_COLORS, PRIORITY_COLORS, formatDate } from '@/lib/utils'
+import { STAGE_COLORS, PRIORITY_COLORS, ACTIVITY_TYPE_ICONS, formatDate } from '@/lib/utils'
 import type { PipelineLead } from '@/types/database'
 import { toast } from 'sonner'
 import { Plus, Clock, AlertCircle } from 'lucide-react'
@@ -23,6 +23,7 @@ export default function PipelineBoardPage() {
   const [leads, setLeads] = useState<PipelineLead[]>([])
   const [loading, setLoading] = useState(true)
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [activityMap, setActivityMap] = useState<Record<string, { count: number; latest?: { type: string; title: string } }>>({})
   const { user } = useAuth()
   const supabase = createClient()
 
@@ -37,6 +38,26 @@ export default function PipelineBoardPage() {
       .order('created_at', { ascending: false })
 
     setLeads(data || [])
+
+    // Fetch latest activity per lead
+    if (data && data.length > 0) {
+      const leadIds = data.map((l: any) => l.id)
+      const { data: activities } = await supabase
+        .from('activity_logs')
+        .select('lead_id, activity_type, title')
+        .in('lead_id', leadIds)
+        .order('performed_at', { ascending: false })
+
+      const map: Record<string, { count: number; latest?: { type: string; title: string } }> = {}
+      ;(activities || []).forEach((a: any) => {
+        if (!map[a.lead_id]) {
+          map[a.lead_id] = { count: 0, latest: { type: a.activity_type, title: a.title } }
+        }
+        map[a.lead_id].count++
+      })
+      setActivityMap(map)
+    }
+
     setLoading(false)
   }
 
@@ -172,6 +193,17 @@ export default function PipelineBoardPage() {
                         <p className="text-xs text-blue-600 mt-1.5 truncate" title={lead.next_action}>
                           → {lead.next_action}
                         </p>
+                      )}
+
+                      {/* 최신 활동 */}
+                      {activityMap[lead.id]?.latest && (
+                        <div className="flex items-center gap-1 mt-1.5 text-[10px] text-gray-400">
+                          <span>{ACTIVITY_TYPE_ICONS[activityMap[lead.id].latest!.type] || '💬'}</span>
+                          <span className="truncate">{activityMap[lead.id].latest!.title}</span>
+                          {activityMap[lead.id].count > 1 && (
+                            <span className="ml-auto bg-gray-100 text-gray-500 px-1 rounded text-[9px]">+{activityMap[lead.id].count - 1}</span>
+                          )}
+                        </div>
                       )}
 
                       {/* 하단: 날짜 + 담당자 */}
