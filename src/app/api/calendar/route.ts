@@ -25,6 +25,7 @@ export async function GET(request: Request) {
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()))
     const month = parseInt(searchParams.get('month') || String(new Date().getMonth() + 1))
     const filter = searchParams.get('filter') || 'all' // all | vacation | work
+    const membersParam = searchParams.get('members') || '' // comma-separated names
 
     const auth = getAuth()
     const calendar = google.calendar({ version: 'v3', auth })
@@ -65,12 +66,20 @@ export async function GET(request: Request) {
       }
     })
 
-    // Filter
+    // Filter by members (if specified)
     let filtered = events
+    if (membersParam) {
+      const memberNames = membersParam.split(',').map(n => n.trim()).filter(Boolean)
+      if (memberNames.length > 0) {
+        filtered = filtered.filter(e => e.name && memberNames.includes(e.name))
+      }
+    }
+
+    // Filter by type
     if (filter === 'vacation') {
-      filtered = events.filter(e => e.type === 'vacation')
+      filtered = filtered.filter(e => e.type === 'vacation')
     } else if (filter === 'work') {
-      filtered = events.filter(e => e.type === 'remote')
+      filtered = filtered.filter(e => e.type === 'remote')
     }
 
     return NextResponse.json({ events: filtered, total: filtered.length })

@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 
 interface CalendarEvent {
   id: string
@@ -39,15 +41,29 @@ export default function TeamCalendarPage() {
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [filter, setFilter] = useState('all')
   const [nameFilter, setNameFilter] = useState('전체')
+  const [teamMembers, setTeamMembers] = useState<string[]>([])
+  const supabase = createClient()
+
+  useEffect(() => {
+    // Load team member settings
+    supabase.from('company_settings').select('value').eq('key', 'calendar_team_members').single()
+      .then(({ data }) => {
+        if (data?.value && Array.isArray(data.value)) setTeamMembers(data.value)
+      })
+  }, [])
 
   useEffect(() => {
     fetchEvents()
-  }, [year, month, filter])
+  }, [year, month, filter, teamMembers])
 
   async function fetchEvents() {
     setLoading(true)
     try {
-      const res = await fetch(`/api/calendar?year=${year}&month=${month}&filter=${filter}`)
+      let url = `/api/calendar?year=${year}&month=${month}&filter=${filter}`
+      if (teamMembers.length > 0) {
+        url += `&members=${encodeURIComponent(teamMembers.join(','))}`
+      }
+      const res = await fetch(url)
       const data = await res.json()
       setEvents(data.events || [])
     } catch (err) {
@@ -90,7 +106,13 @@ export default function TeamCalendarPage() {
       <div className="page-header">
         <h1 className="page-title flex items-center gap-2">
           <Calendar className="w-6 h-6" /> 팀 캘린더
+          {teamMembers.length > 0 && (
+            <span className="text-xs font-normal text-gray-400 ml-2">({teamMembers.length}명)</span>
+          )}
         </h1>
+        <Link href="/team/leave">
+          <Button variant="secondary" size="sm">팀원 관리</Button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
