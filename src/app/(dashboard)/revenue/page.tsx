@@ -38,11 +38,14 @@ export default function RevenuePage() {
   async function fetchRevenue() {
     setLoading(true)
     try {
-      const { data: revenues } = await supabase
-        .from('monthly_revenues')
-        .select('*, customer:customers(company_name, company_type), project:projects(project_name, service_type)')
-        .eq('year', year)
-        .order('month')
+      const { data: revenues } = await Promise.race([
+        supabase
+          .from('monthly_revenues')
+          .select('*, customer:customers(company_name, company_type), project:projects(project_name, service_type)')
+          .eq('year', year)
+          .order('month'),
+        new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+      ])
 
       // 고객별 → 프로젝트별 집계
       const customerMap = new Map<string, RevenueSummary>()
