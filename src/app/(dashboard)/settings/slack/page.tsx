@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 export default function SlackSettingsPage() {
   const supabase = createClient()
   const [pendingProjects, setPendingProjects] = useState<Project[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<{id: string; company_name: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
 
