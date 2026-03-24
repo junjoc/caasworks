@@ -18,7 +18,7 @@ import {
 } from '@/lib/utils'
 import type { PipelineLead, PipelineHistory, User } from '@/types/database'
 import { toast } from 'sonner'
-import { ArrowLeft, Edit2, Save, X, Clock, AlertCircle, Plus, Send, MessageSquare, Link2, Building2, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, X, Clock, AlertCircle, Plus, Send, MessageSquare, Link2, Building2, ExternalLink, Trash2, Pencil } from 'lucide-react'
 
 const STAGES = ['신규리드', '컨택', '미팅', '제안', '계약', '도입완료']
 const PRIORITY_OPTIONS = [
@@ -53,6 +53,7 @@ interface TimelineItem {
   title?: string
   description?: string
   performer_name?: string
+  performed_by?: string
 }
 
 export default function LeadDetailPage() {
@@ -82,6 +83,15 @@ export default function LeadDetailPage() {
     description: '',
   })
   const [submittingActivity, setSubmittingActivity] = useState(false)
+
+  // Activity edit
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(null)
+  const [editActivityForm, setEditActivityForm] = useState({
+    activity_type: '',
+    title: '',
+    description: '',
+  })
+  const [savingActivity, setSavingActivity] = useState(false)
 
   useEffect(() => {
     fetchAll()
@@ -146,10 +156,11 @@ export default function LeadDetailPage() {
         title: a.title,
         description: a.description,
         performer_name: a.performer?.name || '시스템',
+        performed_by: a.performed_by,
       })
     })
 
-    // Sort by timestamp descending
+    // Sort by timestamp descending (newest first)
     items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     setTimeline(items)
     setLoading(false)
@@ -250,6 +261,58 @@ export default function LeadDetailPage() {
       fetchAll()
     }
     setSubmittingActivity(false)
+  }
+
+  // Activity edit/delete handlers
+  const startEditActivity = (item: TimelineItem) => {
+    setEditingActivityId(item.id)
+    setEditActivityForm({
+      activity_type: item.activity_type || 'NOTE',
+      title: item.title || '',
+      description: item.description || '',
+    })
+  }
+
+  const saveActivityEdit = async () => {
+    if (!editingActivityId || !editActivityForm.title.trim()) {
+      toast.error('제목을 입력해주세요.')
+      return
+    }
+    setSavingActivity(true)
+    const { error } = await supabase
+      .from('activity_logs')
+      .update({
+        activity_type: editActivityForm.activity_type,
+        title: editActivityForm.title,
+        description: editActivityForm.description || null,
+      })
+      .eq('id', editingActivityId)
+
+    if (error) {
+      toast.error('활동 수정에 실패했습니다.')
+    } else {
+      toast.success('활동이 수정되었습니다.')
+      setEditingActivityId(null)
+      fetchAll()
+    }
+    setSavingActivity(false)
+  }
+
+  const deleteActivity = async (activityId: string) => {
+    const confirmed = window.confirm('이 활동 기록을 삭제하시겠습니까?')
+    if (!confirmed) return
+
+    const { error } = await supabase
+      .from('activity_logs')
+      .delete()
+      .eq('id', activityId)
+
+    if (error) {
+      toast.error('활동 삭제에 실패했습니다.')
+    } else {
+      toast.success('활동이 삭제되었습니다.')
+      fetchAll()
+    }
   }
 
   if (loading) return <PageLoading />
@@ -421,8 +484,43 @@ export default function LeadDetailPage() {
                     const icon = ACTIVITY_TYPE_ICONS[item.activity_type || 'NOTE'] || '💬'
                     const color = ACTIVITY_TYPE_COLORS[item.activity_type || 'NOTE'] || ''
                     const label = ACTIVITY_TYPE_LABELS[item.activity_type || 'NOTE'] || item.activity_type
+                    const isOwner = user && item.performed_by === user.id
+                    const isEditing = editingActivityId === item.id
+
+                    if (isEditing) {
+                      return (
+                        <div key={item.id} className="rounded-lg p-4 border bg-yellow-50 border-yellow-200 space-y-3">
+                          <Select
+                            label="활동 유형"
+                            value={editActivityForm.activity_type}
+                            onChange={(e) => setEditActivityForm({ ...editActivityForm, activity_type: e.target.value })}
+                            options={ACTIVITY_TYPE_OPTIONS}
+                          />
+                          <Input
+                            label="제목"
+                            value={editActivityForm.title}
+                            onChange={(e) => setEditActivityForm({ ...editActivityForm, title: e.target.value })}
+                            required
+                          />
+                          <Textarea
+                            label="상세 내용"
+                            value={editActivityForm.description}
+                            onChange={(e) => setEditActivityForm({ ...editActivityForm, description: e.target.value })}
+                          />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={saveActivityEdit} loading={savingActivity}>
+                              <Save className="w-3.5 h-3.5 mr-1" /> 저장
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => setEditingActivityId(null)}>
+                              취소
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    }
+
                     return (
-                      <div key={item.id} className={`rounded-lg p-3 border ${color}`}>
+                      <div key={item.id} className={`rounded-lg p-3 border ${color} group`}>
                         <div className="flex items-start gap-2">
                           <span className="text-base mt-0.5">{icon}</span>
                           <div className="flex-1 min-w-0">
@@ -430,6 +528,25 @@ export default function LeadDetailPage() {
                               <span className="text-xs font-medium opacity-70">{label}</span>
                               <span className="text-xs opacity-50">·</span>
                               <span className="text-xs opacity-50">{item.performer_name}</span>
+                              {/* 수정/삭제 버튼 */}
+                              {isOwner && (
+                                <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => startEditActivity(item)}
+                                    className="p-1 rounded hover:bg-black/5 text-gray-400 hover:text-gray-600"
+                                    title="수정"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteActivity(item.id)}
+                                    className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
+                                    title="삭제"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
                             </div>
                             <p className="text-sm font-medium mt-0.5">{item.title}</p>
                             {item.description && (

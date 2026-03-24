@@ -19,6 +19,15 @@ function isOverdue(dateStr: string | null) {
   return new Date(dateStr) < new Date(new Date().toDateString())
 }
 
+function getCardBorderClass(lead: PipelineLead) {
+  // Priority-based border colors
+  if (lead.priority === '긴급') return 'border-l-4 border-l-red-500 border-t border-r border-b border-red-200 bg-red-50/40'
+  if (lead.priority === '높음') return 'border-l-4 border-l-orange-400 border-t border-r border-b border-orange-200 bg-orange-50/30'
+  // Overdue highlight even for normal priority
+  if (isOverdue(lead.next_action_date)) return 'border-l-4 border-l-red-300 border-t border-r border-b border-gray-200 bg-white'
+  return 'border border-gray-200 bg-white'
+}
+
 export default function PipelineBoardPage() {
   const [leads, setLeads] = useState<PipelineLead[]>([])
   const [loading, setLoading] = useState(true)
@@ -119,10 +128,31 @@ export default function PipelineBoardPage() {
 
   if (loading) return <Loading />
 
+  // Stats for header
+  const overdueTotal = leads.filter(l => isOverdue(l.next_action_date)).length
+  const urgentTotal = leads.filter(l => l.priority === '긴급').length
+
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">파이프라인 보드</h1>
+        <div>
+          <h1 className="page-title">파이프라인 보드</h1>
+          {(overdueTotal > 0 || urgentTotal > 0) && (
+            <p className="text-sm text-gray-500 mt-1">
+              {urgentTotal > 0 && (
+                <span className="text-red-600 mr-3">
+                  긴급 {urgentTotal}건
+                </span>
+              )}
+              {overdueTotal > 0 && (
+                <span className="text-red-500">
+                  <AlertCircle className="w-3.5 h-3.5 inline mr-0.5" />
+                  기한초과 {overdueTotal}건
+                </span>
+              )}
+            </p>
+          )}
+        </div>
         <div className="flex gap-2">
           <Link href="/pipeline/list">
             <Button variant="secondary" size="sm">리스트뷰</Button>
@@ -138,6 +168,7 @@ export default function PipelineBoardPage() {
       <div className="flex gap-4 overflow-x-auto pb-4">
         {STAGES.map((stage) => {
           const stageLeads = getLeadsByStage(stage)
+          const stageOverdue = stageLeads.filter(l => isOverdue(l.next_action_date)).length
           return (
             <div
               key={stage}
@@ -150,6 +181,12 @@ export default function PipelineBoardPage() {
                   <Badge className={STAGE_COLORS[stage]}>{stage}</Badge>
                   <span className="text-sm text-gray-500">{stageLeads.length}</span>
                 </div>
+                {stageOverdue > 0 && (
+                  <span className="text-[10px] text-red-500 flex items-center gap-0.5">
+                    <AlertCircle className="w-3 h-3" />
+                    {stageOverdue}
+                  </span>
+                )}
               </div>
 
               <div className="space-y-2 min-h-[200px]">
@@ -158,9 +195,9 @@ export default function PipelineBoardPage() {
                     key={lead.id}
                     draggable
                     onDragStart={(e) => handleDragStart(e, lead.id)}
-                    className={`bg-white rounded-lg p-3 shadow-sm border cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${
+                    className={`rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${
                       draggingId === lead.id ? 'opacity-50' : ''
-                    } ${lead.priority === '긴급' ? 'border-red-300 bg-red-50/30' : 'border-gray-200'}`}
+                    } ${getCardBorderClass(lead)}`}
                   >
                     <Link href={`/pipeline/${lead.id}`} className="block">
                       {/* 상단: 우선순위 + 사업분류 */}
@@ -172,6 +209,12 @@ export default function PipelineBoardPage() {
                         )}
                         {lead.industry && (
                           <span className="text-[10px] text-gray-400">{lead.industry}</span>
+                        )}
+                        {/* Overdue indicator at top-right */}
+                        {isOverdue(lead.next_action_date) && (
+                          <span className="ml-auto" title="기한 초과">
+                            <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                          </span>
                         )}
                       </div>
 
@@ -190,7 +233,9 @@ export default function PipelineBoardPage() {
 
                       {/* 다음 액션 */}
                       {lead.next_action && (
-                        <p className="text-xs text-blue-600 mt-1.5 truncate" title={lead.next_action}>
+                        <p className={`text-xs mt-1.5 truncate ${
+                          isOverdue(lead.next_action_date) ? 'text-red-600 font-medium' : 'text-blue-600'
+                        }`} title={lead.next_action}>
                           → {lead.next_action}
                         </p>
                       )}
@@ -214,11 +259,10 @@ export default function PipelineBoardPage() {
                           </span>
                           {lead.next_action_date && (
                             <span className={`text-xs flex items-center gap-0.5 ${
-                              isOverdue(lead.next_action_date) ? 'text-red-500' : 'text-gray-400'
+                              isOverdue(lead.next_action_date) ? 'text-red-500 font-semibold' : 'text-gray-400'
                             }`}>
                               <Clock className="w-3 h-3" />
                               {formatDate(lead.next_action_date, 'M/d')}
-                              {isOverdue(lead.next_action_date) && <AlertCircle className="w-3 h-3" />}
                             </span>
                           )}
                         </div>
