@@ -661,13 +661,10 @@ export default function CustomerDetailPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>프로젝트명</th>
+                  <th>프로젝트(현장)명</th>
                   <th>주소</th>
                   <th>투입 솔루션</th>
-                  <th>서비스</th>
-                  <th>현장구분</th>
-                  <th>과금시작</th>
-                  <th>과금종료</th>
+                  <th>기간</th>
                   <th>월 과금액</th>
                   <th>상태</th>
                   <th className="w-24">관리</th>
@@ -687,12 +684,13 @@ export default function CustomerDetailPage() {
                             </span>
                           ))}
                         </div>
+                      ) : p.service_type ? (
+                        <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-50 text-gray-600 rounded">{p.service_type}</span>
                       ) : '-'}
                     </td>
-                    <td>{p.service_type || '-'}</td>
-                    <td>{p.site_category || '-'}</td>
-                    <td className="text-gray-500">{p.billing_start ? formatDate(p.billing_start) : '-'}</td>
-                    <td className="text-gray-500">{p.billing_end ? formatDate(p.billing_end) : '-'}</td>
+                    <td className="text-gray-500 text-xs">
+                      {p.billing_start ? formatDate(p.billing_start) : ''}{p.billing_start && p.billing_end ? ' ~ ' : ''}{p.billing_end ? formatDate(p.billing_end) : p.billing_start ? ' ~' : '-'}
+                    </td>
                     <td>{p.monthly_amount ? formatCurrency(Number(p.monthly_amount)) : '-'}</td>
                     <td>
                       <Badge className={p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
@@ -801,20 +799,12 @@ export default function CustomerDetailPage() {
             onChange={(e) => setProjectForm(f => ({ ...f, address: e.target.value }))}
             placeholder="프로젝트 주소"
           />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="생성자"
-              value={projectForm.created_by}
-              onChange={(e) => setProjectForm(f => ({ ...f, created_by: e.target.value }))}
-              placeholder="생성자 이름"
-            />
-            <Input
-              label="현장구분"
-              value={projectForm.site_category}
-              onChange={(e) => setProjectForm(f => ({ ...f, site_category: e.target.value }))}
-              placeholder="현장구분"
-            />
-          </div>
+          <Input
+            label="생성자"
+            value={projectForm.created_by}
+            onChange={(e) => setProjectForm(f => ({ ...f, created_by: e.target.value }))}
+            placeholder="생성자 이름"
+          />
           {/* 투입 솔루션 체크박스 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">투입 솔루션</label>
@@ -841,10 +831,10 @@ export default function CustomerDetailPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="서비스 타입"
-              value={projectForm.service_type}
-              onChange={(e) => setProjectForm(f => ({ ...f, service_type: e.target.value }))}
-              placeholder="서비스 종류"
+              label="현장구분"
+              value={projectForm.site_category}
+              onChange={(e) => setProjectForm(f => ({ ...f, site_category: e.target.value }))}
+              placeholder="건축/토목/플랜트 등"
             />
             <Select
               label="상태"
