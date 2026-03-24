@@ -375,22 +375,12 @@ export default function CustomerDetailPage() {
 
   const totalRevenue = revenues.reduce((sum, r) => sum + Number(r.amount), 0)
 
-  // 프로젝트명 " - 서비스명" 패턴 분리 유틸
-  const getProjectGroup = (name: string) => {
-    if (!name) return '(미지정)'
-    const dashIdx = name.lastIndexOf(' - ')
-    return dashIdx > 0 ? name.substring(0, dashIdx) : name
-  }
-  const getServiceFromName = (name: string) => {
-    if (!name) return null
-    const dashIdx = name.lastIndexOf(' - ')
-    return dashIdx > 0 ? name.substring(dashIdx + 3) : null
-  }
-
-  // 그룹핑 결과 메모이제이션
+  // 그룹핑 결과
   const projectGroups = useMemo(() => {
     return projects.reduce<Record<string, Project[]>>((acc, p) => {
-      const key = getProjectGroup(p.project_name || '')
+      const name = p.project_name || '(미지정)'
+      const dashIdx = name.lastIndexOf(' - ')
+      const key = dashIdx > 0 ? name.substring(0, dashIdx) : name
       if (!acc[key]) acc[key] = []
       acc[key].push(p)
       return acc
@@ -696,7 +686,7 @@ export default function CustomerDetailPage() {
                   const allSolutions = Array.from(new Set(
                     items.flatMap(p => {
                       if (p.solutions) return p.solutions.split(',').map(s => s.trim())
-                      const fromName = getServiceFromName(p.project_name || '')
+                      const fromName = (() => { const n = p.project_name || ''; const i = n.lastIndexOf(' - '); return i > 0 ? n.substring(i + 3) : null })()
                       if (fromName) return [fromName]
                       if (p.service_type) return [p.service_type]
                       return []
@@ -757,7 +747,7 @@ export default function CustomerDetailPage() {
                             </thead>
                             <tbody>
                               {items.map((p) => {
-                                const fromName = getServiceFromName(p.project_name || '')
+                                const fromName = (() => { const n = p.project_name || ''; const i = n.lastIndexOf(' - '); return i > 0 ? n.substring(i + 3) : null })()
                                 const services = p.solutions ? p.solutions.split(',').map(s => s.trim()) : fromName ? [fromName] : p.service_type ? [p.service_type] : ['(미지정)']
                                 return (
                                   <tr key={p.id} className="border-b border-gray-50 hover:bg-blue-50/30">
