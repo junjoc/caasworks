@@ -27,6 +27,8 @@ export type ScheduleType = 'vacation' | 'half_day' | 'business_trip' | 'training
 
 export type ScheduleApprovalStatus = 'pending' | 'approved' | 'rejected'
 
+export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+
 export type AuditAction = 'create' | 'update' | 'delete' | 'status_change'
 
 // --- Database Row Types ---
@@ -286,6 +288,84 @@ export interface AuditLog {
   user_agent: string | null
   // joined
   performed_by_user?: User
+}
+
+export interface Quotation {
+  id: string
+  lead_id: string
+  quotation_number: string
+  title: string
+  items: QuotationItem[]
+  subtotal: number
+  vat: number
+  total: number
+  discount: number
+  notes: string | null
+  status: QuotationStatus
+  valid_until: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  // joined
+  creator?: User
+}
+
+export interface QuotationItem {
+  id: string
+  quotation_id: string
+  item_name: string
+  description: string | null
+  quantity: number
+  unit: string
+  unit_price: number
+  amount: number
+}
+
+export type SupplyType = 'self' | 'partner'
+
+export interface ProductCategory {
+  id: string
+  name: string
+  sort_order: number
+  created_at: string
+}
+
+export interface Supplier {
+  id: string
+  company_name: string
+  contact_person: string | null
+  contact_phone: string | null
+  contact_email: string | null
+  notes: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface Product {
+  id: string
+  category_id: string
+  category?: ProductCategory
+  supplier_id: string | null
+  supplier?: Supplier
+  name: string
+  description: string | null
+  supply_type: SupplyType
+
+  // 가격 정보
+  purchase_price: number | null
+  rental_price: number | null
+  subscription_price: number | null
+  cost_price: number | null
+
+  unit: string
+  default_supply_method: string | null
+
+  image_url: string | null
+  is_active: boolean
+  notes: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
 }
 
 export interface UserSchedule {

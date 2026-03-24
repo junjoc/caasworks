@@ -19,6 +19,7 @@ import {
 import type { PipelineLead, PipelineHistory, User } from '@/types/database'
 import { toast } from 'sonner'
 import { ArrowLeft, Edit2, Save, X, Clock, AlertCircle, Plus, Send, MessageSquare, Link2, Building2, ExternalLink, Trash2, Pencil } from 'lucide-react'
+import QuotationSection from '@/components/pipeline/QuotationSection'
 
 const STAGES = ['신규리드', '컨택', '미팅', '제안', '계약', '도입완료']
 const PRIORITY_OPTIONS = [
@@ -583,6 +584,15 @@ export default function LeadDetailPage() {
               </div>
             )}
           </div>
+
+          {/* ====== 견적서 ====== */}
+          {user && (
+            <QuotationSection
+              leadId={id}
+              companyName={lead.company_name}
+              userId={user.id}
+            />
+          )}
         </div>
 
         {/* 오른쪽 패널 */}
