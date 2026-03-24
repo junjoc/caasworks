@@ -659,9 +659,19 @@ export default function CustomerDetailPage() {
             </Button>
           </div>
           {(() => {
-            // 프로젝트명으로 그룹핑
+            // 프로젝트명에서 " - 서비스명" 패턴을 분리해서 그룹핑
+            const getProjectGroup = (name: string) => {
+              if (!name) return '(미지정)'
+              const dashIdx = name.lastIndexOf(' - ')
+              return dashIdx > 0 ? name.substring(0, dashIdx) : name
+            }
+            const getServiceFromName = (name: string) => {
+              if (!name) return null
+              const dashIdx = name.lastIndexOf(' - ')
+              return dashIdx > 0 ? name.substring(dashIdx + 3) : null
+            }
             const grouped = projects.reduce<Record<string, Project[]>>((acc, p) => {
-              const key = p.project_name || '(미지정)'
+              const key = getProjectGroup(p.project_name || '')
               if (!acc[key]) acc[key] = []
               acc[key].push(p)
               return acc
@@ -679,6 +689,8 @@ export default function CustomerDetailPage() {
                   const allSolutions = Array.from(new Set(
                     items.flatMap(p => {
                       if (p.solutions) return p.solutions.split(',').map(s => s.trim())
+                      const fromName = getServiceFromName(p.project_name || '')
+                      if (fromName) return [fromName]
                       if (p.service_type) return [p.service_type]
                       return []
                     })
@@ -738,13 +750,14 @@ export default function CustomerDetailPage() {
                             </thead>
                             <tbody>
                               {items.map((p) => {
-                                const serviceName = p.solutions || p.service_type || '(미지정)'
+                                const fromName = getServiceFromName(p.project_name || '')
+                                const services = p.solutions ? p.solutions.split(',').map(s => s.trim()) : fromName ? [fromName] : p.service_type ? [p.service_type] : ['(미지정)']
                                 return (
                                   <tr key={p.id} className="border-b border-gray-50 hover:bg-blue-50/30">
                                     <td className="px-4 py-2.5">
                                       <div className="flex flex-wrap gap-1">
-                                        {(p.solutions ? p.solutions.split(',') : p.service_type ? [p.service_type] : ['(미지정)']).map(s => (
-                                          <span key={s.trim()} className="px-2 py-0.5 text-xs bg-blue-50 text-blue-700 rounded font-medium">{s.trim()}</span>
+                                        {services.map(s => (
+                                          <span key={s} className="px-2 py-0.5 text-xs bg-blue-50 text-blue-700 rounded font-medium">{s}</span>
                                         ))}
                                       </div>
                                     </td>
