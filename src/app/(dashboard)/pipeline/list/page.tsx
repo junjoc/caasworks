@@ -195,13 +195,15 @@ export default function PipelineListPage() {
     setBulkProcessing(true)
     const ids = Array.from(selectedIds)
 
+    const newAssigneeName = users.find(u => u.id === bulkAssignee)?.name || '(없음)'
     const historyRecords = ids.map(leadId => {
       const lead = leads.find(l => l.id === leadId)
+      const oldName = users.find(u => u.id === lead?.assigned_to)?.name || '(없음)'
       return {
         lead_id: leadId,
         field_changed: 'assigned_to',
-        old_value: lead?.assigned_to || '(없음)',
-        new_value: bulkAssignee || '(없음)',
+        old_value: oldName,
+        new_value: newAssigneeName,
         changed_by: user.id,
       }
     })

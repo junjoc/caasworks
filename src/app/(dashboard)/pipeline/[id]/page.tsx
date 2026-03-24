@@ -211,9 +211,11 @@ export default function LeadDetailPage() {
 
   const changeAssigned = async (userId: string) => {
     if (!lead || !user) return
+    const oldName = users.find(u => u.id === lead.assigned_to)?.name || '(없음)'
+    const newName = users.find(u => u.id === userId)?.name || '(없음)'
     await supabase.from('pipeline_history').insert({
       lead_id: id, field_changed: 'assigned_to',
-      old_value: lead.assigned_to || '(없음)', new_value: userId || '(없음)', changed_by: user.id,
+      old_value: oldName, new_value: newName, changed_by: user.id,
     })
     await supabase.from('pipeline_leads').update({ assigned_to: userId || null }).eq('id', id)
     toast.success('담당자가 변경되었습니다.')
