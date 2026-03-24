@@ -29,6 +29,12 @@ export type ScheduleApprovalStatus = 'pending' | 'approved' | 'rejected'
 
 export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
 
+export type QuotationType = '구매' | '임대' | '혼합' | '구독'
+
+export type SupplyMethod = '구매' | '임대' | '구독' | '약정'
+
+export type DiscountType = 'none' | 'rate' | 'amount' | 'target'
+
 export type AuditAction = 'create' | 'update' | 'delete' | 'status_change'
 
 // --- Database Row Types ---
@@ -292,33 +298,56 @@ export interface AuditLog {
 
 export interface Quotation {
   id: string
-  lead_id: string
   quotation_number: string
-  title: string
-  items: QuotationItem[]
+  lead_id: string | null
+  customer_name: string
+  contact_person: string | null
+  project_name: string | null
+  quotation_type: QuotationType
+  version: number
+  parent_quotation_id: string | null
+  status: QuotationStatus
+  quotation_date: string
+  valid_until: string | null
   subtotal: number
+  discount_type: DiscountType
+  discount_value: number
+  discount_amount: number
+  vat_included: boolean
   vat: number
   total: number
-  discount: number
+  deposit: number
+  deposit_note: string | null
   notes: string | null
-  status: QuotationStatus
-  valid_until: string | null
+  terms: string | null
   created_by: string
   created_at: string
   updated_at: string
   // joined
+  items?: QuotationItem[]
   creator?: User
+  lead?: PipelineLead
 }
 
 export interface QuotationItem {
   id: string
   quotation_id: string
+  item_no: number
+  category: string | null
+  product_id: string | null
   item_name: string
   description: string | null
+  unit_price: number
   quantity: number
   unit: string
-  unit_price: number
+  period_months: number | null
+  supply_method: SupplyMethod | null
   amount: number
+  cost_price: number | null
+  notes: string | null
+  sort_order: number
+  // joined
+  product?: Product
 }
 
 export type SupplyType = 'self' | 'partner'

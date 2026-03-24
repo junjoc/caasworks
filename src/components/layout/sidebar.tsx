@@ -52,6 +52,7 @@ const navItems: NavItem[] = [
     children: [
       { label: '고객 목록', href: '/customers' },
       { label: '매출 현황', href: '/revenue' },
+      { label: '견적서 관리', href: '/quotations' },
       { label: '미팅 관리', href: '/meetings' },
     ],
   },
