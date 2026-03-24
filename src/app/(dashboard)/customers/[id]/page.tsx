@@ -89,6 +89,7 @@ export default function CustomerDetailPage() {
   const [projectModal, setProjectModal] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [savingProject, setSavingProject] = useState(false)
+  const [expandedProjects, setExpandedProjects] = useState<string[]>([])
   const [deleteProjectModal, setDeleteProjectModal] = useState<Project | null>(null)
   const [deletingProject, setDeletingProject] = useState(false)
 
@@ -657,76 +658,129 @@ export default function CustomerDetailPage() {
               프로젝트 추가
             </Button>
           </div>
-          <div className="table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>프로젝트(현장)명</th>
-                  <th>주소</th>
-                  <th>투입 솔루션</th>
-                  <th>기간</th>
-                  <th>월 과금액</th>
-                  <th>상태</th>
-                  <th className="w-24">관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {projects.map((p) => (
-                  <tr key={p.id}>
-                    <td className="font-medium">{p.project_name}</td>
-                    <td className="text-gray-500 text-xs max-w-[160px] truncate" title={p.address || ''}>{p.address || '-'}</td>
-                    <td>
-                      {p.solutions ? (
-                        <div className="flex flex-wrap gap-1">
-                          {p.solutions.split(',').map((s) => (
-                            <span key={s.trim()} className="inline-block px-1.5 py-0.5 text-xs bg-blue-50 text-blue-700 rounded">
-                              {s.trim()}
-                            </span>
-                          ))}
+          {(() => {
+            // 프로젝트명으로 그룹핑
+            const grouped = projects.reduce<Record<string, Project[]>>((acc, p) => {
+              const key = p.project_name || '(미지정)'
+              if (!acc[key]) acc[key] = []
+              acc[key].push(p)
+              return acc
+            }, {})
+            const groupKeys = Object.keys(grouped)
+            if (groupKeys.length === 0) {
+              return <div className="text-center text-gray-400 py-12">등록된 프로젝트가 없습니다.</div>
+            }
+            return (
+              <div className="space-y-3">
+                {groupKeys.map((projectName) => {
+                  const items = grouped[projectName]
+                  const isOpen = expandedProjects.includes(projectName)
+                  const totalAmount = items.reduce((sum, p) => sum + (Number(p.monthly_amount) || 0), 0)
+                  const allSolutions = Array.from(new Set(
+                    items.flatMap(p => {
+                      if (p.solutions) return p.solutions.split(',').map(s => s.trim())
+                      if (p.service_type) return [p.service_type]
+                      return []
+                    })
+                  ))
+                  const firstItem = items[0]
+                  const hasActive = items.some(p => p.status === 'active')
+
+                  return (
+                    <div key={projectName} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {/* 프로젝트 헤더 (클릭으로 확장/축소) */}
+                      <div
+                        className="flex items-center gap-3 px-4 py-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => setExpandedProjects(prev =>
+                          prev.includes(projectName) ? prev.filter(n => n !== projectName) : [...prev, projectName]
+                        )}
+                      >
+                        <span className={`text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900">{projectName}</span>
+                            <Badge className={hasActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                              {hasActive ? '진행중' : '종료'}
+                            </Badge>
+                            <span className="text-xs text-gray-400">서비스 {allSolutions.length}개</span>
+                          </div>
+                          {firstItem.address && (
+                            <div className="text-xs text-gray-500 mt-0.5">{firstItem.address}</div>
+                          )}
                         </div>
-                      ) : p.service_type ? (
-                        <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-50 text-gray-600 rounded">{p.service_type}</span>
-                      ) : '-'}
-                    </td>
-                    <td className="text-gray-500 text-xs">
-                      {p.billing_start ? formatDate(p.billing_start) : ''}{p.billing_start && p.billing_end ? ' ~ ' : ''}{p.billing_end ? formatDate(p.billing_end) : p.billing_start ? ' ~' : '-'}
-                    </td>
-                    <td>{p.monthly_amount ? formatCurrency(Number(p.monthly_amount)) : '-'}</td>
-                    <td>
-                      <Badge className={p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
-                        {p.status === 'active' ? '진행중' : p.status === 'completed' ? '완료' : p.status}
-                      </Badge>
-                    </td>
-                    <td>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => openEditProject(p)}
-                          className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded"
-                          title="수정"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteProjectModal(p)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                          title="삭제"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex flex-wrap gap-1 max-w-[300px]">
+                          {allSolutions.slice(0, 4).map(s => (
+                            <span key={s} className="px-1.5 py-0.5 text-xs bg-blue-50 text-blue-700 rounded">{s}</span>
+                          ))}
+                          {allSolutions.length > 4 && (
+                            <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">+{allSolutions.length - 4}</span>
+                          )}
+                        </div>
+                        <div className="text-right min-w-[100px]">
+                          <div className="font-semibold text-sm">{formatCurrency(totalAmount)}</div>
+                          <div className="text-xs text-gray-400">월 합계</div>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-                {projects.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="text-center text-gray-400 py-8">
-                      등록된 프로젝트가 없습니다.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+
+                      {/* 확장 영역: 서비스 목록 */}
+                      {isOpen && (
+                        <div className="border-t border-gray-200">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-white border-b border-gray-100">
+                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">서비스(솔루션)</th>
+                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">현장구분</th>
+                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">기간</th>
+                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">월 과금액</th>
+                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">상태</th>
+                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium w-20">관리</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {items.map((p) => {
+                                const serviceName = p.solutions || p.service_type || '(미지정)'
+                                return (
+                                  <tr key={p.id} className="border-b border-gray-50 hover:bg-blue-50/30">
+                                    <td className="px-4 py-2.5">
+                                      <div className="flex flex-wrap gap-1">
+                                        {(p.solutions ? p.solutions.split(',') : p.service_type ? [p.service_type] : ['(미지정)']).map(s => (
+                                          <span key={s.trim()} className="px-2 py-0.5 text-xs bg-blue-50 text-blue-700 rounded font-medium">{s.trim()}</span>
+                                        ))}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-2.5 text-gray-500">{p.site_category || '-'}</td>
+                                    <td className="px-4 py-2.5 text-gray-500 text-xs">
+                                      {p.billing_start ? formatDate(p.billing_start) : ''}{p.billing_start && p.billing_end ? ' ~ ' : ''}{p.billing_end ? formatDate(p.billing_end) : p.billing_start ? ' ~' : '-'}
+                                    </td>
+                                    <td className="px-4 py-2.5 font-medium">{p.monthly_amount ? formatCurrency(Number(p.monthly_amount)) : '-'}</td>
+                                    <td className="px-4 py-2.5">
+                                      <Badge className={p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                                        {p.status === 'active' ? '진행중' : p.status === 'completed' ? '완료' : p.status}
+                                      </Badge>
+                                    </td>
+                                    <td className="px-4 py-2.5">
+                                      <div className="flex gap-1">
+                                        <button onClick={() => openEditProject(p)} className="p-1 text-gray-400 hover:text-primary-600 rounded" title="수정">
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button onClick={() => setDeleteProjectModal(p)} className="p-1 text-gray-400 hover:text-red-600 rounded" title="삭제">
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
       )}
 
