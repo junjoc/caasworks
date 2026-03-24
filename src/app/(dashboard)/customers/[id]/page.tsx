@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -375,10 +375,33 @@ export default function CustomerDetailPage() {
 
   const totalRevenue = revenues.reduce((sum, r) => sum + Number(r.amount), 0)
 
+  // 프로젝트명 " - 서비스명" 패턴 분리 유틸
+  const getProjectGroup = (name: string) => {
+    if (!name) return '(미지정)'
+    const dashIdx = name.lastIndexOf(' - ')
+    return dashIdx > 0 ? name.substring(0, dashIdx) : name
+  }
+  const getServiceFromName = (name: string) => {
+    if (!name) return null
+    const dashIdx = name.lastIndexOf(' - ')
+    return dashIdx > 0 ? name.substring(dashIdx + 3) : null
+  }
+
+  // 그룹핑 결과 메모이제이션
+  const projectGroups = useMemo(() => {
+    return projects.reduce<Record<string, Project[]>>((acc, p) => {
+      const key = getProjectGroup(p.project_name || '')
+      if (!acc[key]) acc[key] = []
+      acc[key].push(p)
+      return acc
+    }, {})
+  }, [projects])
+  const projectGroupCount = Object.keys(projectGroups).length
+
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'info', label: '기본정보', icon: <Building2 className="w-4 h-4" /> },
     { key: 'billing', label: '과금/계약', icon: <CreditCard className="w-4 h-4" /> },
-    { key: 'projects', label: `프로젝트 (${projects.length})`, icon: <FolderOpen className="w-4 h-4" /> },
+    { key: 'projects', label: `프로젝트 (${projectGroupCount})`, icon: <FolderOpen className="w-4 h-4" /> },
     { key: 'payments', label: '매출이력', icon: <Receipt className="w-4 h-4" /> },
   ]
 
@@ -410,7 +433,7 @@ export default function CustomerDetailPage() {
         </div>
         <div className="stat-card">
           <div className="stat-label">프로젝트</div>
-          <div className="stat-value">{projects.length}건</div>
+          <div className="stat-value">{projectGroupCount}건</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">영업 담당</div>
@@ -659,23 +682,7 @@ export default function CustomerDetailPage() {
             </Button>
           </div>
           {(() => {
-            // 프로젝트명에서 " - 서비스명" 패턴을 분리해서 그룹핑
-            const getProjectGroup = (name: string) => {
-              if (!name) return '(미지정)'
-              const dashIdx = name.lastIndexOf(' - ')
-              return dashIdx > 0 ? name.substring(0, dashIdx) : name
-            }
-            const getServiceFromName = (name: string) => {
-              if (!name) return null
-              const dashIdx = name.lastIndexOf(' - ')
-              return dashIdx > 0 ? name.substring(dashIdx + 3) : null
-            }
-            const grouped = projects.reduce<Record<string, Project[]>>((acc, p) => {
-              const key = getProjectGroup(p.project_name || '')
-              if (!acc[key]) acc[key] = []
-              acc[key].push(p)
-              return acc
-            }, {})
+            const grouped = projectGroups
             const groupKeys = Object.keys(grouped)
             if (groupKeys.length === 0) {
               return <div className="text-center text-gray-400 py-12">등록된 프로젝트가 없습니다.</div>
