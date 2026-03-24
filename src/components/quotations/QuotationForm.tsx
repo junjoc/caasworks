@@ -179,6 +179,7 @@ export default function QuotationForm({ editId }: QuotationFormProps) {
   // Product search dropdown
   const [activeProductSearch, setActiveProductSearch] = useState<string | null>(null)
   const [productSearchQuery, setProductSearchQuery] = useState('')
+  const [activeItemCategory, setActiveItemCategory] = useState('')
 
   // --- Calculations ---
   const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.amount, 0), [items])
@@ -400,14 +401,27 @@ export default function QuotationForm({ editId }: QuotationFormProps) {
   }, [leads, leadSearchQuery])
 
   const filteredProducts = useMemo(() => {
-    if (!productSearchQuery) return products.slice(0, 30)
-    const q = productSearchQuery.toLowerCase()
-    return products.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      (p.description && p.description.toLowerCase().includes(q)) ||
-      (p.category?.name && p.category.name.toLowerCase().includes(q))
-    ).slice(0, 30)
-  }, [products, productSearchQuery])
+    let filtered = [...products]
+    // 검색어 필터
+    if (productSearchQuery) {
+      const q = productSearchQuery.toLowerCase()
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.description && p.description.toLowerCase().includes(q)) ||
+        (p.category?.name && p.category.name.toLowerCase().includes(q))
+      )
+    }
+    // 카테고리 선택 시: 해당 카테고리 제품 먼저, 나머지 뒤에
+    if (activeItemCategory) {
+      const cat = activeItemCategory
+      filtered.sort((a, b) => {
+        const aMatch = a.category?.name === cat ? 0 : 1
+        const bMatch = b.category?.name === cat ? 0 : 1
+        return aMatch - bMatch
+      })
+    }
+    return filtered.slice(0, 40)
+  }, [products, productSearchQuery, activeItemCategory])
 
   // --- Generate quotation number ---
   const generateNumber = async (): Promise<string> => {
@@ -763,13 +777,16 @@ export default function QuotationForm({ editId }: QuotationFormProps) {
                       </div>
                     </td>
                     <td className="px-2 py-1">
-                      <input
-                        className="w-full border rounded px-2 py-1 text-xs"
+                      <select
+                        className="w-full border rounded px-2 py-1 text-xs bg-white"
                         value={item.category}
                         onChange={e => updateItem(item._key, 'category', e.target.value)}
-                        placeholder="카테고리"
-                        list="category-list"
-                      />
+                      >
+                        <option value="">선택</option>
+                        {categories.map(c => (
+                          <option key={c.id} value={c.name}>{c.name}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-2 py-1 relative">
                       <div className="flex gap-1">
@@ -781,6 +798,7 @@ export default function QuotationForm({ editId }: QuotationFormProps) {
                           onFocus={() => {
                             setActiveProductSearch(item._key)
                             setProductSearchQuery('')
+                            setActiveItemCategory(item.category || '')
                           }}
                         />
                         <button
@@ -788,6 +806,7 @@ export default function QuotationForm({ editId }: QuotationFormProps) {
                           onClick={() => {
                             setActiveProductSearch(activeProductSearch === item._key ? null : item._key)
                             setProductSearchQuery('')
+                            setActiveItemCategory(item.category || '')
                           }}
                           className="text-gray-400 hover:text-gray-600 px-1"
                         >
@@ -805,25 +824,39 @@ export default function QuotationForm({ editId }: QuotationFormProps) {
                               autoFocus
                             />
                           </div>
-                          {filteredProducts.map(p => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => selectProduct(item._key, p)}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 border-b last:border-0"
-                            >
-                              <div className="flex justify-between">
-                                <span className="font-medium">{p.name}</span>
-                                <span className="text-gray-500">
-                                  {p.rental_price ? `임대 ${formatNumber(p.rental_price)}` : ''}
-                                  {p.purchase_price ? ` / 구매 ${formatNumber(p.purchase_price)}` : ''}
-                                </span>
-                              </div>
-                              {p.category?.name && (
-                                <span className="text-gray-400">{p.category.name}</span>
-                              )}
-                            </button>
-                          ))}
+                          {(() => {
+                            let lastCat = ''
+                            return filteredProducts.map(p => {
+                              const catName = p.category?.name || '기타'
+                              const showHeader = catName !== lastCat
+                              lastCat = catName
+                              return (
+                                <div key={p.id}>
+                                  {showHeader && (
+                                    <div className="px-3 py-1.5 bg-gray-50 text-xs font-semibold text-gray-500 border-b sticky top-10">
+                                      {catName}
+                                    </div>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => selectProduct(item._key, p)}
+                                    className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b last:border-0"
+                                  >
+                                    <div className="flex justify-between">
+                                      <span className="font-medium">{p.name}</span>
+                                      <span className="text-gray-500">
+                                        {p.rental_price ? `임대 ${formatNumber(p.rental_price)}` : ''}
+                                        {p.purchase_price ? ` / 구매 ${formatNumber(p.purchase_price)}` : ''}
+                                      </span>
+                                    </div>
+                                    {p.description && (
+                                      <span className="text-gray-400 text-[10px]">{p.description.slice(0, 50)}</span>
+                                    )}
+                                  </button>
+                                </div>
+                              )
+                            })
+                          })()}
                           {filteredProducts.length === 0 && (
                             <div className="px-3 py-3 text-xs text-gray-500 text-center">제품 없음</div>
                           )}
@@ -922,12 +955,6 @@ export default function QuotationForm({ editId }: QuotationFormProps) {
             </Button>
           </div>
 
-          {/* Category datalist */}
-          <datalist id="category-list">
-            {categories.map(c => (
-              <option key={c.id} value={c.name} />
-            ))}
-          </datalist>
         </div>
 
         {/* Section 3: Discount & Totals */}
