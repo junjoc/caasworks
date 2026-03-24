@@ -120,6 +120,7 @@ const navItems: NavItem[] = [
       { label: '청구서', href: '/settings/invoice' },
       { label: 'SLA 정책', href: '/settings/sla' },
       { label: '마케팅비', href: '/settings/marketing' },
+      { label: 'Slack 연동', href: '/settings/slack' },
       { label: '알림 설정', href: '/settings/notifications' },
       { label: '감사 로그', href: '/settings/audit-log' },
     ],

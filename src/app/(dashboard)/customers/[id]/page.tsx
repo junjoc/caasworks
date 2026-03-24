@@ -55,6 +55,14 @@ const PROJECT_STATUS_OPTIONS = [
   { value: 'suspended', label: '중단' },
 ]
 
+const SOLUTION_OPTIONS = [
+  'AI CCTV',
+  '스마트 안전장비',
+  '동영상 기록관리',
+  '공정관리 플랫폼',
+  '중대재해예방',
+]
+
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -120,6 +128,11 @@ export default function CustomerDetailPage() {
     monthly_amount: '',
     status: 'active',
     notes: '',
+    address: '',
+    created_by: '',
+    solutions: [] as string[],
+    project_start: '',
+    project_end: '',
   })
 
   useEffect(() => {
@@ -262,6 +275,11 @@ export default function CustomerDetailPage() {
       monthly_amount: '',
       status: 'active',
       notes: '',
+      address: '',
+      created_by: '',
+      solutions: [],
+      project_start: '',
+      project_end: '',
     })
     setProjectModal(true)
   }
@@ -277,6 +295,11 @@ export default function CustomerDetailPage() {
       monthly_amount: p.monthly_amount ? String(p.monthly_amount) : '',
       status: p.status || 'active',
       notes: p.notes || '',
+      address: p.address || '',
+      created_by: p.created_by || '',
+      solutions: p.solutions ? p.solutions.split(',').map(s => s.trim()) : [],
+      project_start: p.project_start || '',
+      project_end: p.project_end || '',
     })
     setProjectModal(true)
   }
@@ -298,6 +321,12 @@ export default function CustomerDetailPage() {
       monthly_amount: projectForm.monthly_amount ? Number(projectForm.monthly_amount) : null,
       status: projectForm.status,
       notes: projectForm.notes || null,
+      address: projectForm.address || null,
+      created_by: projectForm.created_by || null,
+      solutions: projectForm.solutions.length > 0 ? projectForm.solutions.join(',') : null,
+      project_start: projectForm.project_start || null,
+      project_end: projectForm.project_end || null,
+      source: (editingProject?.source || 'manual') as string,
     }
 
     let error
@@ -633,6 +662,8 @@ export default function CustomerDetailPage() {
               <thead>
                 <tr>
                   <th>프로젝트명</th>
+                  <th>주소</th>
+                  <th>투입 솔루션</th>
                   <th>서비스</th>
                   <th>현장구분</th>
                   <th>과금시작</th>
@@ -646,6 +677,18 @@ export default function CustomerDetailPage() {
                 {projects.map((p) => (
                   <tr key={p.id}>
                     <td className="font-medium">{p.project_name}</td>
+                    <td className="text-gray-500 text-xs max-w-[160px] truncate" title={p.address || ''}>{p.address || '-'}</td>
+                    <td>
+                      {p.solutions ? (
+                        <div className="flex flex-wrap gap-1">
+                          {p.solutions.split(',').map((s) => (
+                            <span key={s.trim()} className="inline-block px-1.5 py-0.5 text-xs bg-blue-50 text-blue-700 rounded">
+                              {s.trim()}
+                            </span>
+                          ))}
+                        </div>
+                      ) : '-'}
+                    </td>
                     <td>{p.service_type || '-'}</td>
                     <td>{p.site_category || '-'}</td>
                     <td className="text-gray-500">{p.billing_start ? formatDate(p.billing_start) : '-'}</td>
@@ -678,7 +721,7 @@ export default function CustomerDetailPage() {
                 ))}
                 {projects.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-center text-gray-400 py-8">
+                    <td colSpan={10} className="text-center text-gray-400 py-8">
                       등록된 프로젝트가 없습니다.
                     </td>
                   </tr>
@@ -752,6 +795,50 @@ export default function CustomerDetailPage() {
             onChange={(e) => setProjectForm(f => ({ ...f, project_name: e.target.value }))}
             placeholder="프로젝트명을 입력하세요"
           />
+          <Input
+            label="주소"
+            value={projectForm.address}
+            onChange={(e) => setProjectForm(f => ({ ...f, address: e.target.value }))}
+            placeholder="프로젝트 주소"
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="생성자"
+              value={projectForm.created_by}
+              onChange={(e) => setProjectForm(f => ({ ...f, created_by: e.target.value }))}
+              placeholder="생성자 이름"
+            />
+            <Input
+              label="현장구분"
+              value={projectForm.site_category}
+              onChange={(e) => setProjectForm(f => ({ ...f, site_category: e.target.value }))}
+              placeholder="현장구분"
+            />
+          </div>
+          {/* 투입 솔루션 체크박스 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">투입 솔루션</label>
+            <div className="flex flex-wrap gap-3">
+              {SOLUTION_OPTIONS.map((sol) => (
+                <label key={sol} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={projectForm.solutions.includes(sol)}
+                    onChange={(e) => {
+                      setProjectForm(f => ({
+                        ...f,
+                        solutions: e.target.checked
+                          ? [...f.solutions, sol]
+                          : f.solutions.filter(s => s !== sol),
+                      }))
+                    }}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  {sol}
+                </label>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="서비스 타입"
@@ -759,11 +846,25 @@ export default function CustomerDetailPage() {
               onChange={(e) => setProjectForm(f => ({ ...f, service_type: e.target.value }))}
               placeholder="서비스 종류"
             />
+            <Select
+              label="상태"
+              value={projectForm.status}
+              onChange={(e) => setProjectForm(f => ({ ...f, status: e.target.value }))}
+              options={PROJECT_STATUS_OPTIONS}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <Input
-              label="현장구분"
-              value={projectForm.site_category}
-              onChange={(e) => setProjectForm(f => ({ ...f, site_category: e.target.value }))}
-              placeholder="현장구분"
+              label="프로젝트 시작일"
+              type="date"
+              value={projectForm.project_start}
+              onChange={(e) => setProjectForm(f => ({ ...f, project_start: e.target.value }))}
+            />
+            <Input
+              label="프로젝트 종료일"
+              type="date"
+              value={projectForm.project_end}
+              onChange={(e) => setProjectForm(f => ({ ...f, project_end: e.target.value }))}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -780,21 +881,13 @@ export default function CustomerDetailPage() {
               onChange={(e) => setProjectForm(f => ({ ...f, billing_end: e.target.value }))}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="월 과금액"
-              type="number"
-              value={projectForm.monthly_amount}
-              onChange={(e) => setProjectForm(f => ({ ...f, monthly_amount: e.target.value }))}
-              placeholder="0"
-            />
-            <Select
-              label="상태"
-              value={projectForm.status}
-              onChange={(e) => setProjectForm(f => ({ ...f, status: e.target.value }))}
-              options={PROJECT_STATUS_OPTIONS}
-            />
-          </div>
+          <Input
+            label="월 과금액"
+            type="number"
+            value={projectForm.monthly_amount}
+            onChange={(e) => setProjectForm(f => ({ ...f, monthly_amount: e.target.value }))}
+            placeholder="0"
+          />
           <Textarea
             label="메모"
             value={projectForm.notes}

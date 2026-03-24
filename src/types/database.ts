@@ -115,6 +115,8 @@ export interface Customer {
   projects?: Project[]
 }
 
+export type ProjectSource = 'manual' | 'slack' | 'import'
+
 export interface Project {
   id: string
   customer_id: string
@@ -128,6 +130,10 @@ export interface Project {
   billing_end: string | null
   monthly_amount: number | null
   status: string
+  address: string | null
+  created_by: string | null
+  solutions: string | null
+  source: ProjectSource | null
   notes: string | null
   created_at: string
 }
