@@ -1,0 +1,610 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
+import { SearchSelect } from '@/components/ui/search-select'
+import { Textarea } from '@/components/ui/textarea'
+import { Modal } from '@/components/ui/modal'
+import { Loading } from '@/components/ui/loading'
+import { EmptyState } from '@/components/ui/empty-state'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { Plus, FileText, Check, Clock, AlertCircle, Search, Pencil, Trash2, X, Download } from 'lucide-react'
+import { toast } from 'sonner'
+import { InvoicePDFButton } from '@/components/invoices/InvoicePDFButton'
+
+const STATUS_COLORS: Record<string, string> = {
+  draft: 'bg-status-gray-bg text-text-secondary',
+  sent: 'bg-status-blue-bg text-status-blue',
+  paid: 'bg-status-green-bg text-status-green',
+  overdue: 'bg-status-red-bg text-status-red',
+  cancelled: 'bg-status-gray-bg text-text-tertiary',
+}
+const STATUS_LABELS: Record<string, string> = {
+  draft: '초안', sent: '발송', paid: '수납완료', overdue: '연체', cancelled: '취소',
+}
+
+interface InvoiceItem {
+  id?: string
+  project_name: string
+  service_type: string
+  period: string
+  quantity: number
+  unit_price: number
+  amount: number
+  notes: string
+}
+
+const emptyItem = (): InvoiceItem => ({
+  project_name: '', service_type: '', period: '', quantity: 1, unit_price: 0, amount: 0, notes: '',
+})
+
+export default function InvoicesPage() {
+  const [invoices, setInvoices] = useState<any[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
+  const [projects, setProjects] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [year, setYear] = useState(new Date().getFullYear())
+  const [statusFilter, setStatusFilter] = useState('전체')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingInvoice, setEditingInvoice] = useState<any>(null)
+  const [saving, setSaving] = useState(false)
+  const [deleteModal, setDeleteModal] = useState<any>(null)
+  const [deleting, setDeleting] = useState(false)
+  const supabase = createClient()
+
+  // Form state
+  const [form, setForm] = useState({
+    customer_id: '',
+    invoice_number: '',
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    status: 'draft' as string,
+    due_date: '',
+    bank_info: '',
+    notes: '',
+  })
+  const [items, setItems] = useState<InvoiceItem[]>([emptyItem()])
+
+  const fetchInvoices = useCallback(async () => {
+    setLoading(true)
+    let query = supabase
+      .from('invoices')
+      .select('*, customer:customers(company_name), items:invoice_items(*)')
+      .eq('year', year)
+      .order('month', { ascending: false })
+
+    if (statusFilter !== '전체') query = query.eq('status', statusFilter)
+
+    const { data } = await query
+    setInvoices((data || []).map((inv: any) => ({
+      ...inv,
+      customer_name: inv.customer?.company_name || '(알수없음)',
+      _items: inv.items || [],
+    })))
+    setLoading(false)
+  }, [year, statusFilter])
+
+  const fetchCustomers = useCallback(async () => {
+    const { data } = await supabase.from('customers').select('id, company_name').eq('status', 'active').order('company_name')
+    setCustomers(data || [])
+  }, [])
+
+  useEffect(() => { fetchInvoices() }, [fetchInvoices])
+  useEffect(() => { fetchCustomers() }, [fetchCustomers])
+
+  // When customer changes, fetch their projects
+  const fetchProjectsForCustomer = async (customerId: string) => {
+    if (!customerId) { setProjects([]); return }
+    const { data } = await supabase.from('projects').select('*').eq('customer_id', customerId).eq('status', 'active').order('project_name')
+    setProjects(data || [])
+  }
+
+  const handleCustomerChange = (customerId: string) => {
+    setForm(f => ({ ...f, customer_id: customerId }))
+    fetchProjectsForCustomer(customerId)
+    // Auto populate items from projects - group by site name
+    if (customerId) {
+      supabase.from('projects').select('*').eq('customer_id', customerId).eq('status', 'active').order('project_name').then(({ data }) => {
+        if (data && data.length > 0) {
+          const newItems = data.map(p => {
+            const fullName = p.project_name || ''
+            const dashIdx = fullName.indexOf(' - ')
+            const siteName = dashIdx > 0 ? fullName.substring(0, dashIdx) : fullName
+            const serviceName = dashIdx > 0 ? fullName.substring(dashIdx + 3) : (p.service_type || '')
+            return {
+              project_name: siteName,
+              service_type: serviceName || p.service_type || (p.solutions ? String(p.solutions).split(',')[0]?.trim() : '') || '',
+              period: `${form.year}.${String(form.month).padStart(2, '0')}`,
+              quantity: 1,
+              unit_price: Number(p.monthly_amount) || 0,
+              amount: Number(p.monthly_amount) || 0,
+              notes: '',
+            }
+          })
+          // Sort by project_name so same sites are grouped together
+          newItems.sort((a, b) => a.project_name.localeCompare(b.project_name))
+          setItems(newItems)
+        }
+      })
+    }
+  }
+
+  // Calculate totals
+  const subtotal = items.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  const vat = Math.round(subtotal * 0.1)
+  const total = subtotal + vat
+
+  const openNewInvoice = () => {
+    setEditingInvoice(null)
+    const now = new Date()
+    setForm({
+      customer_id: '',
+      invoice_number: `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getTime()).slice(-4)}`,
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+      status: 'draft',
+      due_date: '',
+      bank_info: '카스웍스(주) 기업은행 000-000000-00-000',
+      notes: '',
+    })
+    setItems([emptyItem()])
+    setProjects([])
+    setModalOpen(true)
+  }
+
+  const openEditInvoice = async (inv: any) => {
+    setEditingInvoice(inv)
+    setForm({
+      customer_id: inv.customer_id || '',
+      invoice_number: inv.invoice_number || '',
+      year: inv.year,
+      month: inv.month,
+      status: inv.status || 'draft',
+      due_date: inv.due_date || '',
+      bank_info: inv.bank_info || '',
+      notes: inv.notes || '',
+    })
+    // Fetch items
+    const { data: itemsData } = await supabase
+      .from('invoice_items')
+      .select('*')
+      .eq('invoice_id', inv.id)
+      .order('item_no')
+    if (itemsData && itemsData.length > 0) {
+      setItems(itemsData.map((it: any) => ({
+        id: it.id,
+        project_name: it.project_name || '',
+        service_type: it.service_type || '',
+        period: it.period || '',
+        quantity: it.quantity || 1,
+        unit_price: it.unit_price || 0,
+        amount: it.amount || 0,
+        notes: it.notes || '',
+      })))
+    } else {
+      setItems([emptyItem()])
+    }
+    if (inv.customer_id) fetchProjectsForCustomer(inv.customer_id)
+    setModalOpen(true)
+  }
+
+  const updateItem = (index: number, field: keyof InvoiceItem, value: any) => {
+    setItems(prev => {
+      const updated = [...prev]
+      updated[index] = { ...updated[index], [field]: value }
+      // Auto-calculate amount
+      if (field === 'quantity' || field === 'unit_price') {
+        updated[index].amount = Number(updated[index].quantity || 0) * Number(updated[index].unit_price || 0)
+      }
+      return updated
+    })
+  }
+
+  const addItem = () => setItems(prev => [...prev, emptyItem()])
+  const removeItem = (index: number) => {
+    if (items.length <= 1) return
+    setItems(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleSave = async () => {
+    if (!form.customer_id) { toast.error('고객사를 선택해주세요.'); return }
+    if (items.every(it => !it.project_name && !it.amount)) { toast.error('항목을 하나 이상 입력해주세요.'); return }
+
+    setSaving(true)
+    try {
+      const payload = {
+        customer_id: form.customer_id,
+        invoice_number: form.invoice_number,
+        year: form.year,
+        month: form.month,
+        status: form.status,
+        subtotal,
+        vat,
+        total,
+        due_date: form.due_date || null,
+        bank_info: form.bank_info || null,
+        notes: form.notes || null,
+      }
+
+      let invoiceId: string
+      if (editingInvoice) {
+        const { error } = await supabase.from('invoices').update(payload).eq('id', editingInvoice.id)
+        if (error) throw error
+        invoiceId = editingInvoice.id
+        // Delete old items
+        await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId)
+      } else {
+        const { data, error } = await supabase.from('invoices').insert(payload).select().single()
+        if (error) throw error
+        invoiceId = data.id
+      }
+
+      // Insert items
+      const validItems = items.filter(it => it.project_name || it.amount)
+      if (validItems.length > 0) {
+        const { error: itemsError } = await supabase.from('invoice_items').insert(
+          validItems.map((it, idx) => ({
+            invoice_id: invoiceId,
+            item_no: idx + 1,
+            project_name: it.project_name || null,
+            service_type: it.service_type || null,
+            period: it.period || null,
+            quantity: Number(it.quantity) || 1,
+            unit_price: Number(it.unit_price) || 0,
+            amount: Number(it.amount) || 0,
+            notes: it.notes || null,
+          }))
+        )
+        if (itemsError) throw itemsError
+      }
+
+      toast.success(editingInvoice ? '청구서가 수정되었습니다.' : '청구서가 생성되었습니다.')
+      setModalOpen(false)
+      fetchInvoices()
+    } catch (err: any) {
+      console.error('Save error:', err)
+      toast.error('저장에 실패했습니다: ' + (err?.message || ''))
+    }
+    setSaving(false)
+  }
+
+  const handleDelete = async () => {
+    if (!deleteModal) return
+    setDeleting(true)
+    try {
+      await supabase.from('invoice_items').delete().eq('invoice_id', deleteModal.id)
+      const { error } = await supabase.from('invoices').delete().eq('id', deleteModal.id)
+      if (error) throw error
+      toast.success('청구서가 삭제되었습니다.')
+      setDeleteModal(null)
+      fetchInvoices()
+    } catch (err: any) {
+      toast.error('삭제에 실패했습니다.')
+    }
+    setDeleting(false)
+  }
+
+  const handleStatusChange = async (inv: any, newStatus: string) => {
+    const updateData: any = { status: newStatus }
+    if (newStatus === 'paid') updateData.paid_at = new Date().toISOString()
+    if (newStatus === 'sent') updateData.sent_at = new Date().toISOString()
+    const { error } = await supabase.from('invoices').update(updateData).eq('id', inv.id)
+    if (error) { toast.error('상태 변경 실패'); return }
+    toast.success(`상태가 '${STATUS_LABELS[newStatus]}'(으)로 변경되었습니다.`)
+    fetchInvoices()
+  }
+
+  const filtered = searchQuery
+    ? invoices.filter(inv =>
+        inv.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inv.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : invoices
+
+  const totalAmount = invoices.reduce((s, i) => s + Number(i.total || 0), 0)
+  const paidAmount = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total || 0), 0)
+  const unpaidAmount = invoices.filter(i => ['sent', 'overdue'].includes(i.status)).reduce((s, i) => s + Number(i.total || 0), 0)
+  const overdueCount = invoices.filter(i => i.status === 'overdue').length
+
+  const yearOptions = Array.from({ length: 5 }, (_, i) => ({ value: String(new Date().getFullYear() - i), label: `${new Date().getFullYear() - i}년` }))
+  const statusOptions = [
+    { value: '전체', label: '전체' }, { value: 'draft', label: '초안' },
+    { value: 'sent', label: '발송' }, { value: 'paid', label: '수납완료' }, { value: 'overdue', label: '연체' },
+  ]
+  const monthOptions = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}월` }))
+  const statusFormOptions = [
+    { value: 'draft', label: '초안' }, { value: 'sent', label: '발송' },
+    { value: 'paid', label: '수납완료' }, { value: 'overdue', label: '연체' }, { value: 'cancelled', label: '취소' },
+  ]
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1 className="page-title">청구/계산서 관리</h1>
+        <Button size="sm" onClick={openNewInvoice}><Plus className="w-4 h-4 mr-1" /> 청구서 생성</Button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+        <div className="stat-card">
+          <div className="flex items-center gap-2 mb-1"><FileText className="w-4 h-4 text-primary-500" /><span className="stat-label">총 청구액</span></div>
+          <div className="stat-value">{formatCurrency(totalAmount)}</div>
+        </div>
+        <div className="stat-card">
+          <div className="flex items-center gap-2 mb-1"><Check className="w-4 h-4 text-green-500" /><span className="stat-label">수납 완료</span></div>
+          <div className="stat-value text-green-600">{formatCurrency(paidAmount)}</div>
+        </div>
+        <div className="stat-card">
+          <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-blue-500" /><span className="stat-label">미수금</span></div>
+          <div className="stat-value text-blue-600">{formatCurrency(unpaidAmount)}</div>
+        </div>
+        <div className="stat-card">
+          <div className="flex items-center gap-2 mb-1"><AlertCircle className="w-4 h-4 text-red-500" /><span className="stat-label">연체</span></div>
+          <div className="stat-value text-red-600">{overdueCount}건</div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-placeholder" />
+          <input className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-200" placeholder="고객사 또는 청구번호 검색..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+        </div>
+        <Select options={statusOptions} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-28" />
+        <Select options={yearOptions} value={String(year)} onChange={(e) => setYear(Number(e.target.value))} className="w-28" />
+      </div>
+
+      {loading ? <Loading /> : filtered.length === 0 ? (
+        <EmptyState icon={FileText} title="등록된 청구서가 없습니다" description="상단의 '청구서 생성' 버튼으로 새 청구서를 만들 수 있습니다." />
+      ) : (
+        <div className="table-container">
+          <table className="data-table" style={{ minWidth: '900px' }}>
+            <thead>
+              <tr>
+                <th style={{ width: '12%' }}>청구번호</th>
+                <th style={{ width: '16%' }}>고객사</th>
+                <th style={{ width: '9%' }} className="text-center">청구월</th>
+                <th style={{ width: '12%' }} className="text-right">공급가</th>
+                <th style={{ width: '10%' }} className="text-right">VAT</th>
+                <th style={{ width: '12%' }} className="text-right">합계</th>
+                <th style={{ width: '9%' }} className="text-center">상태</th>
+                <th style={{ width: '9%' }} className="text-center">납기일</th>
+                <th style={{ width: '11%' }} className="text-center">관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((inv) => (
+                <tr key={inv.id}>
+                  <td className="font-medium text-primary-400 cursor-pointer col-truncate" onClick={() => openEditInvoice(inv)}>{inv.invoice_number}</td>
+                  <td className="col-truncate">{inv.customer_name}</td>
+                  <td className="text-center text-text-secondary">{inv.year}.{String(inv.month).padStart(2, '0')}</td>
+                  <td className="text-right text-text-secondary">{formatCurrency(inv.subtotal)}</td>
+                  <td className="text-right text-text-tertiary">{formatCurrency(inv.vat)}</td>
+                  <td className="text-right font-semibold">{formatCurrency(inv.total)}</td>
+                  <td className="text-center">
+                    <Badge className={STATUS_COLORS[inv.status] || 'badge-gray'}>{STATUS_LABELS[inv.status] || inv.status}</Badge>
+                  </td>
+                  <td className="text-center text-text-tertiary">{inv.due_date ? formatDate(inv.due_date, 'M/d') : '-'}</td>
+                  <td className="text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => openEditInvoice(inv)} className="icon-btn" title="수정">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      {inv.status === 'draft' && (
+                        <button onClick={() => handleStatusChange(inv, 'sent')} className="p-1 text-text-tertiary hover:text-status-blue rounded" title="발송처리">
+                          <FileText className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {inv.status === 'sent' && (
+                        <button onClick={() => handleStatusChange(inv, 'paid')} className="p-1 text-text-tertiary hover:text-status-green rounded" title="수납처리">
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <InvoicePDFButton invoice={inv} items={inv._items || []} className="!p-1 !px-1" />
+                      <button onClick={() => setDeleteModal(inv)} className="p-1 text-text-tertiary hover:text-status-red rounded" title="삭제">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Invoice Create/Edit Modal */}
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingInvoice ? '청구서 수정' : '청구서 생성'} size="xl">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <SearchSelect
+              label="고객사 *"
+              value={form.customer_id}
+              onChange={(val) => handleCustomerChange(val)}
+              options={customers.map(c => ({ value: c.id, label: c.company_name }))}
+              placeholder="고객사 검색..."
+            />
+            <Input
+              label="청구번호"
+              value={form.invoice_number}
+              onChange={(e) => setForm(f => ({ ...f, invoice_number: e.target.value }))}
+            />
+            <Select
+              label="상태"
+              value={form.status}
+              onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))}
+              options={statusFormOptions}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <Select
+              label="청구 연도"
+              value={String(form.year)}
+              onChange={(e) => setForm(f => ({ ...f, year: Number(e.target.value) }))}
+              options={yearOptions}
+            />
+            <Select
+              label="청구 월"
+              value={String(form.month)}
+              onChange={(e) => setForm(f => ({ ...f, month: Number(e.target.value) }))}
+              options={monthOptions}
+            />
+            <Input
+              label="납기일"
+              type="date"
+              value={form.due_date}
+              onChange={(e) => setForm(f => ({ ...f, due_date: e.target.value }))}
+            />
+            <Input
+              label="입금계좌"
+              value={form.bank_info}
+              onChange={(e) => setForm(f => ({ ...f, bank_info: e.target.value }))}
+            />
+          </div>
+
+          {/* Items */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="input-label">청구 항목</label>
+              <Button variant="ghost" size="sm" onClick={addItem}><Plus className="w-3.5 h-3.5 mr-1" />항목 추가</Button>
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 w-8">#</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">프로젝트명</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 w-28">서비스유형</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 w-24">기간</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 w-16">수량</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 w-28">단가</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 w-28">금액</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {items.map((item, idx) => {
+                    // Check if this is the first item of a project group
+                    const prevProject = idx > 0 ? items[idx - 1].project_name : null
+                    const isFirstOfGroup = item.project_name !== prevProject
+                    // Count how many items share this project name (for rowspan)
+                    const groupCount = isFirstOfGroup ? items.filter((it, i) => i >= idx && it.project_name === item.project_name).length : 0
+                    return (
+                    <tr key={idx} className={isFirstOfGroup && idx > 0 ? 'border-t-2 border-gray-300' : ''}>
+                      <td className="px-3 py-2 text-text-placeholder text-xs">{idx + 1}</td>
+                      {isFirstOfGroup ? (
+                        <td className="px-1 py-1 align-top" rowSpan={groupCount > 1 ? groupCount : undefined}>
+                          <input
+                            className="w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-primary-200 font-medium"
+                            value={item.project_name}
+                            onChange={(e) => {
+                              // Update all items in this group
+                              const oldName = item.project_name
+                              setItems(prev => prev.map(it => it.project_name === oldName ? { ...it, project_name: e.target.value } : it))
+                            }}
+                            placeholder="프로젝트(현장)명"
+                            list={`projects-list-${idx}`}
+                          />
+                          {projects.length > 0 && (
+                            <datalist id={`projects-list-${idx}`}>
+                              {Array.from(new Set(projects.map(p => {
+                                const n = p.project_name || ''
+                                const d = n.indexOf(' - ')
+                                return d > 0 ? n.substring(0, d) : n
+                              }))).map(name => <option key={name} value={name} />)}
+                            </datalist>
+                          )}
+                          {groupCount > 1 && (
+                            <span className="text-[10px] text-text-placeholder ml-1">{groupCount}개 서비스</span>
+                          )}
+                        </td>
+                      ) : null}
+                      <td className="px-1 py-1">
+                        <input
+                          className="w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-primary-200"
+                          value={item.service_type}
+                          onChange={(e) => updateItem(idx, 'service_type', e.target.value)}
+                          placeholder="서비스"
+                        />
+                      </td>
+                      <td className="px-1 py-1">
+                        <input
+                          className="w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-primary-200"
+                          value={item.period}
+                          onChange={(e) => updateItem(idx, 'period', e.target.value)}
+                          placeholder="2026.03"
+                        />
+                      </td>
+                      <td className="px-1 py-1">
+                        <input
+                          type="number"
+                          className="w-full px-2 py-1.5 text-sm border rounded text-right focus:outline-none focus:ring-1 focus:ring-primary-200"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))}
+                          min={1}
+                        />
+                      </td>
+                      <td className="px-1 py-1">
+                        <input
+                          type="number"
+                          className="w-full px-2 py-1.5 text-sm border rounded text-right focus:outline-none focus:ring-1 focus:ring-primary-200"
+                          value={item.unit_price}
+                          onChange={(e) => updateItem(idx, 'unit_price', Number(e.target.value))}
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium text-sm">{formatCurrency(item.amount)}</td>
+                      <td className="px-1 py-1">
+                        {items.length > 1 && (
+                          <button onClick={() => removeItem(idx)} className="p-1 text-gray-300 hover:text-red-500">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {/* Totals */}
+            <div className="mt-3 flex justify-end">
+              <div className="w-64 space-y-1 text-sm">
+                <div className="flex justify-between"><span className="text-gray-500">공급가</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">VAT (10%)</span><span className="font-medium">{formatCurrency(vat)}</span></div>
+                <div className="flex justify-between border-t pt-1 mt-1"><span className="font-semibold">합계</span><span className="font-bold text-primary-600">{formatCurrency(total)}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <Textarea
+            label="비고"
+            value={form.notes}
+            onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))}
+            placeholder="추가 메모사항"
+          />
+
+          <div className="flex gap-3 justify-end pt-2">
+            <Button variant="secondary" size="sm" onClick={() => setModalOpen(false)}>취소</Button>
+            <Button size="sm" loading={saving} onClick={handleSave}>
+              {editingInvoice ? '수정' : '생성'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Modal */}
+      <Modal open={!!deleteModal} onClose={() => setDeleteModal(null)} title="청구서 삭제">
+        <p className="text-sm text-gray-600 mb-4">
+          <strong>{deleteModal?.invoice_number}</strong>을(를) 정말 삭제하시겠습니까?
+        </p>
+        <div className="flex gap-3 justify-end">
+          <Button variant="secondary" size="sm" onClick={() => setDeleteModal(null)}>취소</Button>
+          <Button variant="danger" size="sm" loading={deleting} onClick={handleDelete}>삭제</Button>
+        </div>
+      </Modal>
+    </div>
+  )
+}

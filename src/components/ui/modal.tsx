@@ -10,9 +10,17 @@ interface ModalProps {
   title?: string
   children: ReactNode
   className?: string
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
-export function Modal({ open, onClose, title, children, className }: ModalProps) {
+const sizeClasses = {
+  sm: 'max-w-sm',
+  md: 'max-w-lg',
+  lg: 'max-w-2xl',
+  xl: 'max-w-4xl',
+}
+
+export function Modal({ open, onClose, title, children, className, size = 'md' }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -31,28 +39,32 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose()
       }}
     >
-      <div className="fixed inset-0 bg-black/50" />
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px]" />
       <div
         className={cn(
-          'relative bg-white rounded-xl shadow-xl max-h-[90vh] overflow-auto',
-          'w-full max-w-lg mx-4',
+          'relative bg-surface rounded-xl shadow-modal max-h-[85vh] overflow-auto',
+          'w-full mx-4 animate-slide-up',
+          sizeClasses[size],
           className
         )}
       >
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-              <X className="w-5 h-5" />
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border-light">
+            <h3 className="text-base font-semibold text-text-primary">{title}</h3>
+            <button
+              onClick={onClose}
+              className="icon-btn"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
         )}
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-5 py-4">{children}</div>
       </div>
     </div>
   )

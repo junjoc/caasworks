@@ -15,8 +15,8 @@ import type { PipelineLead, User } from '@/types/database'
 import { toast } from 'sonner'
 import { Plus, Search, GitBranch, AlertCircle, Clock, ChevronDown, ChevronUp, CheckSquare, Trash2, ArrowRight, UserCheck } from 'lucide-react'
 
-const STAGES = ['전체', '신규리드', '컨택', '미팅', '제안', '계약', '도입완료']
-const STAGE_OPTIONS = ['신규리드', '컨택', '미팅', '제안', '계약', '도입완료']
+const STAGES = ['전체', '신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료', '이탈']
+const STAGE_OPTIONS = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료', '이탈']
 const PRIORITIES = ['전체', '긴급', '높음', '중간', '낮음']
 
 function getActionDateClass(dateStr: string | null) {
@@ -28,7 +28,7 @@ function getActionDateClass(dateStr: string | null) {
   if (diff < 0) return 'text-red-600 font-semibold' // overdue
   if (diff === 0) return 'text-orange-600 font-semibold' // today
   if (diff <= 3) return 'text-yellow-600' // soon
-  return 'text-gray-500'
+  return 'text-text-secondary'
 }
 
 export default function PipelineListPage() {
@@ -94,10 +94,15 @@ export default function PipelineListPage() {
 
   const filteredLeads = leads
     .filter((lead) => {
-      const matchSearch =
-        lead.company_name.toLowerCase().includes(search.toLowerCase()) ||
-        (lead.contact_person || '').toLowerCase().includes(search.toLowerCase()) ||
-        (lead.industry || '').toLowerCase().includes(search.toLowerCase())
+      const q = search.toLowerCase().replace(/-/g, '')
+      const matchSearch = !q ||
+        lead.company_name.toLowerCase().includes(q) ||
+        (lead.contact_person || '').toLowerCase().includes(q) ||
+        (lead.contact_phone || '').replace(/-/g, '').includes(q) ||
+        (lead.contact_email || '').toLowerCase().includes(q) ||
+        (lead.industry || '').toLowerCase().includes(q) ||
+        (lead.next_action || '').toLowerCase().includes(q) ||
+        (lead.notes || '').toLowerCase().includes(q)
       const matchPriority = priorityFilter === '전체' || lead.priority === priorityFilter
       return matchSearch && matchPriority
     })
@@ -171,7 +176,7 @@ export default function PipelineListPage() {
     }
 
     const updates: Record<string, unknown> = { stage: bulkStage }
-    if (bulkStage === '계약' || bulkStage === '도입완료') {
+    if (bulkStage === '도입직전' || bulkStage === '도입완료') {
       updates.converted_at = new Date().toISOString()
     }
 
@@ -265,7 +270,7 @@ export default function PipelineListPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">파이프라인 트래커</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-text-secondary mt-1">
             총 {filteredLeads.length}건
             {overdueCount > 0 && (
               <span className="text-red-600 ml-2">
@@ -348,7 +353,7 @@ export default function PipelineListPage() {
       {/* 필터 */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
           <Input
             placeholder="회사명, 문의자, 사업분류 검색..."
             value={search}
@@ -436,7 +441,7 @@ export default function PipelineListPage() {
                       className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                     />
                   </td>
-                  <td className="text-gray-400 text-xs">{lead.lead_number}</td>
+                  <td className="text-text-tertiary text-xs">{lead.lead_number}</td>
                   <td>
                     <Badge className={`${STAGE_COLORS[lead.stage]} text-xs`}>{lead.stage}</Badge>
                   </td>
@@ -455,16 +460,16 @@ export default function PipelineListPage() {
                       {lead.company_name}
                     </Link>
                   </td>
-                  <td className="text-gray-500 text-xs">{lead.industry || '-'}</td>
+                  <td className="text-text-secondary text-xs">{lead.industry || '-'}</td>
                   <td>
                     <div className="text-sm">{lead.contact_person || '-'}</div>
                     {lead.contact_position && (
-                      <div className="text-xs text-gray-400">{lead.contact_position}</div>
+                      <div className="text-xs text-text-tertiary">{lead.contact_position}</div>
                     )}
                   </td>
-                  <td className="text-xs text-gray-500">{lead.contact_phone || '-'}</td>
-                  <td className="text-xs text-gray-500">{lead.inquiry_channel || lead.inquiry_source || '-'}</td>
-                  <td className="text-xs text-gray-500">
+                  <td className="text-xs text-text-secondary">{lead.contact_phone || '-'}</td>
+                  <td className="text-xs text-text-secondary">{lead.inquiry_channel || lead.inquiry_source || '-'}</td>
+                  <td className="text-xs text-text-secondary">
                     {lead.inquiry_date ? formatDate(lead.inquiry_date) : formatDate(lead.created_at)}
                   </td>
                   <td>
@@ -486,7 +491,7 @@ export default function PipelineListPage() {
                       <span className="text-xs text-gray-300">-</span>
                     )}
                   </td>
-                  <td className="text-xs text-gray-500">{lead.assigned_user?.name || '-'}</td>
+                  <td className="text-xs text-text-secondary">{lead.assigned_user?.name || '-'}</td>
                 </tr>
               ))}
             </tbody>

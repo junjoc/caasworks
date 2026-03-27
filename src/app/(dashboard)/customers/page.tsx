@@ -21,9 +21,9 @@ const STATUS_LABELS: Record<string, string> = {
   churned: '이탈',
 }
 const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-green-100 text-green-700',
-  suspended: 'bg-yellow-100 text-yellow-700',
-  churned: 'bg-red-100 text-red-700',
+  active: 'bg-status-green-bg text-status-green',
+  suspended: 'bg-status-yellow-bg text-status-yellow',
+  churned: 'bg-status-red-bg text-status-red',
 }
 
 export default function CustomersPage() {
@@ -63,30 +63,34 @@ export default function CustomersPage() {
     setDeleteTarget(null)
   }
 
-  const filtered = customers.filter((c) =>
-    c.company_name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.contact_person || '').toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = customers.filter((c) => {
+    const q = search.toLowerCase().replace(/-/g, '')
+    return c.company_name.toLowerCase().includes(q) ||
+      (c.contact_person || '').toLowerCase().includes(q) ||
+      (c.contact_phone || '').replace(/-/g, '').includes(q) ||
+      (c.contact_email || '').toLowerCase().includes(q) ||
+      (c.customer_code || '').toLowerCase().includes(q) ||
+      (c.business_reg_no || '').replace(/-/g, '').includes(q) ||
+      (c.notes || '').toLowerCase().includes(q)
+  })
 
   return (
     <div>
       <div className="page-header">
-        <div className="flex items-center justify-between">
-          <h1 className="page-title">고객 관리</h1>
-          <Link href="/customers/new">
-            <Button size="sm">
-              <Plus className="w-4 h-4 mr-1" />
-              고객 등록
-            </Button>
-          </Link>
-        </div>
+        <h1 className="page-title">고객 관리</h1>
+        <Link href="/customers/new">
+          <Button size="sm">
+            <Plus className="w-4 h-4 mr-1" />
+            고객 등록
+          </Button>
+        </Link>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-placeholder" />
           <Input
-            placeholder="회사명 또는 담당자 검색..."
+            placeholder="회사명, 담당자, 전화번호, 이메일 검색..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -100,49 +104,49 @@ export default function CustomersPage() {
         <EmptyState icon={Users} title="고객이 없습니다" description="'고객 등록' 버튼을 눌러 새 고객을 추가하세요." />
       ) : (
         <div className="table-container">
-          <table className="data-table">
+          <table className="data-table" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
-                <th>회사명</th>
-                <th>타입</th>
-                <th>담당자</th>
-                <th>영업담당</th>
-                <th>상태</th>
-                <th>과금시작</th>
-                <th className="w-24">관리</th>
+                <th style={{ width: '28%' }}>회사명</th>
+                <th style={{ width: '12%' }}>타입</th>
+                <th style={{ width: '14%' }}>담당자</th>
+                <th style={{ width: '12%' }}>영업담당</th>
+                <th style={{ width: '10%' }}>상태</th>
+                <th style={{ width: '12%' }}>과금시작</th>
+                <th style={{ width: '12%' }}>관리</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((c) => (
                 <tr key={c.id}>
                   <td>
-                    <Link href={`/customers/${c.id}`} className="font-medium text-primary-600 hover:underline">
+                    <Link href={`/customers/${c.id}`} className="font-medium text-primary-400 hover:text-primary-500 hover:underline block truncate">
                       {c.company_name}
                     </Link>
                   </td>
-                  <td className="text-gray-500">{c.company_type || '-'}</td>
-                  <td>{c.contact_person || '-'}</td>
-                  <td>{c.assigned_user?.name || '-'}</td>
+                  <td className="text-text-secondary truncate">{c.company_type || '-'}</td>
+                  <td className="text-text-primary truncate">{c.contact_person || '-'}</td>
+                  <td className="text-text-secondary truncate">{c.assigned_user?.name || '-'}</td>
                   <td>
                     <Badge className={STATUS_COLORS[c.status]}>
                       {STATUS_LABELS[c.status]}
                     </Badge>
                   </td>
-                  <td className="text-gray-500">
+                  <td className="text-text-tertiary text-sm">
                     {c.billing_start ? formatDate(c.billing_start) : '-'}
                   </td>
                   <td>
                     <div className="flex gap-1">
                       <button
                         onClick={() => router.push(`/customers/${c.id}`)}
-                        className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded"
+                        className="p-1.5 text-text-tertiary hover:text-primary-500 hover:bg-primary-50 rounded transition-colors"
                         title="수정"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setDeleteTarget(c)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                        className="p-1.5 text-text-tertiary hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                         title="삭제"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -158,10 +162,10 @@ export default function CustomersPage() {
 
       {/* 삭제 확인 모달 */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="고객 삭제">
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-text-secondary mb-4">
           <strong>{deleteTarget?.company_name}</strong>을(를) 정말 삭제하시겠습니까?
           <br />
-          <span className="text-red-500">연결된 프로젝트, 매출 데이터가 있으면 삭제가 실패할 수 있습니다.</span>
+          <span className="text-status-red">연결된 프로젝트, 매출 데이터가 있으면 삭제가 실패할 수 있습니다.</span>
         </p>
         <div className="flex gap-3 justify-end">
           <Button variant="secondary" size="sm" onClick={() => setDeleteTarget(null)}>취소</Button>

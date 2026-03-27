@@ -23,7 +23,7 @@ const TYPE_STYLES: Record<string, { bg: string; text: string; icon: string }> = 
   vacation: { bg: 'bg-green-100', text: 'text-green-700', icon: '🌴' },
   remote: { bg: 'bg-blue-100', text: 'text-blue-700', icon: '🧑‍💻' },
   meeting: { bg: 'bg-purple-100', text: 'text-purple-700', icon: '🤝' },
-  other: { bg: 'bg-gray-100', text: 'text-gray-600', icon: '📅' },
+  other: { bg: 'bg-surface-tertiary', text: 'text-gray-600', icon: '📅' },
 }
 
 const FILTERS = [
@@ -107,7 +107,7 @@ export default function TeamCalendarPage() {
         <h1 className="page-title flex items-center gap-2">
           <Calendar className="w-6 h-6" /> 팀 캘린더
           {teamMembers.length > 0 && (
-            <span className="text-xs font-normal text-gray-400 ml-2">({teamMembers.length}명)</span>
+            <span className="text-xs font-normal text-text-tertiary ml-2">({teamMembers.length}명)</span>
           )}
         </h1>
         <Link href="/team/leave">
@@ -148,14 +148,14 @@ export default function TeamCalendarPage() {
         <Loading />
       ) : (
         <div className="card overflow-hidden">
-          <div className="grid grid-cols-7 border-b bg-gray-50">
+          <div className="grid grid-cols-7 border-b bg-surface-tertiary">
             {WEEKDAYS.map((day, i) => (
-              <div key={day} className={`px-2 py-2 text-center text-xs font-medium ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-500'}`}>{day}</div>
+              <div key={day} className={`px-2 py-2 text-center text-xs font-medium ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-text-secondary'}`}>{day}</div>
             ))}
           </div>
           <div className="grid grid-cols-7">
             {Array.from({ length: firstDay }, (_, i) => (
-              <div key={`e-${i}`} className="min-h-[100px] border-b border-r p-1 bg-gray-50/50" />
+              <div key={`e-${i}`} className="min-h-[100px] border-b border-r p-1 bg-surface-tertiary/50" />
             ))}
             {Array.from({ length: daysInMonth }, (_, i) => {
               const day = i + 1
@@ -177,7 +177,7 @@ export default function TeamCalendarPage() {
                         </div>
                       )
                     })}
-                    {dayEvents.length > 3 && <div className="text-[9px] text-gray-400 px-1">+{dayEvents.length - 3}건</div>}
+                    {dayEvents.length > 3 && <div className="text-[9px] text-text-tertiary px-1">+{dayEvents.length - 3}건</div>}
                   </div>
                 </div>
               )
@@ -196,11 +196,11 @@ export default function TeamCalendarPage() {
               const startTime = event.allDay ? '종일' : event.start.split('T')[1]?.substring(0, 5)
               return (
                 <div key={event.id} className="flex items-center gap-3 text-sm py-1.5 border-b border-gray-50 last:border-0">
-                  <span className="text-xs text-gray-400 min-w-[50px]">{startDate.substring(5)}</span>
+                  <span className="text-xs text-text-tertiary min-w-[50px]">{startDate.substring(5)}</span>
                   <Badge className={`${style.bg} ${style.text} text-xs`}>{style.icon}</Badge>
                   <span className="text-gray-800 font-medium">{event.name || '-'}</span>
-                  <span className="text-gray-400 text-xs">{startTime}</span>
-                  <span className="text-gray-500 text-xs truncate flex-1">{event.title}</span>
+                  <span className="text-text-tertiary text-xs">{startTime}</span>
+                  <span className="text-text-secondary text-xs truncate flex-1">{event.title}</span>
                 </div>
               )
             })}

@@ -5,41 +5,44 @@ import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 
 const variants = {
-  primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500',
-  secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-primary-500',
-  danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
-  ghost: 'text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
+  primary: 'btn-primary',
+  secondary: 'btn-secondary',
+  danger: 'btn-danger',
+  ghost: 'btn-ghost',
 }
 
 const sizes = {
-  sm: 'px-3 py-1.5 text-sm',
-  md: 'px-4 py-2 text-sm',
-  lg: 'px-6 py-3 text-base',
+  sm: 'btn-sm',
+  md: 'btn-md',
+  lg: 'btn-lg',
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: keyof typeof variants
   size?: keyof typeof sizes
   loading?: boolean
+  icon?: React.ReactNode
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', loading, disabled, children, ...props }, ref) => {
+  ({ className, variant = 'primary', size = 'md', loading, icon, disabled, children, ...props }, ref) => {
     return (
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center font-medium rounded-lg',
-          'focus:outline-none focus:ring-2 focus:ring-offset-2',
-          'transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
           variants[variant],
           sizes[size],
+          (disabled || loading) && 'opacity-50 cursor-not-allowed pointer-events-none',
           className
         )}
         disabled={disabled || loading}
         {...props}
       >
-        {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        {loading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : icon ? (
+          <span className="flex-shrink-0">{icon}</span>
+        ) : null}
         {children}
       </button>
     )

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatCurrency, formatNumber, STAGE_COLORS } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
+import Link from 'next/link'
 import {
   TrendingUp,
   TrendingDown,
@@ -13,7 +14,10 @@ import {
   FileText,
   AlertCircle,
   DollarSign,
+  ArrowRight,
+  ChevronRight,
 } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 
 interface DashboardData {
   monthlyRevenue: number
@@ -23,18 +27,25 @@ interface DashboardData {
   unpaidInvoices: number
   unpaidAmount: number
   pipelineByStage: { stage: string; count: number }[]
-  recentLeads: { id: string; company_name: string; stage: string; created_at: string }[]
+  recentLeads: { id: string; company_name: string; stage: string; created_at: string; quote_amount: number; assigned_name: string | null }[]
+  recentConversions: { id: string; company_name: string; converted_at: string; quote_amount: number; deal_amount: number; assigned_name: string | null }[]
+  salesByStage: { stage: string; count: number; amount: number }[]
   pendingItems: {
     unassignedLeads: number
     unpaidOver30: number
     openVocTickets: number
     expiringBilling: number
   }
+  monthlyTrend: { month: string; revenue: number; prevRevenue: number }[]
+  newCompanyRevenue: number
+  actionDueLeads: { id: string; company_name: string; next_action: string | null; next_action_date: string; stage: string; assigned_name: string | null }[]
 }
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [salesYear, setSalesYear] = useState(new Date().getFullYear())
+  const [salesMonth, setSalesMonth] = useState<number | null>(null) // null = 전체(누적)
   const supabase = createClient()
 
   useEffect(() => {
@@ -49,7 +60,6 @@ export default function DashboardPage() {
     const prevMonth = month === 1 ? 12 : month - 1
     const prevYear = month === 1 ? year - 1 : year
 
-    // Timeout wrapper - don't hang forever
     const withTimeout = <T,>(promise: Promise<T>, ms = 8000): Promise<T> =>
       Promise.race([
         promise,
@@ -66,39 +76,105 @@ export default function DashboardPage() {
       recentRes,
       unassignedRes,
       vocRes,
+      recentConvRes,
+      quotationsRes,
+      yearRevenueRes,
+      prevYearRevenueRes,
+      actionDueRes,
     ] = await withTimeout(Promise.all([
       supabase.from('monthly_revenues').select('amount').eq('year', year).eq('month', month),
       supabase.from('monthly_revenues').select('amount').eq('year', prevYear).eq('month', prevMonth),
       supabase.from('pipeline_leads').select('id', { count: 'exact' })
         .gte('created_at', `${year}-${String(month).padStart(2, '0')}-01`),
       supabase.from('pipeline_leads').select('id', { count: 'exact' })
-        .in('stage', ['계약', '도입완료'])
+        .in('stage', ['도입직전', '도입완료'])
         .gte('converted_at', `${year}-${String(month).padStart(2, '0')}-01`),
       supabase.from('invoices').select('total').in('status', ['sent', 'overdue']),
       supabase.from('pipeline_leads').select('stage'),
       supabase.from('pipeline_leads')
-        .select('id, company_name, stage, created_at')
+        .select('id, company_name, stage, created_at, assigned_user:users!pipeline_leads_assigned_to_fkey(name)')
         .order('created_at', { ascending: false })
-        .limit(8),
+        .limit(6),
       supabase.from('pipeline_leads').select('id', { count: 'exact' }).is('assigned_to', null),
       supabase.from('voc_tickets').select('id', { count: 'exact' })
         .in('status', ['received', 'reviewing', 'in_progress']),
+      supabase.from('pipeline_leads')
+        .select('id, company_name, converted_at, assigned_user:users!pipeline_leads_assigned_to_fkey(name)')
+        .eq('stage', '도입완료')
+        .not('converted_at', 'is', null)
+        .order('converted_at', { ascending: false })
+        .limit(6),
+      supabase.from('quotations')
+        .select('lead_id, total_amount, status')
+        .in('status', ['accepted', 'sent', 'draft']),
+      // 올해 월별 매출
+      supabase.from('monthly_revenues').select('month, amount').eq('year', year),
+      // 전년도 월별 매출
+      supabase.from('monthly_revenues').select('month, amount').eq('year', year - 1),
+      // 오늘/기한초과 리드 (알림용)
+      supabase.from('pipeline_leads')
+        .select('id, company_name, next_action, next_action_date, stage, assigned_user:users!pipeline_leads_assigned_to_fkey(name)')
+        .not('next_action_date', 'is', null)
+        .lte('next_action_date', new Date().toISOString().split('T')[0])
+        .not('stage', 'in', '("도입완료","이탈")')
+        .order('next_action_date', { ascending: true })
+        .limit(10),
     ]))
 
     const monthlyRevenue = (revenueRes.data || []).reduce((sum, r) => sum + Number(r.amount), 0)
     const prevMonthRevenue = (prevRevenueRes.data || []).reduce((sum, r) => sum + Number(r.amount), 0)
 
-    // 파이프라인 단계별 집계
     const stageCounts: Record<string, number> = {}
     ;(pipelineRes.data || []).forEach((l) => {
       stageCounts[l.stage] = (stageCounts[l.stage] || 0) + 1
     })
-    const pipelineByStage = ['신규리드', '컨택', '미팅', '제안', '계약', '도입완료'].map((stage) => ({
+    const pipelineByStage = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료'].map((stage) => ({
       stage,
       count: stageCounts[stage] || 0,
     }))
 
     const unpaidInvoiceData = invoicesRes.data || []
+
+    // Build quote amount map by lead_id (최신/최대 견적 금액)
+    const quoteByLead: Record<string, { quote: number; accepted: number }> = {}
+    ;(quotationsRes.data || []).forEach((q: any) => {
+      if (!q.lead_id) return
+      if (!quoteByLead[q.lead_id]) quoteByLead[q.lead_id] = { quote: 0, accepted: 0 }
+      const amt = Number(q.total_amount) || 0
+      if (amt > quoteByLead[q.lead_id].quote) quoteByLead[q.lead_id].quote = amt
+      if (q.status === 'accepted' && amt > quoteByLead[q.lead_id].accepted) quoteByLead[q.lead_id].accepted = amt
+    })
+
+    // Sales by stage (전체 리드의 견적 금액 합산)
+    const salesByStageMap: Record<string, { count: number; amount: number }> = {}
+    ;(pipelineRes.data || []).forEach((l: any) => {
+      if (!salesByStageMap[l.stage]) salesByStageMap[l.stage] = { count: 0, amount: 0 }
+      salesByStageMap[l.stage].count++
+      salesByStageMap[l.stage].amount += quoteByLead[l.id]?.quote || 0
+    })
+    const salesByStage = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료'].map(stage => ({
+      stage,
+      count: salesByStageMap[stage]?.count || 0,
+      amount: salesByStageMap[stage]?.amount || 0,
+    }))
+
+    // 월별 매출 추이 (전년 대비)
+    const yearByMonth: Record<number, number> = {}
+    ;(yearRevenueRes.data || []).forEach((r: any) => {
+      yearByMonth[r.month] = (yearByMonth[r.month] || 0) + Number(r.amount)
+    })
+    const prevYearByMonth: Record<number, number> = {}
+    ;(prevYearRevenueRes.data || []).forEach((r: any) => {
+      prevYearByMonth[r.month] = (prevYearByMonth[r.month] || 0) + Number(r.amount)
+    })
+    const monthlyTrend = Array.from({ length: 12 }, (_, i) => ({
+      month: `${i + 1}월`,
+      revenue: yearByMonth[i + 1] || 0,
+      prevRevenue: prevYearByMonth[i + 1] || 0,
+    }))
+
+    // 이번 달 신규 회사 매출 기여
+    const newCompanyRevenue = 0 // TODO: 신규 고객 매출 별도 계산
 
     setData({
       monthlyRevenue,
@@ -108,22 +184,43 @@ export default function DashboardPage() {
       unpaidInvoices: unpaidInvoiceData.length,
       unpaidAmount: unpaidInvoiceData.reduce((sum, inv) => sum + Number(inv.total), 0),
       pipelineByStage,
-      recentLeads: recentRes.data || [],
+      salesByStage,
+      recentLeads: (recentRes.data || []).map((l: any) => ({
+        ...l,
+        quote_amount: quoteByLead[l.id]?.quote || 0,
+        assigned_name: l.assigned_user?.name || null,
+      })),
+      recentConversions: (recentConvRes.data || []).map((c: any) => ({
+        ...c,
+        quote_amount: quoteByLead[c.id]?.quote || 0,
+        deal_amount: quoteByLead[c.id]?.accepted || 0,
+        assigned_name: c.assigned_user?.name || null,
+      })),
       pendingItems: {
         unassignedLeads: unassignedRes.count || 0,
         unpaidOver30: 0,
         openVocTickets: vocRes.count || 0,
         expiringBilling: 0,
       },
+      monthlyTrend,
+      newCompanyRevenue,
+      actionDueLeads: (actionDueRes.data || []).map((l: any) => ({
+        id: l.id,
+        company_name: l.company_name,
+        next_action: l.next_action,
+        next_action_date: l.next_action_date,
+        stage: l.stage,
+        assigned_name: l.assigned_user?.name || null,
+      })),
     })
     setLoading(false)
     } catch (err) {
       console.error('Dashboard fetch error:', err)
-      // Show empty state instead of hanging
       setData({
         monthlyRevenue: 0, prevMonthRevenue: 0, newLeadsCount: 0, convertedCount: 0,
-        unpaidInvoices: 0, unpaidAmount: 0, pipelineByStage: [], recentLeads: [],
+        unpaidInvoices: 0, unpaidAmount: 0, pipelineByStage: [], salesByStage: [], recentLeads: [], recentConversions: [],
         pendingItems: { unassignedLeads: 0, unpaidOver30: 0, openVocTickets: 0, expiringBilling: 0 },
+        monthlyTrend: [], newCompanyRevenue: 0, actionDueLeads: [],
       })
       setLoading(false)
     }
@@ -132,173 +229,357 @@ export default function DashboardPage() {
   if (loading) return <Loading />
   if (!data) return <Loading />
 
+  const SHORT_STAGE: Record<string, string> = {
+    '신규리드': '신규', '컨텍': '컨택', '제안': '제안', '미팅': '미팅',
+    '도입직전': '직전', '도입완료': '도입', '이탈': '이탈',
+  }
+
   const revenueChange = data.prevMonthRevenue > 0
     ? ((data.monthlyRevenue - data.prevMonthRevenue) / data.prevMonthRevenue) * 100
     : 0
 
+  const pipelineTotal = data.pipelineByStage.reduce((sum, i) => sum + i.count, 0)
+
+  const stageBarColors: Record<string, string> = {
+    '신규리드': 'bg-status-blue',
+    '컨텍': 'bg-status-purple',
+    '미팅': 'bg-status-yellow',
+    '제안': 'bg-orange-400',
+    '도입직전': 'bg-status-green',
+    '도입완료': 'bg-emerald-600',
+  }
+
   return (
-    <div>
-      <div className="page-header">
-        <h1 className="page-title">대시보드</h1>
-      </div>
-
-      {/* KPI 카드 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <div className="stat-card">
-          <div className="flex items-center gap-2 mb-2">
-            <DollarSign className="w-5 h-5 text-primary-600" />
-            <span className="text-sm text-gray-500">이번 달 매출</span>
-          </div>
-          <div className="stat-value">{formatCurrency(data.monthlyRevenue)}</div>
-          {revenueChange !== 0 && (
-            <div className={revenueChange > 0 ? 'stat-change-up' : 'stat-change-down'}>
-              {revenueChange > 0 ? (
-                <span className="flex items-center gap-1">
-                  <TrendingUp className="w-4 h-4" /> +{revenueChange.toFixed(1)}%
-                </span>
-              ) : (
-                <span className="flex items-center gap-1">
-                  <TrendingDown className="w-4 h-4" /> {revenueChange.toFixed(1)}%
-                </span>
-              )}
+    <div className="space-y-6">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {[
+          {
+            icon: <DollarSign className="w-4 h-4" />,
+            iconColor: 'text-primary-600 bg-primary-50',
+            label: '이번 달 매출',
+            value: formatCurrency(data.monthlyRevenue),
+            change: revenueChange,
+            sub: null,
+          },
+          {
+            icon: <GitBranch className="w-4 h-4" />,
+            iconColor: 'text-status-blue bg-status-blue-bg',
+            label: '신규 리드',
+            value: `${formatNumber(data.newLeadsCount)}건`,
+            change: null,
+            sub: null,
+          },
+          {
+            icon: <Users className="w-4 h-4" />,
+            iconColor: 'text-status-green bg-status-green-bg',
+            label: '도입 전환',
+            value: `${formatNumber(data.convertedCount)}건`,
+            change: null,
+            sub: null,
+          },
+          {
+            icon: <FileText className="w-4 h-4" />,
+            iconColor: 'text-status-yellow bg-status-yellow-bg',
+            label: '미납 청구서',
+            value: `${formatNumber(data.unpaidInvoices)}건`,
+            change: null,
+            sub: formatCurrency(data.unpaidAmount),
+          },
+          {
+            icon: <AlertCircle className="w-4 h-4" />,
+            iconColor: 'text-status-red bg-status-red-bg',
+            label: '미처리 VoC',
+            value: `${formatNumber(data.pendingItems.openVocTickets)}건`,
+            change: null,
+            sub: null,
+          },
+        ].map((kpi, idx) => (
+          <div key={idx} className="stat-card">
+            <div className="flex items-center gap-2">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${kpi.iconColor}`}>
+                {kpi.icon}
+              </div>
+              <span className="stat-label">{kpi.label}</span>
             </div>
-          )}
-        </div>
-
-        <div className="stat-card">
-          <div className="flex items-center gap-2 mb-2">
-            <GitBranch className="w-5 h-5 text-blue-600" />
-            <span className="text-sm text-gray-500">신규 리드</span>
+            <div className="stat-value">{kpi.value}</div>
+            {kpi.change !== null && kpi.change !== 0 && (
+              <div className={kpi.change > 0 ? 'stat-change-up' : 'stat-change-down'}>
+                {kpi.change > 0 ? (
+                  <><TrendingUp className="w-3 h-3" /> +{kpi.change.toFixed(1)}%</>
+                ) : (
+                  <><TrendingDown className="w-3 h-3" /> {kpi.change.toFixed(1)}%</>
+                )}
+              </div>
+            )}
+            {kpi.sub && <p className="text-xs text-text-tertiary">{kpi.sub}</p>}
           </div>
-          <div className="stat-value">{formatNumber(data.newLeadsCount)}건</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="flex items-center gap-2 mb-2">
-            <Users className="w-5 h-5 text-green-600" />
-            <span className="text-sm text-gray-500">계약 전환</span>
-          </div>
-          <div className="stat-value">{formatNumber(data.convertedCount)}건</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="flex items-center gap-2 mb-2">
-            <FileText className="w-5 h-5 text-orange-600" />
-            <span className="text-sm text-gray-500">미납 청구서</span>
-          </div>
-          <div className="stat-value">{formatNumber(data.unpaidInvoices)}건</div>
-          <p className="text-xs text-gray-500 mt-1">{formatCurrency(data.unpaidAmount)}</p>
-        </div>
-
-        <div className="stat-card">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <span className="text-sm text-gray-500">미처리 VoC</span>
-          </div>
-          <div className="stat-value">{formatNumber(data.pendingItems.openVocTickets)}건</div>
-        </div>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 파이프라인 현황 */}
-        <div className="card">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Sales Status */}
+        <div className="card lg:col-span-1">
           <div className="card-header">
-            <h2 className="text-lg font-semibold">파이프라인 현황</h2>
+            <span className="card-header-title">세일즈 현황</span>
+            <Link href="/pipeline/board" className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-0.5">
+              보기 <ChevronRight className="w-3 h-3" />
+            </Link>
           </div>
           <div className="card-body">
-            <div className="space-y-3">
-              {data.pipelineByStage.map((item) => {
-                const total = data.pipelineByStage.reduce((sum, i) => sum + i.count, 0)
-                const pct = total > 0 ? (item.count / total) * 100 : 0
+            {/* Year selector */}
+            <div className="flex items-center gap-1 mb-3">
+              {[new Date().getFullYear() - 1, new Date().getFullYear()].map(y => (
+                <button
+                  key={y}
+                  onClick={() => { setSalesYear(y); setSalesMonth(null) }}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                    salesYear === y ? 'bg-primary-500 text-white' : 'bg-surface-tertiary text-text-tertiary hover:bg-surface-secondary'
+                  }`}
+                >
+                  {y}년
+                </button>
+              ))}
+              <span className="text-[10px] text-text-placeholder ml-1">
+                {salesMonth ? `${salesMonth}월` : '누적'}
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {data.salesByStage.map((item) => {
+                const pct = pipelineTotal > 0 ? (item.count / pipelineTotal) * 100 : 0
                 return (
-                  <div key={item.stage} className="flex items-center gap-3">
-                    <Badge className={STAGE_COLORS[item.stage]}>{item.stage}</Badge>
-                    <div className="flex-1 bg-gray-100 rounded-full h-2">
+                  <div key={item.stage}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-text-secondary">{item.stage}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-text-tertiary">{item.amount > 0 ? formatCurrency(item.amount) : ''}</span>
+                        <span className="text-xs font-bold text-text-primary w-6 text-right">{item.count}</span>
+                      </div>
+                    </div>
+                    <div className="bg-surface-tertiary rounded-full h-1.5 overflow-hidden">
                       <div
-                        className="bg-primary-500 h-2 rounded-full transition-all"
-                        style={{ width: `${pct}%` }}
+                        className={`h-1.5 rounded-full transition-all duration-500 ${stageBarColors[item.stage] || 'bg-primary-400'}`}
+                        style={{ width: `${Math.max(pct, 2)}%` }}
                       />
                     </div>
-                    <span className="text-sm font-medium text-gray-700 w-10 text-right">
-                      {item.count}
-                    </span>
                   </div>
                 )
               })}
             </div>
-          </div>
-        </div>
+            <div className="mt-3 pt-3 border-t border-border-light flex justify-between text-xs">
+              <span className="text-text-secondary font-medium">합계</span>
+              <span className="font-bold text-text-primary">
+                {data.salesByStage.reduce((s, i) => s + i.count, 0)}건 / {formatCurrency(data.salesByStage.reduce((s, i) => s + i.amount, 0))}
+              </span>
+            </div>
 
-        {/* 최근 리드 */}
-        <div className="card">
-          <div className="card-header">
-            <h2 className="text-lg font-semibold">최근 리드</h2>
-          </div>
-          <div className="card-body p-0">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>회사명</th>
-                  <th>단계</th>
-                  <th>등록일</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.recentLeads.map((lead) => (
-                  <tr key={lead.id}>
-                    <td className="font-medium">{lead.company_name}</td>
-                    <td>
-                      <Badge className={STAGE_COLORS[lead.stage]}>{lead.stage}</Badge>
-                    </td>
-                    <td className="text-gray-500">
-                      {new Date(lead.created_at).toLocaleDateString('ko-KR')}
-                    </td>
-                  </tr>
+            {/* Month selector */}
+            <div className="mt-3 pt-3 border-t border-border-light">
+              <div className="grid grid-cols-7 gap-1">
+                <button
+                  onClick={() => setSalesMonth(null)}
+                  className={`py-1 text-[10px] font-medium rounded transition-colors ${
+                    salesMonth === null ? 'bg-primary-500 text-white' : 'bg-surface-tertiary text-text-tertiary hover:bg-surface-secondary'
+                  }`}
+                >
+                  전체
+                </button>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setSalesMonth(m)}
+                    className={`py-1 text-[10px] font-medium rounded transition-colors ${
+                      salesMonth === m ? 'bg-primary-500 text-white' : 'bg-surface-tertiary text-text-tertiary hover:bg-surface-secondary'
+                    }`}
+                  >
+                    {m}월
+                  </button>
                 ))}
-                {data.recentLeads.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="text-center text-gray-400 py-8">
-                      등록된 리드가 없습니다.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* 미처리 항목 */}
-        <div className="card lg:col-span-2">
-          <div className="card-header">
-            <h2 className="text-lg font-semibold">미처리 항목</h2>
-          </div>
-          <div className="card-body">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-2xl font-bold text-orange-600">
-                  {data.pendingItems.unassignedLeads}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">담당자 미지정 리드</p>
-              </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-2xl font-bold text-red-600">
-                  {data.unpaidInvoices}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">미납 청구서</p>
-              </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-2xl font-bold text-yellow-600">
-                  {data.pendingItems.openVocTickets}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">미처리 VoC</p>
-              </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-2xl font-bold text-blue-600">
-                  {data.pendingItems.expiringBilling}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">과금 만료 임박</p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Recent Leads */}
+        <div className="card">
+          <div className="card-header">
+            <span className="card-header-title">최근 리드</span>
+            <Link href="/pipeline/list" className="text-xs text-primary-400 hover:text-primary-500 font-medium flex items-center gap-0.5">
+              전체보기 <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="divide-y divide-border-light">
+            {data.recentLeads.map((lead) => (
+              <Link key={lead.id} href={`/pipeline/${lead.id}`} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-2.5 hover:bg-primary-50/30 transition-colors">
+                <div className="min-w-0">
+                  <span className="text-body-sm font-medium text-text-primary block truncate">{lead.company_name}</span>
+                  {lead.assigned_name && <span className="text-micro text-text-tertiary">{lead.assigned_name}</span>}
+                </div>
+                <span className={`text-micro px-1.5 py-0.5 rounded whitespace-nowrap ${STAGE_COLORS[lead.stage]}`}>
+                  {SHORT_STAGE[lead.stage] || lead.stage}
+                </span>
+                <span className="text-micro text-text-tertiary w-10 text-right">
+                  {new Date(lead.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}
+                </span>
+              </Link>
+            ))}
+            {data.recentLeads.length === 0 && (
+              <div className="text-center text-text-placeholder py-12 text-body-sm">등록된 리드가 없습니다.</div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Conversions */}
+        <div className="card">
+          <div className="card-header">
+            <span className="card-header-title">최근 도입</span>
+            <Link href="/customers" className="text-xs text-primary-400 hover:text-primary-500 font-medium flex items-center gap-0.5">
+              고객관리 <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="divide-y divide-border-light">
+            {data.recentConversions.map((conv) => (
+              <Link key={conv.id} href={`/pipeline/${conv.id}`} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-2.5 hover:bg-primary-50/30 transition-colors">
+                <div className="min-w-0">
+                  <span className="text-body-sm font-medium text-text-primary block truncate">{conv.company_name}</span>
+                  {conv.assigned_name && <span className="text-micro text-text-tertiary">{conv.assigned_name}</span>}
+                </div>
+                <span className="text-body-sm font-semibold text-primary-400 whitespace-nowrap">
+                  {conv.deal_amount > 0 ? formatCurrency(conv.deal_amount) : '-'}
+                </span>
+                <span className="text-micro text-text-tertiary w-10 text-right">
+                  {conv.converted_at ? new Date(conv.converted_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) : '-'}
+                </span>
+              </Link>
+            ))}
+            {data.recentConversions.length === 0 && (
+              <div className="text-center text-text-placeholder py-12 text-body-sm">최근 도입 이력이 없습니다.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Action Due Alerts */}
+      {data.actionDueLeads.length > 0 && (
+        <div className="card border-l-4 border-l-status-red">
+          <div className="card-header">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-status-red" />
+              <span className="card-header-title text-status-red">오늘의 액션 ({data.actionDueLeads.length}건)</span>
+            </div>
+            <Link href="/pipeline/list" className="text-xs text-primary-400 hover:text-primary-500 font-medium flex items-center gap-0.5">
+              전체보기 <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="divide-y divide-border-light">
+            {data.actionDueLeads.map((lead) => {
+              const isOverdue = new Date(lead.next_action_date) < new Date(new Date().toDateString())
+              const isToday = lead.next_action_date === new Date().toISOString().split('T')[0]
+              return (
+                <Link key={lead.id} href={`/pipeline/${lead.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50/30 transition-colors">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${isOverdue ? 'bg-status-red' : 'bg-status-yellow'}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-body-sm font-medium text-text-primary truncate">{lead.company_name}</span>
+                      <span className={`text-micro px-1.5 py-0.5 rounded ${STAGE_COLORS[lead.stage]}`}>
+                        {SHORT_STAGE[lead.stage] || lead.stage}
+                      </span>
+                    </div>
+                    {lead.next_action && (
+                      <span className="text-micro text-text-tertiary">→ {lead.next_action}</span>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className={`text-micro font-medium ${isOverdue ? 'text-status-red' : 'text-status-yellow'}`}>
+                      {isToday ? '오늘' : `${Math.ceil((Date.now() - new Date(lead.next_action_date).getTime()) / 86400000)}일 초과`}
+                    </span>
+                    {lead.assigned_name && (
+                      <span className="text-micro text-text-tertiary block">{lead.assigned_name}</span>
+                    )}
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Revenue Trend Chart */}
+      {data.monthlyTrend.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-header-title">매출 현황 (전년 대비)</span>
+            <span className="text-caption text-text-tertiary">{new Date().getFullYear()}년 vs {new Date().getFullYear() - 1}년</span>
+          </div>
+          <div className="card-body">
+            <div className="h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.monthlyTrend} barCategoryGap="20%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f1f5" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9699a6' }} axisLine={{ stroke: '#e6e9ef' }} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#9699a6' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 10000 ? `${(v / 10000).toFixed(0)}만` : v >= 1000 ? `${(v / 1000).toFixed(0)}천` : String(v)} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: 8, border: '1px solid #e6e9ef', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
+                    formatter={(value: number) => [formatCurrency(value), '']}
+                    labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+                  />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="prevRevenue" name={`${new Date().getFullYear() - 1}년`} fill="#d0d4de" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="revenue" name={`${new Date().getFullYear()}년`} fill="#1890ff" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {/* 연간 합계 */}
+            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border-light">
+              <div className="text-center">
+                <p className="text-caption text-text-tertiary">올해 누적</p>
+                <p className="text-heading-md text-primary-400 mt-1">
+                  {formatCurrency(data.monthlyTrend.reduce((s, m) => s + m.revenue, 0))}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-caption text-text-tertiary">전년 누적</p>
+                <p className="text-heading-md text-text-tertiary mt-1">
+                  {formatCurrency(data.monthlyTrend.reduce((s, m) => s + m.prevRevenue, 0))}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-caption text-text-tertiary">전년 대비</p>
+                {(() => {
+                  const thisYear = data.monthlyTrend.reduce((s, m) => s + m.revenue, 0)
+                  const lastYear = data.monthlyTrend.reduce((s, m) => s + m.prevRevenue, 0)
+                  const diff = lastYear > 0 ? ((thisYear - lastYear) / lastYear * 100) : 0
+                  return (
+                    <p className={`text-heading-md mt-1 ${diff >= 0 ? 'text-status-green' : 'text-status-red'}`}>
+                      {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
+                    </p>
+                  )
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pending Items */}
+      <div className="card">
+        <div className="card-header">
+          <span className="card-header-title">미처리 항목</span>
+        </div>
+        <div className="card-body">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { value: data.pendingItems.unassignedLeads, label: '담당자 미지정 리드', color: 'text-status-yellow', bg: 'bg-status-yellow-bg' },
+              { value: data.unpaidInvoices, label: '미납 청구서', color: 'text-status-red', bg: 'bg-status-red-bg' },
+              { value: data.pendingItems.openVocTickets, label: '미처리 VoC', color: 'text-status-purple', bg: 'bg-status-purple-bg' },
+              { value: data.pendingItems.expiringBilling, label: '과금 만료 임박', color: 'text-status-blue', bg: 'bg-status-blue-bg' },
+            ].map((item, idx) => (
+              <div key={idx} className={`text-center p-4 rounded-xl ${item.bg}`}>
+                <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
+                <p className="text-xs text-text-secondary mt-1 font-medium">{item.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -69,7 +69,7 @@ export default function VocListPage() {
 
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-placeholder" />
           <Input
             placeholder="제목 또는 고객사 검색..."
             value={search}
@@ -102,39 +102,39 @@ export default function VocListPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>No.</th>
-                <th>제목</th>
-                <th>고객사</th>
-                <th>분류</th>
-                <th>우선순위</th>
-                <th>상태</th>
-                <th>담당자</th>
-                <th>등록일</th>
+                <th style={{ width: '7%' }}>No.</th>
+                <th style={{ width: '25%' }}>제목</th>
+                <th style={{ width: '15%' }}>고객사</th>
+                <th style={{ width: '10%' }}>분류</th>
+                <th style={{ width: '10%' }}>우선순위</th>
+                <th style={{ width: '10%' }}>상태</th>
+                <th style={{ width: '10%' }}>담당자</th>
+                <th style={{ width: '13%' }}>등록일</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((t) => (
                 <tr key={t.id}>
-                  <td className="text-gray-500">{t.ticket_number}</td>
-                  <td>
-                    <Link href={`/voc/${t.id}`} className="font-medium text-primary-600 hover:underline">
+                  <td className="text-text-tertiary">{t.ticket_number}</td>
+                  <td className="col-truncate">
+                    <Link href={`/voc/${t.id}`} className="font-medium text-primary-400 hover:text-primary-500 hover:underline">
                       {t.title}
                     </Link>
                   </td>
-                  <td>{t.customer?.company_name || '-'}</td>
-                  <td className="text-gray-500">{VOC_CATEGORY_LABELS[t.category]}</td>
+                  <td className="col-truncate">{t.customer?.company_name || '-'}</td>
+                  <td className="text-text-secondary">{VOC_CATEGORY_LABELS[t.category]}</td>
                   <td>
                     <Badge className={VOC_PRIORITY_COLORS[t.priority]}>
                       {VOC_PRIORITY_LABELS[t.priority]}
                     </Badge>
                   </td>
                   <td>
-                    <Badge className="bg-gray-100 text-gray-700">
+                    <Badge className="badge-gray">
                       {VOC_STATUS_LABELS[t.status]}
                     </Badge>
                   </td>
-                  <td>{t.assigned_user?.name || '-'}</td>
-                  <td className="text-gray-500">{formatDate(t.created_at)}</td>
+                  <td className="text-text-secondary">{t.assigned_user?.name || '-'}</td>
+                  <td className="text-text-tertiary">{formatDate(t.created_at)}</td>
                 </tr>
               ))}
             </tbody>

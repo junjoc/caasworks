@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { SearchSelect } from '@/components/ui/search-select'
 import { Textarea } from '@/components/ui/textarea'
 import { VOC_CATEGORY_LABELS, VOC_PRIORITY_LABELS } from '@/lib/utils'
 import type { Customer, User } from '@/types/database'
@@ -87,13 +88,12 @@ export default function NewVocPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="card p-6 max-w-2xl space-y-5">
-        <Select
-          id="customer_id"
+        <SearchSelect
           label="고객사 *"
           value={form.customer_id}
-          onChange={(e) => handleChange('customer_id', e.target.value)}
+          onChange={(val) => handleChange('customer_id', val)}
           options={customers.map((c) => ({ value: c.id, label: c.company_name }))}
-          placeholder="고객사 선택"
+          placeholder="고객사 검색..."
         />
 
         <Input

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select } from '@/components/ui/select'
+import { SearchSelect } from '@/components/ui/search-select'
 import { Modal } from '@/components/ui/modal'
 import { formatDate } from '@/lib/utils'
 import type { Customer, Project } from '@/types/database'
@@ -266,12 +267,12 @@ export default function SlackSettingsPage() {
               <p className="text-sm text-gray-700">{matchModal.address}</p>
             </div>
           )}
-          <Select
+          <SearchSelect
             label="고객사 선택 *"
             value={selectedCustomerId}
-            onChange={(e) => setSelectedCustomerId(e.target.value)}
+            onChange={(val) => setSelectedCustomerId(val)}
             options={customers.map((c) => ({ value: c.id, label: c.company_name }))}
-            placeholder="고객사를 선택하세요"
+            placeholder="고객사 검색..."
           />
           <div className="flex gap-3 justify-end pt-2">
             <Button variant="secondary" size="sm" onClick={() => setMatchModal(null)}>

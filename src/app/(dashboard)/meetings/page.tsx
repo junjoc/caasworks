@@ -44,27 +44,27 @@ export default function MeetingsPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>차수</th>
-                <th>업체명</th>
-                <th>미팅일</th>
-                <th>업종</th>
-                <th>유입경로</th>
-                <th>미팅결과</th>
+                <th style={{ width: '8%' }}>차수</th>
+                <th style={{ width: '22%' }}>업체명</th>
+                <th style={{ width: '12%' }}>미팅일</th>
+                <th style={{ width: '14%' }}>업종</th>
+                <th style={{ width: '14%' }}>유입경로</th>
+                <th style={{ width: '30%' }}>미팅결과</th>
               </tr>
             </thead>
             <tbody>
               {meetings.map((m) => (
                 <tr key={m.id}>
                   <td>{m.meeting_number || '-'}</td>
-                  <td>
-                    <Link href={`/meetings/${m.id}`} className="font-medium text-primary-600 hover:underline">
+                  <td className="col-company">
+                    <Link href={`/meetings/${m.id}`} className="font-medium text-primary-400 hover:text-primary-500 hover:underline">
                       {m.customer?.company_name || m.company_name || '-'}
                     </Link>
                   </td>
-                  <td>{formatDate(m.meeting_date)}</td>
-                  <td className="text-gray-500">{m.industry || '-'}</td>
-                  <td className="text-gray-500">{m.source || '-'}</td>
-                  <td className="text-gray-500 max-w-[200px] truncate">{m.meeting_result || '-'}</td>
+                  <td className="text-text-tertiary">{formatDate(m.meeting_date)}</td>
+                  <td className="text-text-secondary col-truncate">{m.industry || '-'}</td>
+                  <td className="text-text-secondary col-truncate">{m.source || '-'}</td>
+                  <td className="text-text-secondary col-truncate">{m.meeting_result || '-'}</td>
                 </tr>
               ))}
             </tbody>

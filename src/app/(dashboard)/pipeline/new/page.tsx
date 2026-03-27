@@ -35,6 +35,7 @@ export default function NewLeadPage() {
     contact_email: '',
     contact_position: '',
     industry: '',
+    interest_service: '',
     core_need: '',
     inquiry_channel: '',
     inquiry_source: '',
@@ -90,7 +91,7 @@ export default function NewLeadPage() {
     <div>
       <div className="page-header">
         <div className="flex items-center gap-3">
-          <Link href="/pipeline/list" className="text-gray-400 hover:text-gray-600">
+          <Link href="/pipeline/list" className="text-text-tertiary hover:text-gray-600">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="page-title">새 리드 등록</h1>
@@ -100,7 +101,7 @@ export default function NewLeadPage() {
       <form onSubmit={handleSubmit} className="card p-6 max-w-2xl space-y-5">
         {/* 관리 섹션 */}
         <div className="pb-4 border-b">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">관리</h3>
+          <h3 className="text-sm font-semibold text-text-secondary mb-3">관리</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Select
               id="priority"
@@ -128,7 +129,7 @@ export default function NewLeadPage() {
 
         {/* 유입 정보 */}
         <div className="pb-4 border-b">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">유입 정보</h3>
+          <h3 className="text-sm font-semibold text-text-secondary mb-3">유입 정보</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input
               id="inquiry_date"
@@ -157,7 +158,7 @@ export default function NewLeadPage() {
 
         {/* 고객 정보 */}
         <div className="pb-4 border-b">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">고객 정보</h3>
+          <h3 className="text-sm font-semibold text-text-secondary mb-3">고객 정보</h3>
           <Input
             id="company_name"
             label="회사명 *"
@@ -166,7 +167,7 @@ export default function NewLeadPage() {
             placeholder="회사명을 입력하세요"
             required
           />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
             <Select
               id="industry"
               label="사업분류"
@@ -174,6 +175,21 @@ export default function NewLeadPage() {
               onChange={(e) => handleChange('industry', e.target.value)}
               options={INDUSTRY_OPTIONS.map(i => ({ value: i, label: i }))}
               placeholder="업종 선택"
+            />
+            <Select
+              id="interest_service"
+              label="관심 서비스"
+              value={form.interest_service}
+              onChange={(e) => handleChange('interest_service', e.target.value)}
+              options={[
+                { value: 'AI CCTV', label: 'AI CCTV' },
+                { value: '동영상 기록관리', label: '동영상 기록관리' },
+                { value: '스마트 안전장비', label: '스마트 안전장비' },
+                { value: '공정관리 플랫폼', label: '공정관리 플랫폼' },
+                { value: '중대재해예방', label: '중대재해예방' },
+                { value: '통합 솔루션', label: '통합 솔루션' },
+              ]}
+              placeholder="서비스 선택"
             />
             <Input
               id="core_need"

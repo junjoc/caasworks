@@ -1,87 +1,299 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --sidebar-width: 256px;
+    --sidebar-width: 240px;
+    --header-height: 48px;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-surface-page text-text-primary antialiased font-sans;
+    font-feature-settings: 'ss01' on, 'ss02' on;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    @apply bg-primary-100 text-primary-700;
+  }
+
+  /* Custom scrollbar - thin & subtle */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border-dark/60 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-tertiary;
   }
 }
 
 @layer components {
+  /* ─── Page Layout ─── */
   .page-header {
-    @apply flex items-center justify-between mb-6;
+    @apply flex items-center justify-between mb-5;
   }
 
   .page-title {
-    @apply text-2xl font-bold text-gray-900;
+    @apply text-heading-lg text-text-primary tracking-tight;
   }
 
+  .page-subtitle {
+    @apply text-body-sm text-text-secondary mt-0.5;
+  }
+
+  /* ─── Card System ─── */
   .card {
-    @apply bg-white rounded-lg border border-gray-200 shadow-sm;
+    @apply bg-surface rounded-lg border border-border-light shadow-card;
   }
 
   .card-header {
-    @apply px-6 py-4 border-b border-gray-200;
+    @apply px-5 py-3.5 border-b border-border-light flex items-center justify-between;
+  }
+
+  .card-header-title {
+    @apply text-heading-md text-text-primary;
   }
 
   .card-body {
-    @apply px-6 py-4;
+    @apply px-5 py-4;
   }
 
+  /* ─── Stat Cards ─── */
   .stat-card {
-    @apply card p-6;
+    @apply card p-5 flex flex-col gap-1.5;
   }
 
   .stat-value {
-    @apply text-2xl font-bold text-gray-900;
+    @apply text-2xl font-bold text-text-primary tracking-tight;
   }
 
   .stat-label {
-    @apply text-sm text-gray-500 mt-1;
+    @apply text-caption text-text-tertiary;
   }
 
   .stat-change {
-    @apply text-sm font-medium mt-2;
+    @apply text-micro mt-0.5 inline-flex items-center gap-1;
   }
 
   .stat-change-up {
-    @apply stat-change text-green-600;
+    @apply stat-change text-status-green;
   }
 
   .stat-change-down {
-    @apply stat-change text-red-600;
+    @apply stat-change text-status-red;
   }
 
+  /* ─── Badge System ─── */
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-2 py-0.5 rounded text-micro leading-5;
   }
 
+  .badge-green { @apply bg-status-green-bg text-status-green; }
+  .badge-yellow { @apply bg-status-yellow-bg text-status-yellow; }
+  .badge-red { @apply bg-status-red-bg text-status-red; }
+  .badge-blue { @apply bg-status-blue-bg text-status-blue; }
+  .badge-purple { @apply bg-status-purple-bg text-status-purple; }
+  .badge-gray { @apply bg-status-gray-bg text-text-secondary; }
+
+  /* ─── Table System ─── */
   .table-container {
-    @apply card overflow-hidden;
+    @apply card overflow-hidden overflow-x-auto;
   }
 
   .data-table {
-    @apply w-full text-sm;
+    @apply w-full text-body-sm;
+    table-layout: fixed;
   }
 
   .data-table thead {
-    @apply bg-gray-50 border-b border-gray-200;
+    @apply bg-surface-tertiary border-b border-border;
   }
 
   .data-table th {
-    @apply px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+    @apply px-3 py-2.5 text-left text-caption text-text-tertiary uppercase tracking-wider whitespace-nowrap;
   }
 
   .data-table td {
-    @apply px-4 py-3 text-gray-700;
+    @apply px-3 py-2.5 text-text-primary;
   }
 
   .data-table tbody tr {
-    @apply border-b border-gray-100 hover:bg-gray-50 transition-colors;
+    @apply border-b border-border-light transition-colors duration-75;
+  }
+
+  .data-table tbody tr:hover {
+    @apply bg-primary-50/30;
+  }
+
+  .data-table tbody tr:last-child {
+    @apply border-b-0;
+  }
+
+  /* Column width utilities for tables */
+  .col-company { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-amount { text-align: right; }
+  .col-status { text-align: center; }
+  .col-action { text-align: center; }
+  .col-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ─── Form Inputs ─── */
+  .input-base {
+    @apply w-full px-3 py-2 rounded-md border border-border bg-surface text-body-sm text-text-primary
+           placeholder:text-text-placeholder
+           focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-400
+           transition-all duration-100;
+  }
+
+  .input-label {
+    @apply block text-caption font-semibold text-text-secondary mb-1;
+  }
+
+  .input-error {
+    @apply border-status-red focus:ring-status-red/20 focus:border-status-red;
+  }
+
+  /* ─── Buttons ─── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md font-semibold text-body-sm
+           transition-all duration-100 cursor-pointer whitespace-nowrap
+           focus:outline-none focus:ring-2 focus:ring-offset-1
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-400 text-white hover:bg-primary-500 active:bg-primary-600
+           focus:ring-primary-200 shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface text-text-primary border border-border hover:bg-surface-tertiary
+           active:bg-border-light focus:ring-primary-200;
+  }
+
+  .btn-danger {
+    @apply btn text-status-red border border-status-red/30 hover:bg-status-red-bg
+           active:bg-status-red/10 focus:ring-red-200;
+  }
+
+  .btn-ghost {
+    @apply btn text-text-secondary hover:bg-surface-tertiary hover:text-text-primary
+           active:bg-border-light focus:ring-primary-200;
+  }
+
+  .btn-sm { @apply px-2.5 py-1.5 text-caption; }
+  .btn-md { @apply px-4 py-2; }
+  .btn-lg { @apply px-5 py-2.5; }
+
+  /* ─── Kanban Board ─── */
+  .kanban-column {
+    @apply rounded-lg min-w-[240px] max-w-[280px] flex flex-col;
+  }
+
+  .kanban-column-header {
+    @apply px-3 py-2.5 font-semibold text-body-sm flex items-center justify-between;
+  }
+
+  .kanban-card {
+    @apply bg-surface rounded-lg border border-border-light shadow-sm p-3 mx-2 mb-2
+           hover:shadow-card transition-all duration-100 cursor-pointer;
+  }
+
+  /* ─── Status Pills ─── */
+  .status-pill {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-micro text-white;
+  }
+
+  .status-pill-green { @apply bg-status-green; }
+  .status-pill-yellow { @apply bg-status-yellow; }
+  .status-pill-red { @apply bg-status-red; }
+  .status-pill-blue { @apply bg-status-blue; }
+  .status-pill-purple { @apply bg-status-purple; }
+  .status-pill-gray { @apply bg-status-gray; }
+
+  /* ─── Color Dot ─── */
+  .color-dot {
+    @apply w-2 h-2 rounded-full inline-block;
+  }
+
+  /* ─── Sidebar ─── */
+  .sidebar-link {
+    @apply flex items-center gap-2.5 px-3 py-2 mx-2 rounded-md text-body-sm transition-all duration-75
+           text-sidebar-text hover:bg-sidebar-hover hover:text-text-primary;
+  }
+
+  .sidebar-link-active {
+    @apply bg-primary-50 text-primary-400 font-medium;
+  }
+
+  /* ─── Utility ─── */
+  .divider {
+    @apply border-t border-border-light my-4;
+  }
+
+  .section-title {
+    @apply text-caption font-bold text-text-tertiary uppercase tracking-widest mb-3;
+  }
+
+  .text-link {
+    @apply text-primary-400 hover:text-primary-500 font-medium cursor-pointer transition-colors;
+  }
+
+  .icon-btn {
+    @apply p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-surface-tertiary
+           transition-colors duration-75;
+  }
+
+  /* ─── Empty State ─── */
+  .empty-state {
+    @apply flex flex-col items-center justify-center py-16 text-center;
+  }
+
+  .empty-state-icon {
+    @apply w-10 h-10 text-text-placeholder mb-3;
+  }
+
+  .empty-state-title {
+    @apply text-heading-md text-text-secondary mb-1;
+  }
+
+  .empty-state-desc {
+    @apply text-body-sm text-text-tertiary;
+  }
+
+  /* ─── Tabs ─── */
+  .tab-nav {
+    @apply flex gap-1 border-b border-border-light;
+  }
+
+  .tab-item {
+    @apply flex items-center gap-1.5 px-3 py-2 text-body-sm font-medium border-b-2 transition-colors
+           text-text-tertiary border-transparent hover:text-text-primary;
+  }
+
+  .tab-item-active {
+    @apply text-primary-400 border-primary-400;
+  }
+
+  /* ─── Info Grid (key-value display) ─── */
+  .info-grid {
+    @apply grid grid-cols-2 gap-x-8 gap-y-3;
+  }
+
+  .info-label {
+    @apply text-caption text-text-tertiary;
+  }
+
+  .info-value {
+    @apply text-body-sm text-text-primary;
   }
 }

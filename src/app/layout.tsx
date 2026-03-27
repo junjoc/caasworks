@@ -3,8 +3,9 @@ import { Toaster } from 'sonner'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'CaaS.Works 영업관리',
-  description: 'CaaS.Works 영업관리 플랫폼',
+  title: 'CaasWorks CRM',
+  description: 'CaasWorks CRM - 영업관리 플랫폼',
+  icons: { icon: '/logo.png' },
 }
 
 export default function RootLayout({

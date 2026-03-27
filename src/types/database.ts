@@ -1,6 +1,6 @@
 export type UserRole = 'admin' | 'member' | 'accountant'
 
-export type LeadStage = '신규리드' | '컨택' | '미팅' | '제안' | '계약' | '도입완료'
+export type LeadStage = '신규리드' | '컨텍' | '제안' | '미팅' | '도입직전' | '도입완료' | '이탈'
 
 export type CustomerStatus = 'active' | 'suspended' | 'churned'
 
@@ -60,6 +60,7 @@ export interface PipelineLead {
   contact_email: string | null
   stage: LeadStage
   core_need: string | null
+  interest_service: string | null
   inquiry_source: string | null
   inquiry_content: string | null
   assigned_to: string | null
@@ -413,4 +414,43 @@ export interface UserSchedule {
   created_at: string
   // joined
   user?: User
+}
+
+export type TemplateLayoutType = 'A' | 'B' | 'custom'
+
+export interface TemplateColumn {
+  key: string
+  label: string
+  visible: boolean
+  order: number
+}
+
+export interface QuotationTemplate {
+  id: string
+  name: string
+  description: string | null
+  is_default: boolean
+  title_format: string | null
+  company_name: string | null
+  biz_number: string | null
+  ceo_name: string | null
+  company_address: string | null
+  company_phone: string | null
+  bank_info: string | null
+  logo_left_url: string | null
+  logo_right_url: string | null
+  stamp_url: string | null
+  columns: TemplateColumn[] | null
+  layout_type: TemplateLayoutType
+  max_rows: number | null
+  show_vat_row: boolean
+  show_deposit_row: boolean
+  show_discount_row: boolean
+  default_notes: string | null
+  default_terms: string | null
+  footer_left: string | null
+  footer_right: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
 }

@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { SearchSelect } from '@/components/ui/search-select'
 import { Textarea } from '@/components/ui/textarea'
 import type { Customer } from '@/types/database'
 import { toast } from 'sonner'
@@ -70,7 +71,7 @@ export default function NewMeetingPage() {
     <div>
       <div className="page-header">
         <div className="flex items-center gap-3">
-          <Link href="/meetings" className="text-gray-400 hover:text-gray-600">
+          <Link href="/meetings" className="text-text-tertiary hover:text-gray-600">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="page-title">새 미팅 등록</h1>
@@ -79,13 +80,12 @@ export default function NewMeetingPage() {
 
       <form onSubmit={handleSubmit} className="card p-6 max-w-2xl space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Select
-            id="customer_id"
+          <SearchSelect
             label="고객사"
             value={form.customer_id}
-            onChange={(e) => handleChange('customer_id', e.target.value)}
+            onChange={(val) => handleChange('customer_id', val)}
             options={customers.map((c) => ({ value: c.id, label: c.company_name }))}
-            placeholder="기존 고객 선택 (선택)"
+            placeholder="고객사 검색..."
           />
           <Input
             id="meeting_date"

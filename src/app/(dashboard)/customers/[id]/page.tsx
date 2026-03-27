@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -13,10 +14,38 @@ import { Modal } from '@/components/ui/modal'
 import { PageLoading } from '@/components/ui/loading'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import type { Customer, Project, MonthlyRevenue, User } from '@/types/database'
-import { ArrowLeft, Building2, CreditCard, FolderOpen, Receipt, Pencil, Trash2, Plus } from 'lucide-react'
+import { ArrowLeft, Building2, CreditCard, FolderOpen, Receipt, Pencil, Trash2, Plus, FileText, Upload, Download, Eye, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-type Tab = 'info' | 'billing' | 'projects' | 'payments'
+type Tab = 'info' | 'billing' | 'projects' | 'payments' | 'documents'
+
+interface CustomerDocument {
+  id: string
+  customer_id: string
+  doc_type: 'business_registration' | 'bank_account' | 'contract' | 'other'
+  title: string
+  file_url: string | null
+  file_name: string | null
+  version: number
+  metadata: Record<string, any>
+  notes: string | null
+  uploaded_by: string | null
+  created_at: string
+}
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  business_registration: '사업자등록증',
+  bank_account: '통장사본',
+  contract: '계약서',
+  other: '기타',
+}
+
+const DOC_TYPE_ICONS: Record<string, string> = {
+  business_registration: '🏢',
+  bank_account: '🏦',
+  contract: '📝',
+  other: '📎',
+}
 
 const STATUS_LABELS: Record<string, string> = {
   active: '활성',
@@ -24,9 +53,9 @@ const STATUS_LABELS: Record<string, string> = {
   churned: '이탈',
 }
 const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-green-100 text-green-700',
-  suspended: 'bg-yellow-100 text-yellow-700',
-  churned: 'bg-red-100 text-red-700',
+  active: 'bg-status-green-bg text-status-green',
+  suspended: 'bg-status-yellow-bg text-status-yellow',
+  churned: 'bg-status-red-bg text-status-red',
 }
 
 const STATUS_OPTIONS = [
@@ -63,8 +92,9 @@ const SOLUTION_OPTIONS = [
   '중대재해예방',
 ]
 
-export default function CustomerDetailPage() {
-  const { id } = useParams<{ id: string }>()
+function CustomerDetailContent() {
+  const params = useParams<{ id: string }>()
+  const id = params?.id
   const router = useRouter()
   const supabase = createClient()
 
@@ -73,6 +103,7 @@ export default function CustomerDetailPage() {
   const [revenues, setRevenues] = useState<MonthlyRevenue[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('info')
 
   // Edit states
@@ -136,31 +167,119 @@ export default function CustomerDetailPage() {
     project_end: '',
   })
 
+  // Document states
+  const [documents, setDocuments] = useState<CustomerDocument[]>([])
+  const [docUploading, setDocUploading] = useState(false)
+  const [docUploadType, setDocUploadType] = useState<string>('business_registration')
+  const [docUploadTitle, setDocUploadTitle] = useState('')
+  const [docUploadNotes, setDocUploadNotes] = useState('')
+  const [docModalOpen, setDocModalOpen] = useState(false)
+  const [savingDocMeta, setSavingDocMeta] = useState(false)
+
+  // Business registration metadata
+  const [bizMetaForm, setBizMetaForm] = useState({
+    biz_number: '',
+    company_name: '',
+    representative: '',
+    address: '',
+    biz_type: '',
+    biz_category: '',
+  })
+  const [editingBizMeta, setEditingBizMeta] = useState(false)
+
+  // Bank account metadata
+  const [bankMetaForm, setBankMetaForm] = useState({
+    bank_name: '',
+    account_number: '',
+    account_holder: '',
+  })
+  const [editingBankMeta, setEditingBankMeta] = useState(false)
+
   useEffect(() => {
+    if (!id) return
     fetchAll()
+    fetchDocuments()
     supabase.from('users').select('*').eq('is_active', true).then(({ data }) => {
       setUsers(data || [])
     })
   }, [id])
 
+  async function fetchDocuments() {
+    if (!id) return
+    try {
+      const { data, error } = await supabase
+        .from('customer_documents')
+        .select('*')
+        .eq('customer_id', id)
+        .order('doc_type')
+        .order('version', { ascending: false })
+      if (!error && data) {
+        setDocuments(data as CustomerDocument[])
+        // Load metadata from latest business_registration doc
+        const bizDoc = data.find((d: any) => d.doc_type === 'business_registration')
+        if (bizDoc?.metadata) {
+          const m = bizDoc.metadata as any
+          setBizMetaForm({
+            biz_number: m.biz_number || '',
+            company_name: m.company_name || '',
+            representative: m.representative || '',
+            address: m.address || '',
+            biz_type: m.biz_type || '',
+            biz_category: m.biz_category || '',
+          })
+        }
+        // Load metadata from latest bank_account doc
+        const bankDoc = data.find((d: any) => d.doc_type === 'bank_account')
+        if (bankDoc?.metadata) {
+          const m = bankDoc.metadata as any
+          setBankMetaForm({
+            bank_name: m.bank_name || '',
+            account_number: m.account_number || '',
+            account_holder: m.account_holder || '',
+          })
+        }
+      }
+    } catch (err) {
+      console.error('fetchDocuments error:', err)
+    }
+  }
+
   async function fetchAll() {
-    const [custRes, projRes, revRes] = await Promise.all([
-      supabase
-        .from('customers')
-        .select('*, assigned_user:users!customers_assigned_to_fkey(id, name)')
-        .eq('id', id)
-        .single(),
-      supabase.from('projects').select('*').eq('customer_id', id).order('created_at', { ascending: false }),
-      supabase.from('monthly_revenues').select('*').eq('customer_id', id).order('year', { ascending: false }).order('month', { ascending: false }),
-    ])
+    if (!id) {
+      setError('고객 ID가 올바르지 않습니다.')
+      setLoading(false)
+      return
+    }
+    try {
+      setError(null)
+      const [custRes, projRes, revRes] = await Promise.all([
+        supabase
+          .from('customers')
+          .select('*')
+          .eq('id', id)
+          .single(),
+        supabase.from('projects').select('*').eq('customer_id', id).order('created_at', { ascending: false }),
+        supabase.from('monthly_revenues').select('*').eq('customer_id', id).order('year', { ascending: false }).order('month', { ascending: false }),
+      ])
 
-    const cust = custRes.data
-    setCustomer(cust)
-    setProjects(projRes.data || [])
-    setRevenues(revRes.data || [])
-    setLoading(false)
+      if (custRes.error) {
+        console.error('Customer fetch error:', custRes.error)
+        setError('고객 정보를 불러올 수 없습니다.')
+        setLoading(false)
+        return
+      }
 
-    if (cust) {
+      const cust = custRes.data
+      if (!cust) {
+        setError('고객을 찾을 수 없습니다.')
+        setLoading(false)
+        return
+      }
+      setCustomer(cust)
+      setProjects(projRes.data || [])
+      setRevenues(revRes.data || [])
+      setLoading(false)
+
       setInfoForm({
         company_name: cust.company_name || '',
         company_type: cust.company_type || '',
@@ -185,6 +304,10 @@ export default function CustomerDetailPage() {
         tax_invoice_email: cust.tax_invoice_email || '',
         deposit_amount: cust.deposit_amount ? String(cust.deposit_amount) : '',
       })
+    } catch (err) {
+      console.error('fetchAll error:', err)
+      setError('데이터를 불러오는 중 오류가 발생했습니다.')
+      setLoading(false)
     }
   }
 
@@ -298,7 +421,7 @@ export default function CustomerDetailPage() {
       notes: p.notes || '',
       address: p.address || '',
       created_by: p.created_by || '',
-      solutions: p.solutions ? p.solutions.split(',').map(s => s.trim()) : [],
+      solutions: (p.solutions && typeof p.solutions === 'string') ? p.solutions.split(',').map(s => s.trim()).filter(Boolean) : [],
       project_start: p.project_start || '',
       project_end: p.project_end || '',
     })
@@ -347,6 +470,107 @@ export default function CustomerDetailPage() {
     setSavingProject(false)
   }
 
+  // --- Document upload ---
+  async function handleDocUpload(file: File, docType: string, title: string, notes?: string) {
+    if (!id) return
+    setDocUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', `customers/${id}/${docType}`)
+
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const result = await res.json()
+
+      if (!res.ok) {
+        toast.error('파일 업로드에 실패했습니다: ' + (result.error || ''))
+        setDocUploading(false)
+        return
+      }
+
+      // Get current max version for this doc type
+      const existingDocs = documents.filter(d => d.doc_type === docType)
+      const maxVersion = existingDocs.length > 0 ? Math.max(...existingDocs.map(d => d.version)) : 0
+
+      const { error } = await supabase.from('customer_documents').insert({
+        customer_id: id,
+        doc_type: docType,
+        title: title || DOC_TYPE_LABELS[docType] || file.name,
+        file_url: result.url,
+        file_name: file.name,
+        version: maxVersion + 1,
+        metadata: docType === 'business_registration' ? bizMetaForm : docType === 'bank_account' ? bankMetaForm : {},
+        notes: notes || null,
+      })
+
+      if (error) {
+        toast.error('문서 저장에 실패했습니다.')
+      } else {
+        toast.success('문서가 업로드되었습니다.')
+        fetchDocuments()
+      }
+    } catch (err: any) {
+      toast.error('업로드 중 오류가 발생했습니다.')
+      console.error(err)
+    }
+    setDocUploading(false)
+    setDocModalOpen(false)
+  }
+
+  async function handleSaveBizMeta() {
+    const bizDoc = documents.find(d => d.doc_type === 'business_registration')
+    setSavingDocMeta(true)
+    if (bizDoc) {
+      const { error } = await supabase.from('customer_documents').update({
+        metadata: bizMetaForm,
+      }).eq('id', bizDoc.id)
+      if (error) toast.error('저장에 실패했습니다.')
+      else { toast.success('사업자 정보가 저장되었습니다.'); setEditingBizMeta(false); fetchDocuments() }
+    } else {
+      // Create a metadata-only document entry
+      const { error } = await supabase.from('customer_documents').insert({
+        customer_id: id,
+        doc_type: 'business_registration',
+        title: '사업자등록증 정보',
+        metadata: bizMetaForm,
+        version: 1,
+      })
+      if (error) toast.error('저장에 실패했습니다.')
+      else { toast.success('사업자 정보가 저장되었습니다.'); setEditingBizMeta(false); fetchDocuments() }
+    }
+    setSavingDocMeta(false)
+  }
+
+  async function handleSaveBankMeta() {
+    const bankDoc = documents.find(d => d.doc_type === 'bank_account')
+    setSavingDocMeta(true)
+    if (bankDoc) {
+      const { error } = await supabase.from('customer_documents').update({
+        metadata: bankMetaForm,
+      }).eq('id', bankDoc.id)
+      if (error) toast.error('저장에 실패했습니다.')
+      else { toast.success('계좌 정보가 저장되었습니다.'); setEditingBankMeta(false); fetchDocuments() }
+    } else {
+      const { error } = await supabase.from('customer_documents').insert({
+        customer_id: id,
+        doc_type: 'bank_account',
+        title: '통장사본 정보',
+        metadata: bankMetaForm,
+        version: 1,
+      })
+      if (error) toast.error('저장에 실패했습니다.')
+      else { toast.success('계좌 정보가 저장되었습니다.'); setEditingBankMeta(false); fetchDocuments() }
+    }
+    setSavingDocMeta(false)
+  }
+
+  async function handleDeleteDoc(doc: CustomerDocument) {
+    if (!confirm(`"${doc.title}" 문서를 삭제하시겠습니까?`)) return
+    const { error } = await supabase.from('customer_documents').delete().eq('id', doc.id)
+    if (error) toast.error('삭제에 실패했습니다.')
+    else { toast.success('문서가 삭제되었습니다.'); fetchDocuments() }
+  }
+
   async function handleDeleteProject() {
     if (!deleteProjectModal) return
     setDeletingProject(true)
@@ -361,21 +585,8 @@ export default function CustomerDetailPage() {
     setDeleteProjectModal(null)
   }
 
-  if (loading) return <PageLoading />
-  if (!customer) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">고객을 찾을 수 없습니다.</p>
-        <Link href="/customers">
-          <Button variant="secondary" className="mt-4">목록으로</Button>
-        </Link>
-      </div>
-    )
-  }
-
+  // useMemo must be called before any early returns (React hooks rule)
   const totalRevenue = revenues.reduce((sum, r) => sum + Number(r.amount), 0)
-
-  // 그룹핑 결과
   const projectGroups = useMemo(() => {
     return projects.reduce<Record<string, Project[]>>((acc, p) => {
       const name = p.project_name || '(미지정)'
@@ -388,31 +599,48 @@ export default function CustomerDetailPage() {
   }, [projects])
   const projectGroupCount = Object.keys(projectGroups).length
 
+  if (loading) return <PageLoading />
+  if (error || !customer) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-text-secondary">{error || '고객을 찾을 수 없습니다.'}</p>
+        <Link href="/customers">
+          <Button variant="secondary" className="mt-4">목록으로</Button>
+        </Link>
+      </div>
+    )
+  }
+
+  const docsByType = documents.reduce<Record<string, CustomerDocument[]>>((acc, d) => {
+    if (!acc[d.doc_type]) acc[d.doc_type] = []
+    acc[d.doc_type].push(d)
+    return acc
+  }, {})
+
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'info', label: '기본정보', icon: <Building2 className="w-4 h-4" /> },
     { key: 'billing', label: '과금/계약', icon: <CreditCard className="w-4 h-4" /> },
     { key: 'projects', label: `프로젝트 (${projectGroupCount})`, icon: <FolderOpen className="w-4 h-4" /> },
     { key: 'payments', label: '매출이력', icon: <Receipt className="w-4 h-4" /> },
+    { key: 'documents', label: `문서 (${documents.filter(d => d.file_url).length})`, icon: <FileText className="w-4 h-4" /> },
   ]
 
   return (
     <div>
       <div className="page-header">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/customers" className="text-gray-400 hover:text-gray-600">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <h1 className="page-title">{customer.company_name}</h1>
-            <Badge className={STATUS_COLORS[customer.status]}>
-              {STATUS_LABELS[customer.status]}
-            </Badge>
-          </div>
-          <Button variant="danger" size="sm" onClick={() => setDeleteModal(true)}>
-            <Trash2 className="w-4 h-4 mr-1" />
-            삭제
-          </Button>
+        <div className="flex items-center gap-3">
+          <Link href="/customers" className="text-text-tertiary hover:text-text-primary">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <h1 className="page-title">{customer.company_name}</h1>
+          <Badge className={STATUS_COLORS[customer.status] || 'badge-gray'}>
+            {STATUS_LABELS[customer.status] || customer.status || '미지정'}
+          </Badge>
         </div>
+        <Button variant="danger" size="sm" onClick={() => setDeleteModal(true)}>
+          <Trash2 className="w-4 h-4 mr-1" />
+          삭제
+        </Button>
       </div>
 
       {/* 요약 카드 */}
@@ -427,35 +655,29 @@ export default function CustomerDetailPage() {
         </div>
         <div className="stat-card">
           <div className="stat-label">영업 담당</div>
-          <div className="stat-value text-lg">{customer.assigned_user?.name || '-'}</div>
+          <div className="stat-value text-lg">{users.find(u => u.id === customer.assigned_to)?.name || '-'}</div>
         </div>
       </div>
 
       {/* 탭 */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="flex gap-6">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
-                tab === t.key
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {t.icon}
-              {t.label}
-            </button>
-          ))}
-        </nav>
+      <div className="tab-nav mb-6">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`tab-item ${tab === t.key ? 'tab-item-active' : ''}`}
+          >
+            {t.icon}
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* 기본정보 탭 */}
       {tab === 'info' && (
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-700">기본정보</h3>
+            <h3 className="text-sm font-semibold text-text-secondary">기본정보</h3>
             {!editingInfo ? (
               <Button variant="secondary" size="sm" onClick={() => setEditingInfo(true)}>
                 <Pencil className="w-4 h-4 mr-1" />
@@ -480,17 +702,17 @@ export default function CustomerDetailPage() {
                 ['고객사 ID', customer.customer_code],
                 ['사업자등록번호', customer.business_reg_no],
                 ['상태', STATUS_LABELS[customer.status]],
-                ['영업 담당자', customer.assigned_user?.name],
+                ['영업 담당자', users.find(u => u.id === customer.assigned_to)?.name],
               ].map(([label, value]) => (
                 <div key={label as string}>
-                  <dt className="text-sm text-gray-500">{label}</dt>
-                  <dd className="text-sm font-medium text-gray-900 mt-0.5">{(value as string) || '-'}</dd>
+                  <dt className="text-sm text-text-secondary">{label}</dt>
+                  <dd className="text-sm font-medium text-text-primary mt-0.5">{(value as string) || '-'}</dd>
                 </div>
               ))}
               {customer.notes && (
                 <div className="sm:col-span-2">
-                  <dt className="text-sm text-gray-500">특이사항</dt>
-                  <dd className="text-sm text-gray-900 mt-0.5 whitespace-pre-wrap">{customer.notes}</dd>
+                  <dt className="text-sm text-text-secondary">특이사항</dt>
+                  <dd className="text-sm text-text-primary mt-0.5 whitespace-pre-wrap">{customer.notes}</dd>
                 </div>
               )}
             </dl>
@@ -563,7 +785,7 @@ export default function CustomerDetailPage() {
       {tab === 'billing' && (
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-700">과금/계약 정보</h3>
+            <h3 className="text-sm font-semibold text-text-secondary">과금/계약 정보</h3>
             {!editingBilling ? (
               <Button variant="secondary" size="sm" onClick={() => setEditingBilling(true)}>
                 <Pencil className="w-4 h-4 mr-1" />
@@ -592,8 +814,8 @@ export default function CustomerDetailPage() {
                 ['보증금', customer.deposit_amount ? formatCurrency(Number(customer.deposit_amount)) : null],
               ].map(([label, value]) => (
                 <div key={label as string}>
-                  <dt className="text-sm text-gray-500">{label}</dt>
-                  <dd className="text-sm font-medium text-gray-900 mt-0.5">{(value as string) || '-'}</dd>
+                  <dt className="text-sm text-text-secondary">{label}</dt>
+                  <dd className="text-sm font-medium text-text-primary mt-0.5">{(value as string) || '-'}</dd>
                 </div>
               ))}
             </dl>
@@ -675,7 +897,7 @@ export default function CustomerDetailPage() {
             const grouped = projectGroups
             const groupKeys = Object.keys(grouped)
             if (groupKeys.length === 0) {
-              return <div className="text-center text-gray-400 py-12">등록된 프로젝트가 없습니다.</div>
+              return <div className="text-center text-text-tertiary py-12">등록된 프로젝트가 없습니다.</div>
             }
             return (
               <div className="space-y-3">
@@ -696,53 +918,53 @@ export default function CustomerDetailPage() {
                   const hasActive = items.some(p => p.status === 'active')
 
                   return (
-                    <div key={projectName} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div key={projectName} className="border border-border rounded-lg overflow-hidden">
                       {/* 프로젝트 헤더 (클릭으로 확장/축소) */}
                       <div
-                        className="flex items-center gap-3 px-4 py-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="flex items-center gap-3 px-4 py-3 bg-surface-tertiary cursor-pointer hover:bg-surface-secondary transition-colors"
                         onClick={() => setExpandedProjects(prev =>
                           prev.includes(projectName) ? prev.filter(n => n !== projectName) : [...prev, projectName]
                         )}
                       >
-                        <span className={`text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+                        <span className={`text-text-tertiary transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900">{projectName}</span>
-                            <Badge className={hasActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                            <span className="font-semibold text-text-primary">{projectName}</span>
+                            <Badge className={hasActive ? 'bg-status-green-bg text-status-green' : 'bg-status-gray-bg text-text-secondary'}>
                               {hasActive ? '진행중' : '종료'}
                             </Badge>
-                            <span className="text-xs text-gray-400">서비스 {allSolutions.length}개</span>
+                            <span className="text-xs text-text-tertiary">서비스 {allSolutions.length}개</span>
                           </div>
                           {firstItem.address && (
-                            <div className="text-xs text-gray-500 mt-0.5">{firstItem.address}</div>
+                            <div className="text-xs text-text-secondary mt-0.5">{firstItem.address}</div>
                           )}
                         </div>
                         <div className="flex flex-wrap gap-1 max-w-[300px]">
                           {allSolutions.slice(0, 4).map(s => (
-                            <span key={s} className="px-1.5 py-0.5 text-xs bg-blue-50 text-blue-700 rounded">{s}</span>
+                            <span key={s} className="px-1.5 py-0.5 text-xs bg-status-blue-bg text-status-blue rounded">{s}</span>
                           ))}
                           {allSolutions.length > 4 && (
-                            <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">+{allSolutions.length - 4}</span>
+                            <span className="px-1.5 py-0.5 text-xs bg-status-gray-bg text-text-secondary rounded">+{allSolutions.length - 4}</span>
                           )}
                         </div>
                         <div className="text-right min-w-[100px]">
                           <div className="font-semibold text-sm">{formatCurrency(totalAmount)}</div>
-                          <div className="text-xs text-gray-400">월 합계</div>
+                          <div className="text-xs text-text-tertiary">월 합계</div>
                         </div>
                       </div>
 
                       {/* 확장 영역: 서비스 목록 */}
                       {isOpen && (
-                        <div className="border-t border-gray-200">
+                        <div className="border-t border-border">
                           <table className="w-full text-sm">
                             <thead>
-                              <tr className="bg-white border-b border-gray-100">
-                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">서비스(솔루션)</th>
-                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">현장구분</th>
-                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">기간</th>
-                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">월 과금액</th>
-                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">상태</th>
-                                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium w-20">관리</th>
+                              <tr className="bg-white border-b border-border-light">
+                                <th className="text-left px-4 py-2 text-xs text-text-secondary font-medium">서비스(솔루션)</th>
+                                <th className="text-left px-4 py-2 text-xs text-text-secondary font-medium">현장구분</th>
+                                <th className="text-left px-4 py-2 text-xs text-text-secondary font-medium">기간</th>
+                                <th className="text-left px-4 py-2 text-xs text-text-secondary font-medium">월 과금액</th>
+                                <th className="text-left px-4 py-2 text-xs text-text-secondary font-medium">상태</th>
+                                <th className="text-left px-4 py-2 text-xs text-text-secondary font-medium w-20">관리</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -750,30 +972,30 @@ export default function CustomerDetailPage() {
                                 const fromName = (() => { const n = p.project_name || ''; const i = n.lastIndexOf(' - '); return i > 0 ? n.substring(i + 3) : null })()
                                 const services = p.solutions ? p.solutions.split(',').map(s => s.trim()) : fromName ? [fromName] : p.service_type ? [p.service_type] : ['(미지정)']
                                 return (
-                                  <tr key={p.id} className="border-b border-gray-50 hover:bg-blue-50/30">
+                                  <tr key={p.id} className="border-b border-border-light hover:bg-primary-50/30">
                                     <td className="px-4 py-2.5">
                                       <div className="flex flex-wrap gap-1">
                                         {services.map(s => (
-                                          <span key={s} className="px-2 py-0.5 text-xs bg-blue-50 text-blue-700 rounded font-medium">{s}</span>
+                                          <span key={s} className="px-2 py-0.5 text-xs bg-status-blue-bg text-status-blue rounded font-medium">{s}</span>
                                         ))}
                                       </div>
                                     </td>
-                                    <td className="px-4 py-2.5 text-gray-500">{p.site_category || '-'}</td>
-                                    <td className="px-4 py-2.5 text-gray-500 text-xs">
+                                    <td className="px-4 py-2.5 text-text-secondary">{p.site_category || '-'}</td>
+                                    <td className="px-4 py-2.5 text-text-secondary text-xs">
                                       {p.billing_start ? formatDate(p.billing_start) : ''}{p.billing_start && p.billing_end ? ' ~ ' : ''}{p.billing_end ? formatDate(p.billing_end) : p.billing_start ? ' ~' : '-'}
                                     </td>
                                     <td className="px-4 py-2.5 font-medium">{p.monthly_amount ? formatCurrency(Number(p.monthly_amount)) : '-'}</td>
                                     <td className="px-4 py-2.5">
-                                      <Badge className={p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                                      <Badge className={p.status === 'active' ? 'bg-status-green-bg text-status-green' : 'bg-status-gray-bg text-text-secondary'}>
                                         {p.status === 'active' ? '진행중' : p.status === 'completed' ? '완료' : p.status}
                                       </Badge>
                                     </td>
                                     <td className="px-4 py-2.5">
                                       <div className="flex gap-1">
-                                        <button onClick={() => openEditProject(p)} className="p-1 text-gray-400 hover:text-primary-600 rounded" title="수정">
+                                        <button onClick={() => openEditProject(p)} className="p-1 text-text-tertiary hover:text-primary-500 rounded" title="수정">
                                           <Pencil className="w-3.5 h-3.5" />
                                         </button>
-                                        <button onClick={() => setDeleteProjectModal(p)} className="p-1 text-gray-400 hover:text-red-600 rounded" title="삭제">
+                                        <button onClick={() => setDeleteProjectModal(p)} className="p-1 text-text-tertiary hover:text-status-red rounded" title="삭제">
                                           <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                       </div>
@@ -813,7 +1035,7 @@ export default function CustomerDetailPage() {
                   <td>{r.month}월</td>
                   <td className="font-medium">{formatCurrency(Number(r.amount))}</td>
                   <td>
-                    <Badge className={r.is_confirmed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>
+                    <Badge className={r.is_confirmed ? 'bg-status-green-bg text-status-green' : 'bg-status-yellow-bg text-status-yellow'}>
                       {r.is_confirmed ? '확인' : '미확인'}
                     </Badge>
                   </td>
@@ -821,7 +1043,7 @@ export default function CustomerDetailPage() {
               ))}
               {revenues.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="text-center text-gray-400 py-8">
+                  <td colSpan={4} className="text-center text-text-tertiary py-8">
                     매출 이력이 없습니다.
                   </td>
                 </tr>
@@ -831,12 +1053,288 @@ export default function CustomerDetailPage() {
         </div>
       )}
 
+      {/* 문서 탭 */}
+      {tab === 'documents' && (
+        <div className="space-y-6">
+          {/* 사업자등록증 섹션 */}
+          <div className="card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
+                <span>🏢</span> 사업자등록증
+              </h3>
+              <div className="flex gap-2">
+                {!editingBizMeta ? (
+                  <Button variant="secondary" size="sm" onClick={() => setEditingBizMeta(true)}>
+                    <Pencil className="w-3.5 h-3.5 mr-1" /> 정보 수정
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button size="sm" loading={savingDocMeta} onClick={handleSaveBizMeta}>저장</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setEditingBizMeta(false)}>취소</Button>
+                  </div>
+                )}
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary-50 text-primary-600 rounded-lg cursor-pointer hover:bg-primary-100 transition-colors">
+                  <Upload className="w-3.5 h-3.5" />
+                  파일 업로드
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleDocUpload(file, 'business_registration', '사업자등록증')
+                      e.target.value = ''
+                    }}
+                    disabled={docUploading}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* 사업자 정보 필드 */}
+            {!editingBizMeta ? (
+              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                {[
+                  ['사업자번호', bizMetaForm.biz_number],
+                  ['상호', bizMetaForm.company_name],
+                  ['대표자', bizMetaForm.representative],
+                  ['주소', bizMetaForm.address],
+                  ['업태', bizMetaForm.biz_type],
+                  ['종목', bizMetaForm.biz_category],
+                ].map(([label, value]) => (
+                  <div key={label as string}>
+                    <dt className="text-xs text-text-tertiary">{label}</dt>
+                    <dd className="text-sm font-medium text-text-primary mt-0.5">{(value as string) || '-'}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <Input label="사업자번호" value={bizMetaForm.biz_number} onChange={(e) => setBizMetaForm(f => ({ ...f, biz_number: e.target.value }))} placeholder="000-00-00000" />
+                <Input label="상호" value={bizMetaForm.company_name} onChange={(e) => setBizMetaForm(f => ({ ...f, company_name: e.target.value }))} />
+                <Input label="대표자" value={bizMetaForm.representative} onChange={(e) => setBizMetaForm(f => ({ ...f, representative: e.target.value }))} />
+                <Input label="주소" value={bizMetaForm.address} onChange={(e) => setBizMetaForm(f => ({ ...f, address: e.target.value }))} />
+                <Input label="업태" value={bizMetaForm.biz_type} onChange={(e) => setBizMetaForm(f => ({ ...f, biz_type: e.target.value }))} />
+                <Input label="종목" value={bizMetaForm.biz_category} onChange={(e) => setBizMetaForm(f => ({ ...f, biz_category: e.target.value }))} />
+              </div>
+            )}
+
+            {/* 업로드된 파일 목록 */}
+            {(docsByType['business_registration'] || []).filter(d => d.file_url).length > 0 && (
+              <div className="border-t border-border pt-3">
+                <div className="text-xs text-text-tertiary mb-2">업로드 파일 (버전 이력)</div>
+                <div className="space-y-1.5">
+                  {(docsByType['business_registration'] || []).filter(d => d.file_url).map(doc => (
+                    <div key={doc.id} className="flex items-center gap-3 px-3 py-2 bg-surface-tertiary rounded-lg text-sm">
+                      <FileText className="w-4 h-4 text-text-tertiary flex-shrink-0" />
+                      <span className="flex-1 truncate">{doc.file_name || doc.title}</span>
+                      <Badge className="bg-blue-50 text-blue-600 text-xs">v{doc.version}</Badge>
+                      <span className="text-xs text-text-tertiary">{formatDate(doc.created_at)}</span>
+                      {doc.file_url && (
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="p-1 text-text-tertiary hover:text-primary-500" title="보기/다운로드">
+                          <Download className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                      <button onClick={() => handleDeleteDoc(doc)} className="p-1 text-text-tertiary hover:text-status-red" title="삭제">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 통장사본 섹션 */}
+          <div className="card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
+                <span>🏦</span> 통장사본
+              </h3>
+              <div className="flex gap-2">
+                {!editingBankMeta ? (
+                  <Button variant="secondary" size="sm" onClick={() => setEditingBankMeta(true)}>
+                    <Pencil className="w-3.5 h-3.5 mr-1" /> 정보 수정
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button size="sm" loading={savingDocMeta} onClick={handleSaveBankMeta}>저장</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setEditingBankMeta(false)}>취소</Button>
+                  </div>
+                )}
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary-50 text-primary-600 rounded-lg cursor-pointer hover:bg-primary-100 transition-colors">
+                  <Upload className="w-3.5 h-3.5" />
+                  파일 업로드
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleDocUpload(file, 'bank_account', '통장사본')
+                      e.target.value = ''
+                    }}
+                    disabled={docUploading}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* 계좌 정보 필드 */}
+            {!editingBankMeta ? (
+              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                {[
+                  ['은행명', bankMetaForm.bank_name],
+                  ['계좌번호', bankMetaForm.account_number],
+                  ['예금주', bankMetaForm.account_holder],
+                ].map(([label, value]) => (
+                  <div key={label as string}>
+                    <dt className="text-xs text-text-tertiary">{label}</dt>
+                    <dd className="text-sm font-medium text-text-primary mt-0.5">{(value as string) || '-'}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <Input label="은행명" value={bankMetaForm.bank_name} onChange={(e) => setBankMetaForm(f => ({ ...f, bank_name: e.target.value }))} placeholder="우리은행" />
+                <Input label="계좌번호" value={bankMetaForm.account_number} onChange={(e) => setBankMetaForm(f => ({ ...f, account_number: e.target.value }))} placeholder="000-000000-00000" />
+                <Input label="예금주" value={bankMetaForm.account_holder} onChange={(e) => setBankMetaForm(f => ({ ...f, account_holder: e.target.value }))} />
+              </div>
+            )}
+
+            {/* 업로드된 파일 목록 */}
+            {(docsByType['bank_account'] || []).filter(d => d.file_url).length > 0 && (
+              <div className="border-t border-border pt-3">
+                <div className="text-xs text-text-tertiary mb-2">업로드 파일</div>
+                <div className="space-y-1.5">
+                  {(docsByType['bank_account'] || []).filter(d => d.file_url).map(doc => (
+                    <div key={doc.id} className="flex items-center gap-3 px-3 py-2 bg-surface-tertiary rounded-lg text-sm">
+                      <FileText className="w-4 h-4 text-text-tertiary flex-shrink-0" />
+                      <span className="flex-1 truncate">{doc.file_name || doc.title}</span>
+                      <span className="text-xs text-text-tertiary">{formatDate(doc.created_at)}</span>
+                      {doc.file_url && (
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="p-1 text-text-tertiary hover:text-primary-500" title="보기/다운로드">
+                          <Download className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                      <button onClick={() => handleDeleteDoc(doc)} className="p-1 text-text-tertiary hover:text-status-red" title="삭제">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 계약서 섹션 */}
+          <div className="card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
+                <span>📝</span> 계약서
+              </h3>
+              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary-50 text-primary-600 rounded-lg cursor-pointer hover:bg-primary-100 transition-colors">
+                <Upload className="w-3.5 h-3.5" />
+                파일 업로드
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleDocUpload(file, 'contract', `계약서 - ${file.name}`)
+                    e.target.value = ''
+                  }}
+                  disabled={docUploading}
+                />
+              </label>
+            </div>
+
+            {(docsByType['contract'] || []).filter(d => d.file_url).length > 0 ? (
+              <div className="space-y-1.5">
+                {(docsByType['contract'] || []).filter(d => d.file_url).map(doc => (
+                  <div key={doc.id} className="flex items-center gap-3 px-3 py-2 bg-surface-tertiary rounded-lg text-sm">
+                    <FileText className="w-4 h-4 text-text-tertiary flex-shrink-0" />
+                    <span className="flex-1 truncate">{doc.file_name || doc.title}</span>
+                    <span className="text-xs text-text-tertiary">{formatDate(doc.created_at)}</span>
+                    {doc.file_url && (
+                      <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="p-1 text-text-tertiary hover:text-primary-500" title="보기/다운로드">
+                        <Download className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    <button onClick={() => handleDeleteDoc(doc)} className="p-1 text-text-tertiary hover:text-status-red" title="삭제">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-text-tertiary text-center py-6">업로드된 계약서가 없습니다.</p>
+            )}
+          </div>
+
+          {/* 기타 문서 섹션 */}
+          <div className="card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
+                <span>📎</span> 기타 문서
+              </h3>
+              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary-50 text-primary-600 rounded-lg cursor-pointer hover:bg-primary-100 transition-colors">
+                <Upload className="w-3.5 h-3.5" />
+                파일 업로드
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleDocUpload(file, 'other', file.name)
+                    e.target.value = ''
+                  }}
+                  disabled={docUploading}
+                />
+              </label>
+            </div>
+
+            {(docsByType['other'] || []).filter(d => d.file_url).length > 0 ? (
+              <div className="space-y-1.5">
+                {(docsByType['other'] || []).filter(d => d.file_url).map(doc => (
+                  <div key={doc.id} className="flex items-center gap-3 px-3 py-2 bg-surface-tertiary rounded-lg text-sm">
+                    <FileText className="w-4 h-4 text-text-tertiary flex-shrink-0" />
+                    <span className="flex-1 truncate">{doc.file_name || doc.title}</span>
+                    <span className="text-xs text-text-tertiary">{formatDate(doc.created_at)}</span>
+                    {doc.file_url && (
+                      <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="p-1 text-text-tertiary hover:text-primary-500" title="보기/다운로드">
+                        <Download className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    <button onClick={() => handleDeleteDoc(doc)} className="p-1 text-text-tertiary hover:text-status-red" title="삭제">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-text-tertiary text-center py-6">업로드된 기타 문서가 없습니다.</p>
+            )}
+          </div>
+
+          {docUploading && (
+            <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 shadow-xl flex items-center gap-3">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-primary-600 rounded-full animate-spin" />
+                <span className="text-sm">파일 업로드 중...</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 삭제 확인 모달 */}
       <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="고객 삭제">
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-text-secondary mb-4">
           <strong>{customer.company_name}</strong>을(를) 정말 삭제하시겠습니까?
           <br />
-          <span className="text-red-500">연결된 프로젝트, 매출 데이터가 있으면 삭제가 실패할 수 있습니다.</span>
+          <span className="text-status-red">연결된 프로젝트, 매출 데이터가 있으면 삭제가 실패할 수 있습니다.</span>
         </p>
         <div className="flex gap-3 justify-end">
           <Button variant="secondary" size="sm" onClick={() => setDeleteModal(false)}>취소</Button>
@@ -871,7 +1369,7 @@ export default function CustomerDetailPage() {
           />
           {/* 투입 솔루션 체크박스 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">투입 솔루션</label>
+            <label className="block text-sm font-medium text-text-secondary mb-2">투입 솔루션</label>
             <div className="flex flex-wrap gap-3">
               {SOLUTION_OPTIONS.map((sol) => (
                 <label key={sol} className="flex items-center gap-1.5 text-sm cursor-pointer">
@@ -886,7 +1384,7 @@ export default function CustomerDetailPage() {
                           : f.solutions.filter(s => s !== sol),
                       }))
                     }}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    className="rounded border-gray-300 text-primary-400 focus:ring-primary-500"
                   />
                   {sol}
                 </label>
@@ -959,7 +1457,7 @@ export default function CustomerDetailPage() {
 
       {/* 프로젝트 삭제 확인 모달 */}
       <Modal open={!!deleteProjectModal} onClose={() => setDeleteProjectModal(null)} title="프로젝트 삭제">
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-text-secondary mb-4">
           <strong>{deleteProjectModal?.project_name}</strong>을(를) 정말 삭제하시겠습니까?
         </p>
         <div className="flex gap-3 justify-end">
@@ -968,5 +1466,38 @@ export default function CustomerDetailPage() {
         </div>
       </Modal>
     </div>
+  )
+}
+
+// Error Boundary wrapper
+class CustomerErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error?: Error }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-center">
+          <p className="text-status-red font-semibold mb-2">페이지 로딩 중 오류가 발생했습니다.</p>
+          <p className="text-sm text-text-secondary mb-4">{this.state.error?.message}</p>
+          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-primary-400 text-white rounded-lg text-sm hover:bg-primary-500">
+            새로고침
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+export default function CustomerDetailPage() {
+  return (
+    <CustomerErrorBoundary>
+      <CustomerDetailContent />
+    </CustomerErrorBoundary>
   )
 }

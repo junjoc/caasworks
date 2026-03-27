@@ -30,20 +30,22 @@ export function formatNumber(num: number) {
 
 export const STAGE_LABELS: Record<string, string> = {
   '신규리드': '신규리드',
-  '컨택': '컨택',
+  '컨텍': '컨텍',
   '미팅': '미팅',
   '제안': '제안',
-  '계약': '계약',
+  '도입직전': '도입직전',
   '도입완료': '도입완료',
+  '이탈': '이탈',
 }
 
 export const STAGE_COLORS: Record<string, string> = {
   '신규리드': 'bg-gray-100 text-gray-700',
-  '컨택': 'bg-blue-100 text-blue-700',
+  '컨텍': 'bg-blue-100 text-blue-700',
   '미팅': 'bg-yellow-100 text-yellow-700',
   '제안': 'bg-purple-100 text-purple-700',
-  '계약': 'bg-green-100 text-green-700',
+  '도입직전': 'bg-green-100 text-green-700',
   '도입완료': 'bg-emerald-100 text-emerald-700',
+  '이탈': 'bg-red-100 text-red-700',
 }
 
 export const PRIORITY_COLORS: Record<string, string> = {

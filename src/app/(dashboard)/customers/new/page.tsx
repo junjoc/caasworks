@@ -120,7 +120,7 @@ export default function NewCustomerPage() {
     <div>
       <div className="page-header">
         <div className="flex items-center gap-3">
-          <Link href="/customers" className="text-gray-400 hover:text-gray-600">
+          <Link href="/customers" className="text-text-tertiary hover:text-text-secondary">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="page-title">새 고객 등록</h1>
@@ -130,7 +130,7 @@ export default function NewCustomerPage() {
       <form onSubmit={handleSubmit} className="card p-6 max-w-2xl space-y-5">
         {/* 기본 정보 */}
         <div className="pb-4 border-b">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">기본 정보</h3>
+          <h3 className="text-sm font-semibold text-text-secondary mb-3">기본 정보</h3>
           <Input
             id="company_name"
             label="회사명 *"
@@ -168,7 +168,7 @@ export default function NewCustomerPage() {
 
         {/* 담당자 정보 */}
         <div className="pb-4 border-b">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">담당자 정보</h3>
+          <h3 className="text-sm font-semibold text-text-secondary mb-3">담당자 정보</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               id="contact_person"
@@ -207,7 +207,7 @@ export default function NewCustomerPage() {
 
         {/* 과금/계약 정보 */}
         <div className="pb-4 border-b">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">과금/계약 정보</h3>
+          <h3 className="text-sm font-semibold text-text-secondary mb-3">과금/계약 정보</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select
               id="billing_type"
@@ -263,7 +263,7 @@ export default function NewCustomerPage() {
 
         {/* 청구 정보 */}
         <div className="pb-4 border-b">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">청구 정보</h3>
+          <h3 className="text-sm font-semibold text-text-secondary mb-3">청구 정보</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               id="tax_invoice_email"

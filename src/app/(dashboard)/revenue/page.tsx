@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Loading } from '@/components/ui/loading'
 import { Select } from '@/components/ui/select'
+import { SearchSelect } from '@/components/ui/search-select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
@@ -35,6 +36,13 @@ interface ProjectRevenue {
   total: number
 }
 
+interface SiteGroup {
+  site_name: string
+  services: ProjectRevenue[]
+  months: Record<number, number>
+  total: number
+}
+
 interface RevenueSummary {
   customer_name: string
   customer_id: string
@@ -42,6 +50,7 @@ interface RevenueSummary {
   months: Record<number, number>
   total: number
   projects: ProjectRevenue[]
+  siteGroups: SiteGroup[]
 }
 
 interface CustomerOption {
@@ -63,6 +72,7 @@ export default function RevenuePage() {
   const [loading, setLoading] = useState(true)
   const [year, setYear] = useState(new Date().getFullYear())
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set())
+  const [expandedSites, setExpandedSites] = useState<Set<string>>(new Set())
   const supabase = createClient()
 
   // CRUD state
@@ -71,6 +81,14 @@ export default function RevenuePage() {
   const [editingCell, setEditingCell] = useState<{ id: string; field: 'amount' | 'is_confirmed' } | null>(null)
   const [editValue, setEditValue] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  // Inline create for empty cells
+  const [creatingCell, setCreatingCell] = useState<{ customerId: string; projectId: string; month: number } | null>(null)
+  const [createValue, setCreateValue] = useState('')
+  // Add service to project
+  const [addServiceTarget, setAddServiceTarget] = useState<{ customerId: string; siteName: string } | null>(null)
+  const [newServiceName, setNewServiceName] = useState('')
+  const [newServiceAmount, setNewServiceAmount] = useState('')
+  const [savingService, setSavingService] = useState(false)
 
   // Customers & projects for dropdowns
   const [customers, setCustomers] = useState<CustomerOption[]>([])
@@ -105,6 +123,7 @@ export default function RevenuePage() {
             months: {},
             total: 0,
             projects: [],
+            siteGroups: [],
           })
         }
         const cust = customerMap.get(custKey)!
@@ -128,6 +147,25 @@ export default function RevenuePage() {
           is_confirmed: r.is_confirmed,
         }
         proj.total += Number(r.amount)
+      })
+
+      // Build siteGroups for each customer: group projects by base name (before " - ")
+      Array.from(customerMap.values()).forEach((cust) => {
+        const siteMap = new Map<string, SiteGroup>()
+        for (const proj of cust.projects) {
+          const dashIdx = proj.project_name.indexOf(' - ')
+          const siteName = dashIdx > 0 ? proj.project_name.substring(0, dashIdx) : proj.project_name
+          if (!siteMap.has(siteName)) {
+            siteMap.set(siteName, { site_name: siteName, services: [], months: {}, total: 0 })
+          }
+          const sg = siteMap.get(siteName)!
+          sg.services.push(proj)
+          sg.total += proj.total
+          for (const [m, cell] of Object.entries(proj.months)) {
+            sg.months[Number(m)] = (sg.months[Number(m)] || 0) + cell.amount
+          }
+        }
+        cust.siteGroups = Array.from(siteMap.values()).sort((a, b) => b.total - a.total)
       })
 
       setData(Array.from(customerMap.values()).sort((a, b) => b.total - a.total))
@@ -159,6 +197,15 @@ export default function RevenuePage() {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSite = (key: string) => {
+    setExpandedSites(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }
@@ -200,6 +247,83 @@ export default function RevenuePage() {
       toast.success(!current ? '매출이 확정되었습니다.' : '확정이 취소되었습니다.')
       fetchRevenue()
     }
+  }
+
+  // Inline create new revenue for empty cell
+  const startCreate = (customerId: string, projectId: string, month: number) => {
+    setCreatingCell({ customerId, projectId, month })
+    setCreateValue('')
+    setEditingCell(null)
+  }
+
+  const saveCreate = async () => {
+    if (!creatingCell) return
+    const amount = Number(createValue)
+    if (isNaN(amount) || amount <= 0) {
+      setCreatingCell(null)
+      return
+    }
+    const { error } = await supabase.from('monthly_revenues').insert({
+      customer_id: creatingCell.customerId,
+      project_id: creatingCell.projectId,
+      year,
+      month: creatingCell.month,
+      amount,
+      is_confirmed: false,
+    })
+    if (error) {
+      toast.error('매출 등록 실패: ' + error.message)
+    } else {
+      toast.success(`${creatingCell.month}월 매출 ${formatCurrency(amount)} 등록`)
+      fetchRevenue()
+    }
+    setCreatingCell(null)
+    setCreateValue('')
+  }
+
+  // Add new service (project) to a site
+  const handleAddService = async () => {
+    if (!addServiceTarget || !newServiceName.trim()) {
+      toast.error('서비스명을 입력해주세요.')
+      return
+    }
+    setSavingService(true)
+    const projectName = `${addServiceTarget.siteName} - ${newServiceName.trim()}`
+    const monthlyAmount = Number(newServiceAmount) || 0
+
+    // Create project
+    const { data: newProj, error: projErr } = await supabase.from('projects').insert({
+      customer_id: addServiceTarget.customerId,
+      project_name: projectName,
+      service_type: newServiceName.trim(),
+      monthly_amount: monthlyAmount || null,
+      status: 'active',
+    }).select('id').single()
+
+    if (projErr) {
+      toast.error('서비스 추가 실패: ' + projErr.message)
+      setSavingService(false)
+      return
+    }
+
+    // If amount provided, create current month revenue
+    if (monthlyAmount > 0 && newProj) {
+      await supabase.from('monthly_revenues').insert({
+        customer_id: addServiceTarget.customerId,
+        project_id: newProj.id,
+        year,
+        month: new Date().getMonth() + 1,
+        amount: monthlyAmount,
+        is_confirmed: false,
+      })
+    }
+
+    toast.success(`"${newServiceName.trim()}" 서비스가 추가되었습니다.`)
+    setAddServiceTarget(null)
+    setNewServiceName('')
+    setNewServiceAmount('')
+    setSavingService(false)
+    fetchRevenue()
   }
 
   const handleDelete = async (id: string) => {
@@ -271,9 +395,9 @@ export default function RevenuePage() {
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-surface-tertiary border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase min-w-[200px]">고객사 / 현장</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase min-w-[200px]">고객사 / 현장</th>
                 {months.map((m) => (
                   <th key={m} className={`text-center min-w-[90px] ${m === currentMonth && year === new Date().getFullYear() ? 'bg-blue-50' : ''}`}>
                     {m}월
@@ -296,15 +420,15 @@ export default function RevenuePage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {isExpanded
-                            ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
-                            : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                            ? <ChevronDown className="w-4 h-4 text-text-tertiary shrink-0" />
+                            : <ChevronRight className="w-4 h-4 text-text-tertiary shrink-0" />
                           }
                           <div>
                             <span className="font-medium text-gray-900">{row.customer_name}</span>
                             {row.company_type && (
-                              <span className="text-xs text-gray-400 ml-2">{row.company_type}</span>
+                              <span className="text-xs text-text-tertiary ml-2">{row.company_type}</span>
                             )}
-                            <span className="text-xs text-gray-300 ml-1">({row.projects.length}개 현장)</span>
+                            <span className="text-xs text-text-placeholder ml-1">({row.siteGroups.length}개 현장)</span>
                           </div>
                         </div>
                       </td>
@@ -317,86 +441,134 @@ export default function RevenuePage() {
                       <td></td>
                     </tr>
 
-                    {/* 프로젝트 상세 행 (펼침) */}
-                    {isExpanded && row.projects.sort((a, b) => b.total - a.total).map((proj) => (
-                      <tr key={proj.project_id} className="bg-gray-50/70 group">
-                        <td className="px-4 py-3 pl-10">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-                            <div>
-                              <span className="text-sm text-gray-700">{proj.project_name}</span>
-                              {proj.service_type && (
-                                <span className="text-xs text-blue-500 ml-2 bg-blue-50 px-1.5 py-0.5 rounded">
-                                  {proj.service_type}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        {months.map((m) => {
-                          const cell = proj.months[m]
-                          if (!cell) {
-                            return (
-                              <td key={m} className={`text-right text-xs text-gray-500 ${m === currentMonth && year === new Date().getFullYear() ? 'bg-blue-50/20' : ''}`}>
-                                <span className="text-gray-200">-</span>
-                              </td>
-                            )
-                          }
-                          const isEditing = editingCell?.id === cell.id && editingCell?.field === 'amount'
-                          return (
-                            <td key={m} className={`text-right text-xs relative ${m === currentMonth && year === new Date().getFullYear() ? 'bg-blue-50/20' : ''}`}>
-                              {isEditing ? (
-                                <div className="flex items-center gap-1 justify-end">
-                                  <input
-                                    type="number"
-                                    className="w-20 text-right text-xs border border-primary-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                                    value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') saveEdit()
-                                      if (e.key === 'Escape') setEditingCell(null)
-                                    }}
-                                    autoFocus
-                                  />
-                                  <button onClick={saveEdit} className="text-green-600 hover:text-green-800">
-                                    <Check className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button onClick={() => setEditingCell(null)} className="text-gray-400 hover:text-gray-600">
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
+                    {/* 현장(사이트) 그룹 - 새 구조 */}
+                    {isExpanded && row.siteGroups.map((sg) => {
+                      const siteKey = `${row.customer_id}::${sg.site_name}`
+                      return (
+                        <React.Fragment key={siteKey}>
+                          {/* Site header row - full width */}
+                          <tr className="bg-gradient-to-r from-gray-100 to-gray-50 border-t border-gray-200">
+                            <td colSpan={months.length + 3} className="px-4 py-2 pl-10">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-3.5 h-3.5 text-primary-400 shrink-0" />
+                                  <span className="text-sm font-semibold text-gray-800">{sg.site_name}</span>
+                                  <span className="text-[10px] text-text-tertiary bg-white px-1.5 py-0.5 rounded-full">{sg.services.length}개 서비스</span>
                                 </div>
-                              ) : (
-                                <div className="flex items-center gap-1 justify-end">
-                                  <span
-                                    className={`cursor-pointer hover:text-primary-600 ${cell.is_confirmed ? 'text-gray-600' : 'text-orange-500'}`}
-                                    title={cell.is_confirmed ? '확정' : '미확정 - 클릭하여 수정'}
-                                    onClick={(e) => { e.stopPropagation(); startEdit(cell.id, cell.amount) }}
-                                  >
-                                    {formatCurrency(cell.amount)}
-                                  </span>
-                                  {!cell.is_confirmed && (
-                                    <span className="text-[10px] text-orange-400" title="미확정">*</span>
-                                  )}
-                                </div>
-                              )}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setAddServiceTarget({ customerId: row.customer_id, siteName: sg.site_name }) }}
+                                  className="text-[10px] px-2.5 py-1 rounded-full border border-dashed border-primary-300 text-primary-500 hover:bg-primary-50 hover:border-primary-500 transition-colors whitespace-nowrap"
+                                >
+                                  + 서비스
+                                </button>
+                              </div>
                             </td>
-                          )
-                        })}
-                        <td className="text-right text-sm text-gray-600">{formatCurrency(proj.total)}</td>
-                        <td className="text-center">
-                          <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {/* 개별 행 actions: 각 월별 셀에서 인라인 편집 가능, 여기서는 프로젝트 전체에 대한 actions */}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </tr>
 
-                    {/* 펼침 시: 월별 행 단위 편집/삭제 */}
+                          {/* Service rows under this site */}
+                          {sg.services.sort((a, b) => b.total - a.total).map((proj) => {
+                            const serviceName = proj.project_name.includes(' - ')
+                              ? proj.project_name.substring(proj.project_name.indexOf(' - ') + 3)
+                              : (proj.service_type || proj.project_name)
+                            return (
+                              <tr key={proj.project_id} className="bg-white hover:bg-blue-50/30 group">
+                                <td className="px-4 py-2 pl-14">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-primary-300 shrink-0" />
+                                    <span className="text-xs text-text-secondary font-medium">{serviceName}</span>
+                                  </div>
+                                </td>
+                                {months.map((m) => {
+                                  const cell = proj.months[m]
+                                  const isCurrent = m === currentMonth && year === new Date().getFullYear()
+                                  if (!cell) {
+                                    const isCreating = creatingCell?.projectId === proj.project_id && creatingCell?.month === m
+                                    return (
+                                      <td key={m} className={`text-right text-xs px-1 ${isCurrent ? 'bg-blue-50/20' : ''}`}>
+                                        {isCreating ? (
+                                          <input
+                                            type="number"
+                                            className="w-20 text-right text-xs border border-primary-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                                            value={createValue}
+                                            onChange={(e) => setCreateValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') saveCreate()
+                                              if (e.key === 'Escape') setCreatingCell(null)
+                                            }}
+                                            onBlur={() => { if (createValue) saveCreate(); else setCreatingCell(null) }}
+                                            autoFocus
+                                            placeholder="금액"
+                                          />
+                                        ) : (
+                                          <span
+                                            className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-gray-300 text-text-placeholder hover:bg-primary-50 hover:border-primary-400 hover:text-primary-500 cursor-pointer transition-all text-[10px]"
+                                            onClick={(e) => { e.stopPropagation(); startCreate(row.customer_id, proj.project_id, m) }}
+                                            title="클릭하여 매출 입력"
+                                          >+</span>
+                                        )}
+                                      </td>
+                                    )
+                                  }
+                                  const isEditing = editingCell?.id === cell.id && editingCell?.field === 'amount'
+                                  return (
+                                    <td key={m} className={`text-right text-xs px-1 ${isCurrent ? 'bg-blue-50/20' : ''}`}>
+                                      {isEditing ? (
+                                        <div className="flex items-center gap-0.5 justify-end">
+                                          <input
+                                            type="number"
+                                            className="w-20 text-right text-xs border border-primary-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                                            value={editValue}
+                                            onChange={(e) => setEditValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') saveEdit()
+                                              if (e.key === 'Escape') setEditingCell(null)
+                                            }}
+                                            autoFocus
+                                          />
+                                          <button onClick={saveEdit} className="text-green-600"><Check className="w-3 h-3" /></button>
+                                          <button onClick={() => setEditingCell(null)} className="text-text-tertiary"><X className="w-3 h-3" /></button>
+                                        </div>
+                                      ) : (
+                                        <span
+                                          className={`cursor-pointer hover:text-primary-600 ${cell.is_confirmed ? 'text-text-secondary' : 'text-orange-500'}`}
+                                          title={cell.is_confirmed ? '확정' : '미확정'}
+                                          onClick={(e) => { e.stopPropagation(); startEdit(cell.id, cell.amount) }}
+                                        >
+                                          {formatCurrency(cell.amount)}
+                                          {!cell.is_confirmed && <span className="text-[9px] text-orange-400">*</span>}
+                                        </span>
+                                      )}
+                                    </td>
+                                  )
+                                })}
+                                <td className="text-right text-xs text-text-secondary font-medium">{formatCurrency(proj.total)}</td>
+                                <td></td>
+                              </tr>
+                            )
+                          })}
+
+                          {/* Site total row */}
+                          {sg.services.length > 1 && (
+                            <tr className="bg-surface-tertiary/50 border-t border-gray-200">
+                              <td className="px-4 py-1.5 pl-14 text-xs text-text-secondary font-medium">합계</td>
+                              {months.map((m) => (
+                                <td key={m} className="text-right text-xs px-1 font-semibold text-text-secondary">
+                                  {sg.months[m] ? formatCurrency(sg.months[m]) : ''}
+                                </td>
+                              ))}
+                              <td className="text-right text-xs font-bold text-text-secondary">{formatCurrency(sg.total)}</td>
+                              <td></td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
+
+                    {/* 펼침 시: 삭제 확인 행 */}
                     {isExpanded && row.projects.map((proj) =>
                       months.map((m) => {
                         const cell = proj.months[m]
                         if (!cell) return null
-                        // 삭제 확인 모달
                         if (deleteConfirm === cell.id) {
                           return (
                             <tr key={`del-${cell.id}`} className="bg-red-50">
@@ -425,7 +597,7 @@ export default function RevenuePage() {
                 )
               })}
               {data.length > 0 && (
-                <tr className="bg-gray-100 font-semibold border-t-2 border-gray-300">
+                <tr className="bg-surface-tertiary font-semibold border-t-2 border-gray-300">
                   <td className="px-4 py-3 font-semibold">합계</td>
                   {monthlyTotals.map((t, i) => (
                     <td key={i} className={`text-right ${i + 1 === currentMonth && year === new Date().getFullYear() ? 'bg-blue-100/50' : ''}`}>
@@ -441,7 +613,7 @@ export default function RevenuePage() {
 
           {/* 펼침된 프로젝트의 매출 레코드별 수정/삭제 버튼 (테이블 아래 범례) */}
           {expandedCustomers.size > 0 && (
-            <div className="px-4 py-2 border-t border-gray-100 text-xs text-gray-400 flex items-center gap-4">
+            <div className="px-4 py-2 border-t border-gray-100 text-xs text-text-tertiary flex items-center gap-4">
               <span>* 미확정 매출</span>
               <span>셀 금액 클릭 = 수정</span>
             </div>
@@ -484,6 +656,38 @@ export default function RevenuePage() {
           onDeleteCancel={() => setDeleteConfirm(null)}
         />
       )}
+
+      {/* Add Service Modal */}
+      <Modal open={!!addServiceTarget} onClose={() => setAddServiceTarget(null)} title={`서비스 추가 — ${addServiceTarget?.siteName || ''}`}>
+        <div className="space-y-4">
+          <p className="text-sm text-text-secondary">
+            <strong>{addServiceTarget?.siteName}</strong> 현장에 새 서비스를 추가합니다.
+          </p>
+          <Input
+            label="서비스명 *"
+            placeholder="예: AI CCTV, 안전관리, 플랫폼"
+            value={newServiceName}
+            onChange={(e) => setNewServiceName(e.target.value)}
+            autoFocus
+          />
+          <Input
+            label="월 과금액 (선택)"
+            type="number"
+            placeholder="0"
+            value={newServiceAmount}
+            onChange={(e) => setNewServiceAmount(e.target.value)}
+          />
+          {newServiceAmount && Number(newServiceAmount) > 0 && (
+            <p className="text-xs text-text-secondary bg-surface-tertiary rounded-lg p-2">
+              이번 달({new Date().getMonth() + 1}월) 매출 <strong className="text-primary-600">{formatCurrency(Number(newServiceAmount))}</strong>이 자동 등록됩니다.
+            </p>
+          )}
+          <div className="flex gap-3 justify-end pt-2">
+            <Button variant="secondary" size="sm" onClick={() => setAddServiceTarget(null)}>취소</Button>
+            <Button size="sm" loading={savingService} onClick={handleAddService}>추가</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -502,6 +706,11 @@ function AddRevenueModal({
 }) {
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
+  const [showNewProject, setShowNewProject] = useState(false)
+  const [newProjectName, setNewProjectName] = useState('')
+  const [newProjectService, setNewProjectService] = useState('')
+  const [creatingProject, setCreatingProject] = useState(false)
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects)
   const [form, setForm] = useState({
     customer_id: '',
     project_id: '',
@@ -510,45 +719,112 @@ function AddRevenueModal({
     amount: '',
     is_confirmed: false,
     notes: '',
+    // 기간 기반 자동 생성용
+    autoGenerate: false,
+    startMonth: new Date().getMonth() + 1,
+    endMonth: 12,
+    monthlyAmount: '',
   })
 
   useEffect(() => {
     if (open) {
-      setForm(f => ({ ...f, year, customer_id: '', project_id: '', amount: '', is_confirmed: false, notes: '' }))
+      setForm(f => ({ ...f, year, customer_id: '', project_id: '', amount: '', is_confirmed: false, notes: '', autoGenerate: false, startMonth: new Date().getMonth() + 1, endMonth: 12, monthlyAmount: '' }))
+      setShowNewProject(false)
+      setLocalProjects(projects)
     }
-  }, [open, year])
+  }, [open, year, projects])
 
-  const filteredProjects = projects.filter(p => p.customer_id === form.customer_id)
+  const filteredProjects = localProjects.filter(p => p.customer_id === form.customer_id)
+
+  // 새 프로젝트 생성
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim() || !form.customer_id) {
+      toast.error('프로젝트명을 입력해주세요.')
+      return
+    }
+    setCreatingProject(true)
+    const { data, error } = await supabase.from('projects').insert({
+      customer_id: form.customer_id,
+      project_name: newProjectName.trim(),
+      service_type: newProjectService || null,
+      status: 'active',
+    }).select('id, project_name, customer_id, service_type').single()
+    setCreatingProject(false)
+
+    if (error) {
+      toast.error('프로젝트 생성 실패: ' + error.message)
+    } else if (data) {
+      toast.success(`프로젝트 "${data.project_name}" 생성 완료`)
+      setLocalProjects(prev => [...prev, data as ProjectOption])
+      setForm(f => ({ ...f, project_id: data.id }))
+      setShowNewProject(false)
+      setNewProjectName('')
+      setNewProjectService('')
+    }
+  }
 
   const handleSave = async () => {
     if (!form.customer_id || !form.project_id) {
       toast.error('고객사와 프로젝트를 선택해주세요.')
       return
     }
-    const amount = Number(form.amount)
-    if (!form.amount || isNaN(amount) || amount <= 0) {
-      toast.error('올바른 금액을 입력해주세요.')
-      return
-    }
 
     setSaving(true)
-    const { error } = await supabase.from('monthly_revenues').insert({
-      customer_id: form.customer_id,
-      project_id: form.project_id,
-      year: form.year,
-      month: form.month,
-      amount,
-      is_confirmed: form.is_confirmed,
-      notes: form.notes || null,
-    })
-    setSaving(false)
 
-    if (error) {
-      toast.error('저장에 실패했습니다: ' + error.message)
+    if (form.autoGenerate) {
+      // 기간 기반 자동 생성
+      const monthlyAmt = Number(form.monthlyAmount)
+      if (!form.monthlyAmount || isNaN(monthlyAmt) || monthlyAmt <= 0) {
+        toast.error('월 과금액을 입력해주세요.')
+        setSaving(false)
+        return
+      }
+      const rows = []
+      for (let m = form.startMonth; m <= form.endMonth; m++) {
+        rows.push({
+          customer_id: form.customer_id,
+          project_id: form.project_id,
+          year: form.year,
+          month: m,
+          amount: monthlyAmt,
+          is_confirmed: false,
+          notes: form.notes || null,
+        })
+      }
+      const { error } = await supabase.from('monthly_revenues').insert(rows)
+      setSaving(false)
+      if (error) {
+        toast.error('저장에 실패했습니다: ' + error.message)
+      } else {
+        toast.success(`${rows.length}개월 매출이 등록되었습니다.`)
+        onSaved()
+        onClose()
+      }
     } else {
-      toast.success('매출이 등록되었습니다.')
-      onSaved()
-      onClose()
+      // 단건 등록
+      const amount = Number(form.amount)
+      if (!form.amount || isNaN(amount) || amount <= 0) {
+        toast.error('올바른 금액을 입력해주세요.')
+        setSaving(false)
+        return
+      }
+      const { error } = await supabase.from('monthly_revenues').insert({
+        customer_id: form.customer_id,
+        project_id: form.project_id,
+        year: form.year,
+        month: form.month,
+        amount,
+        is_confirmed: form.is_confirmed,
+        notes: form.notes || null,
+      })
+      setSaving(false)
+      if (error) {
+        toast.error('저장에 실패했습니다: ' + error.message)
+      } else {
+        toast.success('매출이 등록되었습니다.')
+        onSaved()
+        onClose()
+      }
     }
   }
 
@@ -565,48 +841,146 @@ function AddRevenueModal({
   return (
     <Modal open={open} onClose={onClose} title="매출 등록">
       <div className="space-y-4">
-        <Select
+        <SearchSelect
           label="고객사"
-          placeholder="고객사 선택"
+          placeholder="고객사 검색..."
           options={customers.map(c => ({ value: c.id, label: c.company_name }))}
           value={form.customer_id}
-          onChange={(e) => setForm(f => ({ ...f, customer_id: e.target.value, project_id: '' }))}
+          onChange={(val) => setForm(f => ({ ...f, customer_id: val, project_id: '' }))}
         />
 
-        <Select
-          label="프로젝트 / 현장"
-          placeholder={form.customer_id ? '프로젝트 선택' : '먼저 고객사를 선택하세요'}
-          options={filteredProjects.map(p => ({
-            value: p.id,
-            label: `${p.project_name}${p.service_type ? ` (${p.service_type})` : ''}`,
-          }))}
-          value={form.project_id}
-          onChange={(e) => setForm(f => ({ ...f, project_id: e.target.value }))}
-          disabled={!form.customer_id}
-        />
+        {/* 프로젝트 선택 + 새 프로젝트 버튼 */}
+        <div>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Select
+                label="프로젝트 / 현장"
+                placeholder={form.customer_id ? '프로젝트 선택' : '먼저 고객사를 선택하세요'}
+                options={filteredProjects.map(p => ({
+                  value: p.id,
+                  label: `${p.project_name}${p.service_type ? ` (${p.service_type})` : ''}`,
+                }))}
+                value={form.project_id}
+                onChange={(e) => setForm(f => ({ ...f, project_id: e.target.value }))}
+                disabled={!form.customer_id}
+              />
+            </div>
+            {form.customer_id && (
+              <button
+                type="button"
+                onClick={() => setShowNewProject(!showNewProject)}
+                className="px-3 py-2 text-xs font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors whitespace-nowrap mb-0.5"
+              >
+                + 새 프로젝트
+              </button>
+            )}
+          </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Select
-            label="년도"
-            options={yearOptions}
-            value={String(form.year)}
-            onChange={(e) => setForm(f => ({ ...f, year: Number(e.target.value) }))}
-          />
-          <Select
-            label="월"
-            options={monthOptions}
-            value={String(form.month)}
-            onChange={(e) => setForm(f => ({ ...f, month: Number(e.target.value) }))}
-          />
+          {/* 새 프로젝트 인라인 폼 */}
+          {showNewProject && (
+            <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200 space-y-2">
+              <Input
+                label="프로젝트명"
+                placeholder="현장명 입력"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+              />
+              <Input
+                label="서비스 타입 (선택)"
+                placeholder="예: AI CCTV, 플랫폼"
+                value={newProjectService}
+                onChange={(e) => setNewProjectService(e.target.value)}
+              />
+              <div className="flex gap-2 justify-end">
+                <Button variant="secondary" size="sm" onClick={() => setShowNewProject(false)}>취소</Button>
+                <Button size="sm" loading={creatingProject} onClick={handleCreateProject}>생성</Button>
+              </div>
+            </div>
+          )}
         </div>
 
-        <Input
-          label="금액 (원)"
-          type="number"
-          placeholder="0"
-          value={form.amount}
-          onChange={(e) => setForm(f => ({ ...f, amount: e.target.value }))}
-        />
+        {/* 등록 방식 선택 */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setForm(f => ({ ...f, autoGenerate: false }))}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors ${!form.autoGenerate ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-text-secondary border-gray-300 hover:bg-surface-tertiary'}`}
+          >
+            단건 등록
+          </button>
+          <button
+            type="button"
+            onClick={() => setForm(f => ({ ...f, autoGenerate: true }))}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors ${form.autoGenerate ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-text-secondary border-gray-300 hover:bg-surface-tertiary'}`}
+          >
+            기간 일괄 등록
+          </button>
+        </div>
+
+        {form.autoGenerate ? (
+          <>
+            <Select
+              label="년도"
+              options={yearOptions}
+              value={String(form.year)}
+              onChange={(e) => setForm(f => ({ ...f, year: Number(e.target.value) }))}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                label="시작월"
+                options={monthOptions}
+                value={String(form.startMonth)}
+                onChange={(e) => setForm(f => ({ ...f, startMonth: Number(e.target.value) }))}
+              />
+              <Select
+                label="종료월"
+                options={monthOptions}
+                value={String(form.endMonth)}
+                onChange={(e) => setForm(f => ({ ...f, endMonth: Number(e.target.value) }))}
+              />
+            </div>
+            <Input
+              label="월 과금액 (원)"
+              type="number"
+              placeholder="0"
+              value={form.monthlyAmount}
+              onChange={(e) => setForm(f => ({ ...f, monthlyAmount: e.target.value }))}
+            />
+            {form.monthlyAmount && form.startMonth <= form.endMonth && (
+              <div className="text-sm text-text-secondary bg-surface-tertiary rounded-lg p-3">
+                {form.startMonth}월 ~ {form.endMonth}월 ({form.endMonth - form.startMonth + 1}개월) ×{' '}
+                {formatCurrency(Number(form.monthlyAmount))} ={' '}
+                <span className="font-semibold text-primary-600">
+                  {formatCurrency(Number(form.monthlyAmount) * (form.endMonth - form.startMonth + 1))}
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                label="년도"
+                options={yearOptions}
+                value={String(form.year)}
+                onChange={(e) => setForm(f => ({ ...f, year: Number(e.target.value) }))}
+              />
+              <Select
+                label="월"
+                options={monthOptions}
+                value={String(form.month)}
+                onChange={(e) => setForm(f => ({ ...f, month: Number(e.target.value) }))}
+              />
+            </div>
+            <Input
+              label="금액 (원)"
+              type="number"
+              placeholder="0"
+              value={form.amount}
+              onChange={(e) => setForm(f => ({ ...f, amount: e.target.value }))}
+            />
+          </>
+        )}
 
         <Input
           label="비고"
@@ -615,7 +989,7 @@ function AddRevenueModal({
           onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))}
         />
 
-        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
           <input
             type="checkbox"
             checked={form.is_confirmed}
@@ -759,26 +1133,26 @@ function BatchRevenueModal({
   return (
     <Modal open={open} onClose={onClose} title={`일괄 매출 입력 - ${year}년`} className="max-w-6xl">
       <div className="space-y-4">
-        <Select
+        <SearchSelect
           label="고객사"
-          placeholder="고객사 선택"
+          placeholder="고객사 검색..."
           options={customers.map(c => ({ value: c.id, label: c.company_name }))}
           value={selectedCustomer}
-          onChange={(e) => setSelectedCustomer(e.target.value)}
+          onChange={(val) => setSelectedCustomer(val)}
         />
 
         {selectedCustomer && filteredProjects.length === 0 && (
-          <p className="text-sm text-gray-500">이 고객사에 등록된 프로젝트가 없습니다.</p>
+          <p className="text-sm text-text-secondary">이 고객사에 등록된 프로젝트가 없습니다.</p>
         )}
 
         {selectedCustomer && filteredProjects.length > 0 && (
           <div className="overflow-x-auto border border-gray-200 rounded-lg">
             <table className="w-full text-xs">
-              <thead className="bg-gray-50">
+              <thead className="bg-surface-tertiary">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 min-w-[180px] sticky left-0 bg-gray-50 z-10">프로젝트</th>
+                  <th className="px-3 py-2 text-left font-medium text-text-secondary min-w-[180px] sticky left-0 bg-surface-tertiary z-10">프로젝트</th>
                   {months.map(m => (
-                    <th key={m} className="px-1 py-2 text-center font-medium text-gray-600 min-w-[80px]">{m}월</th>
+                    <th key={m} className="px-1 py-2 text-center font-medium text-text-secondary min-w-[80px]">{m}월</th>
                   ))}
                 </tr>
               </thead>
@@ -812,7 +1186,7 @@ function BatchRevenueModal({
         )}
 
         <div className="flex items-center justify-between pt-2">
-          <p className="text-xs text-gray-400">금액을 0으로 변경하면 해당 매출 레코드가 삭제됩니다.</p>
+          <p className="text-xs text-text-tertiary">금액을 0으로 변경하면 해당 매출 레코드가 삭제됩니다.</p>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={onClose}>취소</Button>
             <Button onClick={handleSave} loading={saving} disabled={!selectedCustomer || filteredProjects.length === 0}>
@@ -850,18 +1224,18 @@ function RevenueDetailPanel({
     <div className="mt-6 space-y-4">
       {expandedData.map(cust => (
         <div key={cust.customer_id} className="card">
-          <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+          <div className="px-4 py-3 border-b border-gray-200 bg-surface-tertiary rounded-t-xl">
             <h3 className="text-sm font-semibold text-gray-800">{cust.customer_name} - 매출 상세</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="bg-gray-50/50">
+              <thead className="bg-surface-tertiary/50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-gray-600">프로젝트</th>
-                  <th className="px-3 py-2 text-center text-gray-600">월</th>
-                  <th className="px-3 py-2 text-right text-gray-600">금액</th>
-                  <th className="px-3 py-2 text-center text-gray-600">확정</th>
-                  <th className="px-3 py-2 text-center text-gray-600">작업</th>
+                  <th className="px-4 py-2 text-left text-text-secondary">프로젝트</th>
+                  <th className="px-3 py-2 text-center text-text-secondary">월</th>
+                  <th className="px-3 py-2 text-right text-text-secondary">금액</th>
+                  <th className="px-3 py-2 text-center text-text-secondary">확정</th>
+                  <th className="px-3 py-2 text-center text-text-secondary">작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -871,9 +1245,9 @@ function RevenueDetailPanel({
                     if (!cell) return null
                     const isDeleting = deleteConfirm === cell.id
                     return (
-                      <tr key={cell.id} className={`border-t border-gray-100 ${isDeleting ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
-                        <td className="px-4 py-2 text-sm text-gray-700">{proj.project_name}</td>
-                        <td className="px-3 py-2 text-center text-gray-600">{m}월</td>
+                      <tr key={cell.id} className={`border-t border-gray-100 ${isDeleting ? 'bg-red-50' : 'hover:bg-surface-tertiary'}`}>
+                        <td className="px-4 py-2 text-sm text-text-secondary">{proj.project_name}</td>
+                        <td className="px-3 py-2 text-center text-text-secondary">{m}월</td>
                         <td className="px-3 py-2 text-right font-medium">{formatCurrency(cell.amount)}</td>
                         <td className="px-3 py-2 text-center">
                           <button
@@ -901,14 +1275,14 @@ function RevenueDetailPanel({
                             <div className="flex items-center justify-center gap-1">
                               <button
                                 onClick={() => onEdit(cell.id, cell.amount)}
-                                className="p-1 text-gray-400 hover:text-primary-600 transition-colors"
+                                className="p-1 text-text-tertiary hover:text-primary-600 transition-colors"
                                 title="수정"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => onDelete(cell.id)}
-                                className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                                className="p-1 text-text-tertiary hover:text-red-600 transition-colors"
                                 title="삭제"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />

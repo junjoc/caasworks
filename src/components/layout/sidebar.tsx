@@ -1,33 +1,45 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import type { User } from '@/types/database'
 import {
   LayoutDashboard,
-  GitBranch,
+  Megaphone,
+  Target,
   Users,
-  DollarSign,
-  FileText,
+  Wallet,
+  Package,
   MessageSquare,
-  TrendingUp,
-  Award,
-  Calendar,
+  ClipboardList,
   Settings,
   ChevronDown,
-  ChevronRight,
-  Activity,
   Menu,
   X,
+  LogOut,
 } from 'lucide-react'
+
+// Icon color mapping for each nav section
+const iconColors: Record<string, { color: string; bg: string }> = {
+  '대시보드': { color: '#1890ff', bg: '#e8f4ff' },
+  '마케팅': { color: '#f97316', bg: '#fff7ed' },
+  '세일즈': { color: '#7c3aed', bg: '#f3e8ff' },
+  '고객관리': { color: '#0a54bf', bg: '#e8f4ff' },
+  '재무관리': { color: '#10b981', bg: '#ecfdf5' },
+  '운영관리': { color: '#f59e0b', bg: '#fef3c7' },
+  'VoC/CS': { color: '#ec4899', bg: '#fce7f3' },
+  '업무': { color: '#6366f1', bg: '#eef2ff' },
+  '설정': { color: '#6b7280', bg: '#f3f4f6' },
+}
 
 interface NavItem {
   label: string
   href?: string
   icon: React.ReactNode
   roles?: string[]
+  badge?: number
   children?: { label: string; href: string; roles?: string[] }[]
 }
 
@@ -35,108 +47,113 @@ const navItems: NavItem[] = [
   {
     label: '대시보드',
     href: '/',
-    icon: <LayoutDashboard className="w-5 h-5" />,
+    icon: <LayoutDashboard className="w-[16px] h-[16px]" />,
   },
   {
-    label: '파이프라인',
-    icon: <GitBranch className="w-5 h-5" />,
-    roles: ['admin', 'member'],
+    label: '마케팅',
+    icon: <Megaphone className="w-[16px] h-[16px]" />,
+    roles: ['admin'],
+    children: [
+      { label: '광고 성과', href: '/marketing/ads' },
+      { label: '유입 분석', href: '/marketing/analytics' },
+      { label: '캠페인 관리', href: '/marketing/campaigns' },
+    ],
+  },
+  {
+    label: '세일즈',
+    icon: <Target className="w-[16px] h-[16px]" />,
     children: [
       { label: '보드뷰', href: '/pipeline/board' },
       { label: '리스트', href: '/pipeline/list' },
+      { label: '견적서', href: '/quotations' },
+      { label: '견적 모의계산', href: '/quotations/simulator' },
+      { label: '단가표', href: '/quotations/price-list' },
     ],
   },
   {
     label: '고객관리',
-    icon: <Users className="w-5 h-5" />,
+    icon: <Users className="w-[16px] h-[16px]" />,
     children: [
       { label: '고객 목록', href: '/customers' },
+      { label: '구독 고객', href: '/customers/subscription' },
       { label: '매출 현황', href: '/revenue' },
-      { label: '견적서 관리', href: '/quotations' },
-      { label: '미팅 관리', href: '/meetings' },
+      { label: '계약 관리', href: '/contracts' },
+    ],
+  },
+  {
+    label: '재무관리',
+    icon: <Wallet className="w-[16px] h-[16px]" />,
+    roles: ['admin', 'accountant'],
+    children: [
+      { label: '청구/계산서', href: '/finance/invoices' },
+      { label: '미납 현황', href: '/finance/unpaid' },
+      { label: '납부 관리', href: '/finance/payments' },
+      { label: '매입/비용', href: '/finance/costs' },
+      { label: '손익 분석', href: '/finance/analysis' },
+    ],
+  },
+  {
+    label: '운영관리',
+    icon: <Package className="w-[16px] h-[16px]" />,
+    children: [
+      { label: '현장 관리', href: '/operations/sites' },
+      { label: '장비 반출', href: '/operations/equipment' },
+      { label: '협력사 발주', href: '/operations/orders' },
+      { label: '영상 기록', href: '/operations/video' },
     ],
   },
   {
     label: 'VoC/CS',
-    icon: <MessageSquare className="w-5 h-5" />,
-    roles: ['admin', 'member'],
+    icon: <MessageSquare className="w-[16px] h-[16px]" />,
     children: [
       { label: '티켓 목록', href: '/voc' },
-      { label: 'VoC 분석', href: '/voc/analytics', roles: ['admin'] },
       { label: 'SLA 현황', href: '/voc/sla', roles: ['admin'] },
     ],
   },
   {
-    label: '청구/납부',
-    icon: <FileText className="w-5 h-5" />,
-    roles: ['admin', 'accountant'],
+    label: '업무',
+    icon: <ClipboardList className="w-[16px] h-[16px]" />,
     children: [
-      { label: '청구서', href: '/invoices' },
-      { label: '납부 관리', href: '/payments' },
-      { label: '세금계산서', href: '/tax-invoices' },
-      { label: '재무 현황', href: '/finance' },
-    ],
-  },
-  {
-    label: '인센티브',
-    icon: <Award className="w-5 h-5" />,
-    roles: ['admin', 'member'],
-    children: [
-      { label: '내 실적', href: '/incentive' },
-      { label: '전체 현황', href: '/incentive/all', roles: ['admin'] },
-    ],
-  },
-  {
-    label: '분석',
-    icon: <TrendingUp className="w-5 h-5" />,
-    roles: ['admin'],
-    children: [
-      { label: '코호트', href: '/analytics/cohort' },
-      { label: '전환 분석', href: '/analytics/conversion' },
-      { label: '마케팅 ROI', href: '/analytics/marketing' },
-      { label: '서비스 현황', href: '/analytics/services' },
-    ],
-  },
-  {
-    label: '활동 로그',
-    href: '/activities',
-    icon: <Activity className="w-5 h-5" />,
-    roles: ['admin', 'member'],
-  },
-  {
-    label: '팀 일정',
-    icon: <Calendar className="w-5 h-5" />,
-    children: [
+      { label: '오늘 할일', href: '/work/today' },
+      { label: '활동 로그', href: '/activities' },
+      { label: '업무보고', href: '/work/report' },
       { label: '캘린더', href: '/team/calendar' },
-      { label: '휴가 관리', href: '/team/leave' },
+      { label: '미팅 관리', href: '/meetings' },
     ],
   },
   {
     label: '설정',
-    icon: <Settings className="w-5 h-5" />,
+    icon: <Settings className="w-[16px] h-[16px]" />,
     roles: ['admin'],
     children: [
-      { label: '사용자', href: '/settings/users' },
-      { label: '인센티브', href: '/settings/incentive' },
-      { label: '청구서', href: '/settings/invoice' },
-      { label: 'SLA 정책', href: '/settings/sla' },
-      { label: '마케팅비', href: '/settings/marketing' },
-      { label: 'Slack 연동', href: '/settings/slack' },
+      { label: '팀원 관리', href: '/settings/users' },
       { label: '제품/서비스', href: '/settings/products' },
+      { label: '견적서 템플릿', href: '/settings/templates' },
+      { label: 'Slack 연동', href: '/settings/slack' },
       { label: '알림 설정', href: '/settings/notifications' },
-      { label: '감사 로그', href: '/settings/audit-log' },
     ],
   },
 ]
 
 interface SidebarProps {
   user: User | null
+  onSignOut: () => void
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, onSignOut }: SidebarProps) {
   const pathname = usePathname()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Auto-expand active parent on mount
+  useEffect(() => {
+    const activeParent = navItems.find(
+      item => item.children?.some(c => pathname.startsWith(c.href))
+    )
+    if (activeParent && !expandedItems.includes(activeParent.label)) {
+      setExpandedItems(prev => [...prev, activeParent.label])
+    }
+  }, [pathname])
 
   const toggleExpanded = (label: string) => {
     setExpandedItems((prev) =>
@@ -146,7 +163,8 @@ export function Sidebar({ user }: SidebarProps) {
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
-    return pathname.startsWith(href)
+    // Exact match for leaf menu items (prevent /customers matching /customers/subscription)
+    return pathname === href
   }
 
   const filteredItems = navItems.filter((item) => {
@@ -154,55 +172,74 @@ export function Sidebar({ user }: SidebarProps) {
     return user && item.roles.includes(user.role)
   })
 
+  const IconWrapper = ({ label, children, isItemActive }: { label: string; children: React.ReactNode; isItemActive: boolean }) => {
+    const colors = iconColors[label] || { color: '#6b7280', bg: '#f3f4f6' }
+    return (
+      <span
+        className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-colors"
+        style={{
+          backgroundColor: isItemActive ? colors.bg : colors.bg + '99',
+          color: colors.color,
+        }}
+      >
+        {children}
+      </span>
+    )
+  }
+
   const sidebarContent = (
-    <nav className="flex-1 py-4 space-y-1 overflow-y-auto">
+    <nav className="flex-1 py-2 overflow-y-auto">
       {filteredItems.map((item) => {
         const hasChildren = item.children && item.children.length > 0
-        const isExpanded = expandedItems.includes(item.label) ||
-          (hasChildren && item.children!.some((c) => isActive(c.href)))
+        const isExpanded = expandedItems.includes(item.label)
+        const hasActiveChild = hasChildren && item.children!.some((c) => isActive(c.href))
 
         if (!hasChildren && item.href) {
+          const active = isActive(item.href)
           return (
             <Link
               key={item.label}
               href={item.href}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                'flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm transition-colors',
-                isActive(item.href)
-                  ? 'bg-sidebar-active text-sidebar-text-active'
-                  : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-active'
+                'sidebar-link',
+                active && 'sidebar-link-active'
               )}
             >
-              {item.icon}
-              {item.label}
+              <IconWrapper label={item.label} isItemActive={active}>
+                {item.icon}
+              </IconWrapper>
+              <span className="flex-1">{item.label}</span>
             </Link>
           )
         }
 
         return (
-          <div key={item.label}>
+          <div key={item.label} className="mb-0.5">
             <button
               onClick={() => toggleExpanded(item.label)}
               className={cn(
-                'flex items-center justify-between w-full px-4 py-2.5 mx-2 rounded-lg text-sm transition-colors',
-                'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-active',
-                'pr-6'
+                'sidebar-link w-full justify-between',
+                hasActiveChild && 'text-primary-500 font-medium'
               )}
               style={{ width: 'calc(100% - 16px)' }}
             >
-              <span className="flex items-center gap-3">
-                {item.icon}
+              <span className="flex items-center gap-2.5">
+                <IconWrapper label={item.label} isItemActive={!!hasActiveChild}>
+                  {item.icon}
+                </IconWrapper>
                 {item.label}
               </span>
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
+              <ChevronDown className={cn(
+                'w-3.5 h-3.5 text-text-tertiary transition-transform duration-200',
+                !isExpanded && '-rotate-90'
+              )} />
             </button>
-            {isExpanded && (
-              <div className="ml-4 space-y-0.5">
+            <div className={cn(
+              'overflow-hidden transition-all duration-200',
+              isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            )}>
+              <div className="py-0.5">
                 {item.children!
                   .filter((child) => {
                     if (!child.roles) return true
@@ -214,17 +251,21 @@ export function Sidebar({ user }: SidebarProps) {
                       href={child.href}
                       onClick={() => setMobileOpen(false)}
                       className={cn(
-                        'flex items-center gap-3 pl-10 pr-4 py-2 mx-2 rounded-lg text-sm transition-colors',
+                        'flex items-center gap-2 pl-12 pr-3 py-2 mx-2 rounded-md text-[13px] transition-all duration-100',
                         isActive(child.href)
-                          ? 'bg-sidebar-active text-sidebar-text-active'
-                          : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-active'
+                          ? 'text-primary-500 bg-primary-50 font-medium'
+                          : 'text-text-secondary hover:text-text-primary hover:bg-surface-tertiary'
                       )}
                     >
+                      <span className={cn(
+                        'w-1.5 h-1.5 rounded-full transition-colors',
+                        isActive(child.href) ? 'bg-primary-500' : 'bg-text-tertiary/40'
+                      )} />
                       {child.label}
                     </Link>
                   ))}
               </div>
-            )}
+            </div>
           </div>
         )
       })}
@@ -233,50 +274,73 @@ export function Sidebar({ user }: SidebarProps) {
 
   return (
     <>
-      {/* 모바일 햄버거 */}
+      {/* Mobile hamburger - positioned inside header area */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-3 left-3 z-50 p-2 rounded-lg bg-sidebar-bg text-white"
+        className="lg:hidden fixed top-2.5 left-3 z-30 p-2 rounded-lg bg-white text-text-secondary border border-border shadow-card"
       >
         <Menu className="w-5 h-5" />
       </button>
 
-      {/* 모바일 오버레이 */}
+      {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/50"
+          className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
-      {/* 사이드바 */}
+      {/* Sidebar */}
       <aside
         className={cn(
-          'fixed top-0 left-0 z-40 h-screen bg-sidebar-bg flex flex-col',
+          'fixed top-0 left-0 z-40 h-screen bg-white border-r border-border flex flex-col',
           'w-[var(--sidebar-width)] transition-transform duration-200',
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        {/* 로고 */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-700">
-          <Link href="/" className="text-white font-bold text-lg">
-            CaaS.Works
+        {/* Logo */}
+        <div className="flex items-center justify-between h-[var(--header-height)] px-4">
+          <Link href="/" className="flex items-center gap-2.5">
+            <img src="/logo.png" alt="CaasWorks" className="w-8 h-8 rounded-lg" />
+            <div>
+              <span className="text-text-primary font-bold text-sm tracking-tight">CaasWorks</span>
+              <span className="text-text-tertiary text-[10px] font-medium ml-1.5">CRM</span>
+            </div>
           </Link>
           <button
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden text-gray-400 hover:text-white"
+            className="lg:hidden text-text-tertiary hover:text-text-primary"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Divider */}
+        <div className="mx-4 border-t border-border-light" />
+
         {sidebarContent}
 
-        {/* 사용자 정보 */}
+        {/* User info + logout */}
         {user && (
-          <div className="px-4 py-3 border-t border-gray-700">
-            <p className="text-sm text-white font-medium truncate">{user.name}</p>
-            <p className="text-xs text-sidebar-text truncate">{user.email}</p>
+          <div className="mx-3 mb-3 p-3 rounded-lg bg-surface-tertiary">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                  {user.name?.charAt(0) || 'U'}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-text-primary font-medium truncate">{user.name}</p>
+                  <p className="text-[11px] text-text-tertiary truncate">{user.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={onSignOut}
+                className="p-1.5 rounded-md text-text-tertiary hover:text-status-red hover:bg-surface-secondary transition-colors flex-shrink-0"
+                title="로그아웃"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
       </aside>

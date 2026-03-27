@@ -33,7 +33,7 @@ const STATUS_LABELS: Record<QuotationStatus, string> = {
 }
 
 const STATUS_COLORS: Record<QuotationStatus, string> = {
-  draft: 'bg-gray-100 text-gray-700',
+  draft: 'bg-surface-tertiary text-text-secondary',
   sent: 'bg-blue-100 text-blue-700',
   accepted: 'bg-green-100 text-green-700',
   rejected: 'bg-red-100 text-red-700',
@@ -228,52 +228,52 @@ export default function QuotationsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-gray-50">
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">견적번호</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">수신처</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">공사명</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">유형</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-600">버전</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-600">합계금액</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">담당자</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">견적일</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">유효기간</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">리드</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-600 w-12"></th>
+                  <tr className="border-b bg-surface-tertiary">
+                    <th className="text-left px-4 py-3 font-medium text-text-secondary">견적번호</th>
+                    <th className="text-left px-4 py-3 font-medium text-text-secondary">수신처</th>
+                    <th className="text-left px-4 py-3 font-medium text-text-secondary">공사명</th>
+                    <th className="text-left px-4 py-3 font-medium text-text-secondary">유형</th>
+                    <th className="text-center px-4 py-3 font-medium text-text-secondary">버전</th>
+                    <th className="text-right px-4 py-3 font-medium text-text-secondary">합계금액</th>
+                    <th className="text-center px-4 py-3 font-medium text-text-secondary">상태</th>
+                    <th className="text-left px-4 py-3 font-medium text-text-secondary">담당자</th>
+                    <th className="text-left px-4 py-3 font-medium text-text-secondary">견적일</th>
+                    <th className="text-left px-4 py-3 font-medium text-text-secondary">유효기간</th>
+                    <th className="text-left px-4 py-3 font-medium text-text-secondary">리드</th>
+                    <th className="text-center px-4 py-3 font-medium text-text-secondary w-12"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {quotations.map((q) => (
                     <tr
                       key={q.id}
-                      className="border-b hover:bg-gray-50 cursor-pointer"
+                      className="border-b hover:bg-surface-tertiary cursor-pointer"
                       onClick={() => router.push(`/quotations/${q.id}`)}
                     >
                       <td className="px-4 py-3 font-mono text-xs text-primary-600 font-medium">
                         {q.quotation_number}
                       </td>
                       <td className="px-4 py-3 font-medium">{q.customer_name}</td>
-                      <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">
+                      <td className="px-4 py-3 text-text-secondary max-w-[200px] truncate">
                         {q.project_name || '-'}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+                        <span className="text-xs px-2 py-0.5 rounded bg-surface-tertiary text-text-secondary">
                           {q.quotation_type}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-500">v{q.version}</td>
+                      <td className="px-4 py-3 text-center text-text-secondary">v{q.version}</td>
                       <td className="px-4 py-3 text-right font-medium">{formatCurrency(q.total)}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge className={STATUS_COLORS[q.status]}>
                           {STATUS_LABELS[q.status]}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{q.creator?.name || '-'}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-text-secondary">{q.creator?.name || '-'}</td>
+                      <td className="px-4 py-3 text-text-secondary text-xs">
                         {formatDate(q.quotation_date)}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-text-secondary text-xs">
                         {q.valid_until ? formatDate(q.valid_until) : '-'}
                       </td>
                       <td className="px-4 py-3">
@@ -287,47 +287,64 @@ export default function QuotationsPage() {
                             {(q.lead as any)?.company_name || '리드'}
                           </Link>
                         ) : (
-                          <span className="text-xs text-gray-400">-</span>
+                          <span className="text-xs text-text-tertiary">-</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-center relative">
                         <button
+                          data-menu-id={q.id}
                           onClick={(e) => {
                             e.stopPropagation()
                             setActiveMenu(activeMenu === q.id ? null : q.id)
                           }}
                           className="p-1 rounded hover:bg-gray-200"
                         >
-                          <MoreHorizontal className="w-4 h-4 text-gray-500" />
+                          <MoreHorizontal className="w-4 h-4 text-text-secondary" />
                         </button>
                         {activeMenu === q.id && (
-                          <div className="absolute right-4 top-10 z-20 bg-white border rounded-lg shadow-lg py-1 min-w-[140px]">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); router.push(`/quotations/${q.id}`) }}
-                              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveMenu(null) }} />
+                            <div className="absolute right-0 top-8 z-50 bg-white border rounded-lg shadow-xl py-1 min-w-[160px]"
+                              style={{ position: 'fixed' }}
+                              ref={(el) => {
+                                if (el) {
+                                  const btn = el.parentElement?.querySelector(`[data-menu-id="${q.id}"]`) as HTMLElement
+                                  if (btn) {
+                                    const rect = btn.getBoundingClientRect()
+                                    el.style.top = `${rect.bottom + 4}px`
+                                    el.style.right = `${window.innerWidth - rect.right}px`
+                                    el.style.left = 'auto'
+                                  }
+                                }
+                              }}
                             >
-                              <Eye className="w-4 h-4" /> 상세보기
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleCopy(q) }}
-                              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
-                            >
-                              <Copy className="w-4 h-4" /> 복사
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleNewVersion(q) }}
-                              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
-                            >
-                              <GitBranch className="w-4 h-4" /> 새 버전
-                            </button>
-                            <hr className="my-1" />
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDelete(q.id) }}
-                              className="w-full text-left px-4 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
-                            >
-                              <Trash2 className="w-4 h-4" /> 삭제
-                            </button>
-                          </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setActiveMenu(null); router.push(`/quotations/${q.id}`) }}
+                                className="w-full text-left px-4 py-2.5 text-sm hover:bg-surface-tertiary flex items-center gap-2"
+                              >
+                                <Eye className="w-4 h-4" /> 상세보기
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setActiveMenu(null); handleCopy(q) }}
+                                className="w-full text-left px-4 py-2.5 text-sm hover:bg-surface-tertiary flex items-center gap-2"
+                              >
+                                <Copy className="w-4 h-4" /> 복사
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setActiveMenu(null); handleNewVersion(q) }}
+                                className="w-full text-left px-4 py-2.5 text-sm hover:bg-surface-tertiary flex items-center gap-2"
+                              >
+                                <GitBranch className="w-4 h-4" /> 새 버전
+                              </button>
+                              <hr className="my-1" />
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setActiveMenu(null); handleDelete(q.id) }}
+                                className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
+                              >
+                                <Trash2 className="w-4 h-4" /> 삭제
+                              </button>
+                            </div>
+                          </>
                         )}
                       </td>
                     </tr>
@@ -339,7 +356,7 @@ export default function QuotationsPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
+            <div className="flex items-center justify-between mt-4 text-sm text-text-secondary">
               <span>총 {formatNumber(totalCount)}건</span>
               <div className="flex items-center gap-2">
                 <Button

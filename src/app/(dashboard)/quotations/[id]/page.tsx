@@ -13,8 +13,11 @@ import type { Quotation, QuotationItem, QuotationStatus } from '@/types/database
 import { toast } from 'sonner'
 import {
   ArrowLeft, Edit2, Send, CheckCircle, XCircle, Copy,
-  GitBranch, FileText, Trash2, Clock, AlertTriangle
+  GitBranch, FileText, Trash2, Clock, AlertTriangle, Download
 } from 'lucide-react'
+import dynamic from 'next/dynamic'
+
+const PDFDownloadButton = dynamic(() => import('@/components/quotations/pdf/PDFDownloadButton'), { ssr: false })
 
 const STATUS_LABELS: Record<QuotationStatus, string> = {
   draft: '초안',
@@ -215,6 +218,7 @@ export default function QuotationDetailPage() {
           >
             <GitBranch className="w-4 h-4 mr-1" /> 새 버전
           </Button>
+          <PDFDownloadButton quotation={q} items={items} />
           <Button variant="ghost" size="sm" onClick={handleDelete}>
             <Trash2 className="w-4 h-4 text-red-500" />
           </Button>
