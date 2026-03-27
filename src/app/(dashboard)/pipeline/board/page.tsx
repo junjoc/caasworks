@@ -59,11 +59,11 @@ export default function PipelineBoardPage() {
     setLeads(data || [])
 
     if (data && data.length > 0) {
-      const leadIds = data.map((l: any) => l.id)
+      // Fetch all activity_logs with lead_id (not using .in() to avoid URL length limit with 700+ leads)
       const { data: activities } = await supabase
         .from('activity_logs')
         .select('lead_id, activity_type, title, performed_at')
-        .in('lead_id', leadIds)
+        .not('lead_id', 'is', null)
         .order('performed_at', { ascending: false })
 
       const map: Record<string, { count: number; latest?: { type: string; title: string; date: string } }> = {}
