@@ -100,16 +100,24 @@ export default function RevenuePage() {
   const fetchRevenue = useCallback(async () => {
     setLoading(true)
     try {
-      const { data: revenues } = await Promise.race([
-        supabase
+      // Paginated fetch to bypass Supabase 1000-row default limit
+      let revenues: any[] = []
+      let from = 0
+      const batchSize = 1000
+      while (true) {
+        const { data, error } = await supabase
           .from('monthly_revenues')
           .select('*, customer:customers(company_name, company_type), project:projects(project_name, service_type)')
           .eq('year', year)
-          .order('month'),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
-      ])
+          .order('month')
+          .range(from, from + batchSize - 1)
+        if (error || !data || data.length === 0) break
+        revenues = revenues.concat(data)
+        if (data.length < batchSize) break
+        from += batchSize
+      }
 
-      setRawRecords((revenues || []) as RevenueRecord[])
+      setRawRecords(revenues as RevenueRecord[])
 
       // 고객별 -> 프로젝트별 집계
       const customerMap = new Map<string, RevenueSummary>()
@@ -397,7 +405,7 @@ export default function RevenuePage() {
           <table className="w-full text-sm">
             <thead className="bg-surface-tertiary border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase min-w-[200px]">고객사 / 현장</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase min-w-[280px]">고객사 / 현장</th>
                 {months.map((m) => (
                   <th key={m} className={`text-center min-w-[90px] ${m === currentMonth && year === new Date().getFullYear() ? 'bg-blue-50' : ''}`}>
                     {m}월
@@ -408,6 +416,19 @@ export default function RevenuePage() {
               </tr>
             </thead>
             <tbody>
+              {/* 월간 매출 총액 - 최상단 */}
+              {data.length > 0 && (
+                <tr className="bg-surface-tertiary font-semibold border-b-2 border-gray-300 sticky top-0 z-10">
+                  <td className="px-4 py-3 font-semibold">월 합계</td>
+                  {monthlyTotals.map((t, i) => (
+                    <td key={i} className={`text-right ${i + 1 === currentMonth && year === new Date().getFullYear() ? 'bg-blue-100/50' : ''}`}>
+                      {t ? formatCurrency(t) : '-'}
+                    </td>
+                  ))}
+                  <td className="text-right">{formatCurrency(grandTotal)}</td>
+                  <td></td>
+                </tr>
+              )}
               {data.map((row) => {
                 const isExpanded = expandedCustomers.has(row.customer_id)
                 return (
@@ -441,19 +462,27 @@ export default function RevenuePage() {
                       <td></td>
                     </tr>
 
-                    {/* 현장(사이트) 그룹 - 새 구조 */}
+                    {/* 현장(사이트) 그룹 - 접기/펼치기 */}
                     {isExpanded && row.siteGroups.map((sg) => {
                       const siteKey = `${row.customer_id}::${sg.site_name}`
+                      const isSiteExpanded = expandedSites.has(siteKey)
                       return (
                         <React.Fragment key={siteKey}>
-                          {/* Site header row - full width */}
-                          <tr className="bg-gradient-to-r from-gray-100 to-gray-50 border-t border-gray-200">
-                            <td colSpan={months.length + 3} className="px-4 py-2 pl-10">
+                          {/* Site header row - clickable to expand/collapse */}
+                          <tr
+                            className="bg-gradient-to-r from-gray-100 to-gray-50 border-t border-gray-200 cursor-pointer hover:from-gray-150 hover:to-gray-100 transition-colors"
+                            onClick={() => toggleSite(siteKey)}
+                          >
+                            <td className="px-4 py-2 pl-10">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
+                                  {isSiteExpanded
+                                    ? <ChevronDown className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+                                    : <ChevronRight className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+                                  }
                                   <MapPin className="w-3.5 h-3.5 text-primary-400 shrink-0" />
-                                  <span className="text-sm font-semibold text-gray-800">{sg.site_name}</span>
-                                  <span className="text-[10px] text-text-tertiary bg-white px-1.5 py-0.5 rounded-full">{sg.services.length}개 서비스</span>
+                                  <span className="text-sm font-semibold text-gray-800 truncate max-w-[180px]" title={sg.site_name}>{sg.site_name}</span>
+                                  <span className="text-[10px] text-text-tertiary bg-white px-1.5 py-0.5 rounded-full whitespace-nowrap">{sg.services.length}개 서비스</span>
                                 </div>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setAddServiceTarget({ customerId: row.customer_id, siteName: sg.site_name }) }}
@@ -463,16 +492,23 @@ export default function RevenuePage() {
                                 </button>
                               </div>
                             </td>
+                            {months.map((m) => (
+                              <td key={m} className={`text-right text-xs px-1 font-medium text-text-secondary ${m === currentMonth && year === new Date().getFullYear() ? 'bg-blue-50/30' : ''}`}>
+                                {sg.months[m] ? formatCurrency(sg.months[m]) : <span className="text-gray-200">-</span>}
+                              </td>
+                            ))}
+                            <td className="text-right text-xs font-bold text-text-secondary">{formatCurrency(sg.total)}</td>
+                            <td></td>
                           </tr>
 
-                          {/* Service rows under this site */}
-                          {sg.services.sort((a, b) => b.total - a.total).map((proj) => {
+                          {/* Service rows under this site - only when expanded */}
+                          {isSiteExpanded && sg.services.sort((a, b) => b.total - a.total).map((proj) => {
                             const serviceName = proj.project_name.includes(' - ')
                               ? proj.project_name.substring(proj.project_name.indexOf(' - ') + 3)
                               : (proj.service_type || proj.project_name)
                             return (
                               <tr key={proj.project_id} className="bg-white hover:bg-blue-50/30 group">
-                                <td className="px-4 py-2 pl-14">
+                                <td className="px-4 py-2 pl-16">
                                   <div className="flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-primary-300 shrink-0" />
                                     <span className="text-xs text-text-secondary font-medium">{serviceName}</span>
@@ -546,20 +582,6 @@ export default function RevenuePage() {
                               </tr>
                             )
                           })}
-
-                          {/* Site total row */}
-                          {sg.services.length > 1 && (
-                            <tr className="bg-surface-tertiary/50 border-t border-gray-200">
-                              <td className="px-4 py-1.5 pl-14 text-xs text-text-secondary font-medium">합계</td>
-                              {months.map((m) => (
-                                <td key={m} className="text-right text-xs px-1 font-semibold text-text-secondary">
-                                  {sg.months[m] ? formatCurrency(sg.months[m]) : ''}
-                                </td>
-                              ))}
-                              <td className="text-right text-xs font-bold text-text-secondary">{formatCurrency(sg.total)}</td>
-                              <td></td>
-                            </tr>
-                          )}
                         </React.Fragment>
                       )
                     })}
@@ -596,18 +618,6 @@ export default function RevenuePage() {
                   </React.Fragment>
                 )
               })}
-              {data.length > 0 && (
-                <tr className="bg-surface-tertiary font-semibold border-t-2 border-gray-300">
-                  <td className="px-4 py-3 font-semibold">합계</td>
-                  {monthlyTotals.map((t, i) => (
-                    <td key={i} className={`text-right ${i + 1 === currentMonth && year === new Date().getFullYear() ? 'bg-blue-100/50' : ''}`}>
-                      {t ? formatCurrency(t) : '-'}
-                    </td>
-                  ))}
-                  <td className="text-right">{formatCurrency(grandTotal)}</td>
-                  <td></td>
-                </tr>
-              )}
             </tbody>
           </table>
 

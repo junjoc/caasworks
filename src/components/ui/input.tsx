@@ -9,7 +9,13 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, id, ...props }, ref) => {
+  ({ className, label, error, id, type, onFocus, ...props }, ref) => {
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+      if (type === 'number') {
+        e.target.select()
+      }
+      onFocus?.(e)
+    }
     return (
       <div>
         {label && (
@@ -20,11 +26,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           id={id}
+          type={type}
           className={cn(
             'input-base',
             error && 'input-error',
             className
           )}
+          onFocus={handleFocus}
           {...props}
         />
         {error && <p className="mt-1 text-xs text-status-red">{error}</p>}

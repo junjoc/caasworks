@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -10,7 +10,7 @@ import { Loading } from '@/components/ui/loading'
 import { STAGE_COLORS, PRIORITY_COLORS, ACTIVITY_TYPE_ICONS, formatDate } from '@/lib/utils'
 import type { PipelineLead } from '@/types/database'
 import { toast } from 'sonner'
-import { Plus, Clock, AlertCircle, Search } from 'lucide-react'
+import { Plus, Clock, AlertCircle, Search, CheckSquare, Square, X, ArrowRight, UserPlus } from 'lucide-react'
 
 const STAGES = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료', '이탈']
 
@@ -30,7 +30,8 @@ function isOverdue(dateStr: string | null) {
   return new Date(dateStr) < new Date(new Date().toDateString())
 }
 
-function getCardBorderClass(lead: PipelineLead) {
+function getCardBorderClass(lead: PipelineLead, isSelected: boolean) {
+  if (isSelected) return 'border-2 border-primary-500 bg-primary-50/30 ring-1 ring-primary-200'
   if (lead.priority === '긴급') return 'border-l-4 border-l-red-500 border-t border-r border-b border-red-200 bg-red-50/40'
   if (lead.priority === '높음') return 'border-l-4 border-l-orange-400 border-t border-r border-b border-orange-200 bg-orange-50/30'
   if (isOverdue(lead.next_action_date)) return 'border-l-4 border-l-red-300 border-t border-r border-b border-gray-200 bg-white'
@@ -43,12 +44,24 @@ export default function PipelineBoardPage() {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [activityMap, setActivityMap] = useState<Record<string, { count: number; latest?: { type: string; title: string; date: string } }>>({})
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [showStageMenu, setShowStageMenu] = useState(false)
+  const [showAssignMenu, setShowAssignMenu] = useState(false)
+  const [users, setUsers] = useState<{ id: string; name: string }[]>([])
+  const [bulkLoading, setBulkLoading] = useState(false)
   const { user } = useAuth()
   const supabase = createClient()
 
   useEffect(() => {
     fetchLeads()
+    fetchUsers()
   }, [])
+
+  async function fetchUsers() {
+    const { data } = await supabase.from('users').select('id, name').eq('is_active', true)
+    setUsers(data || [])
+  }
 
   async function fetchLeads() {
     const { data } = await supabase
@@ -91,10 +104,145 @@ export default function PipelineBoardPage() {
         (l.industry || '').toLowerCase().includes(q)
       )
     }
+    // 정렬: 액션일 기한초과 → 액션일 오늘/미래(날짜 순) → 액션일 없는 카드(생성일 역순)
+    filtered.sort((a, b) => {
+      const aDate = a.next_action_date
+      const bDate = b.next_action_date
+      // 둘 다 없으면 생성일 역순
+      if (!aDate && !bDate) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      // 액션일 있는 것이 위로
+      if (!aDate) return 1
+      if (!bDate) return -1
+      // 둘 다 있으면 날짜 순 (가까운 순)
+      return new Date(aDate).getTime() - new Date(bDate).getTime()
+    })
     return filtered
   }
 
+  // Selection handlers
+  const toggleSelect = useCallback((leadId: string, e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(leadId)) {
+        next.delete(leadId)
+      } else {
+        next.add(leadId)
+      }
+      if (next.size === 0) setSelectionMode(false)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAll = useCallback((stage: string) => {
+    const stageLeads = getLeadsByStage(stage)
+    const stageIds = stageLeads.map(l => l.id)
+    const allSelected = stageIds.every(id => selectedIds.has(id))
+
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allSelected) {
+        stageIds.forEach(id => next.delete(id))
+      } else {
+        stageIds.forEach(id => next.add(id))
+      }
+      if (next.size === 0) setSelectionMode(false)
+      return next
+    })
+  }, [leads, searchQuery, selectedIds])
+
+  const clearSelection = () => {
+    setSelectedIds(new Set())
+    setSelectionMode(false)
+    setShowStageMenu(false)
+    setShowAssignMenu(false)
+  }
+
+  // Bulk actions
+  const bulkMoveStage = async (newStage: string) => {
+    if (selectedIds.size === 0) return
+    setBulkLoading(true)
+    setShowStageMenu(false)
+
+    const ids = Array.from(selectedIds)
+    const selectedLeads = leads.filter(l => ids.includes(l.id))
+
+    // Optimistic update
+    setLeads(prev =>
+      prev.map(l => ids.includes(l.id) ? { ...l, stage: newStage as PipelineLead['stage'] } : l)
+    )
+
+    // Record history for each lead
+    if (user) {
+      const historyRecords = selectedLeads
+        .filter(l => l.stage !== newStage)
+        .map(l => ({
+          lead_id: l.id,
+          field_changed: 'stage',
+          old_value: l.stage,
+          new_value: newStage,
+          changed_by: user.id,
+        }))
+      if (historyRecords.length > 0) {
+        await supabase.from('pipeline_history').insert(historyRecords)
+      }
+    }
+
+    const updates: Record<string, unknown> = { stage: newStage }
+    if (newStage === '도입직전' || newStage === '도입완료') {
+      updates.converted_at = new Date().toISOString()
+    }
+
+    const { error } = await supabase
+      .from('pipeline_leads')
+      .update(updates)
+      .in('id', ids)
+
+    if (error) {
+      toast.error('일괄 단계 변경에 실패했습니다.')
+      fetchLeads()
+    } else {
+      toast.success(`${ids.length}건 → ${newStage} 이동 완료`)
+    }
+
+    setBulkLoading(false)
+    clearSelection()
+  }
+
+  const bulkAssign = async (userId: string, userName: string) => {
+    if (selectedIds.size === 0) return
+    setBulkLoading(true)
+    setShowAssignMenu(false)
+
+    const ids = Array.from(selectedIds)
+
+    // Optimistic update
+    setLeads(prev =>
+      prev.map(l => ids.includes(l.id) ? { ...l, assigned_to: userId, assigned_user: { ...l.assigned_user, id: userId, name: userName } as any } : l)
+    )
+
+    const { error } = await supabase
+      .from('pipeline_leads')
+      .update({ assigned_to: userId })
+      .in('id', ids)
+
+    if (error) {
+      toast.error('일괄 담당자 변경에 실패했습니다.')
+      fetchLeads()
+    } else {
+      toast.success(`${ids.length}건 담당자 → ${userName} 배정 완료`)
+    }
+
+    setBulkLoading(false)
+    clearSelection()
+  }
+
   const handleDragStart = (e: React.DragEvent, leadId: string) => {
+    if (selectionMode) {
+      e.preventDefault()
+      return
+    }
     setDraggingId(leadId)
     e.dataTransfer.setData('text/plain', leadId)
     e.dataTransfer.effectAllowed = 'move'
@@ -184,6 +332,23 @@ export default function PipelineBoardPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          <button
+            onClick={() => {
+              if (selectionMode) {
+                clearSelection()
+              } else {
+                setSelectionMode(true)
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+              selectionMode
+                ? 'bg-primary-50 border-primary-300 text-primary-700 font-medium'
+                : 'border-gray-200 text-text-secondary hover:bg-gray-50'
+            }`}
+          >
+            <CheckSquare className="w-3.5 h-3.5" />
+            선택
+          </button>
           <Link href="/pipeline/list">
             <Button variant="secondary" size="sm">리스트뷰</Button>
           </Link>
@@ -193,12 +358,86 @@ export default function PipelineBoardPage() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-3 px-4 py-2.5 bg-primary-50 border border-primary-200 rounded-xl flex-shrink-0 animate-in slide-in-from-top-2">
+          <span className="text-sm font-semibold text-primary-700">
+            {selectedIds.size}건 선택됨
+          </span>
+          <div className="h-4 w-px bg-primary-200" />
+
+          {/* Stage move */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowStageMenu(!showStageMenu); setShowAssignMenu(false) }}
+              disabled={bulkLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-primary-200 rounded-lg hover:bg-primary-50 text-primary-700 font-medium disabled:opacity-50"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+              단계 이동
+            </button>
+            {showStageMenu && (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 min-w-[140px]">
+                {STAGES.map(stage => (
+                  <button
+                    key={stage}
+                    onClick={() => bulkMoveStage(stage)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <span className={`w-2 h-2 rounded-full ${STAGE_COLUMN_COLORS[stage]?.bar || 'bg-gray-400'}`} />
+                    {stage}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Assign */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowAssignMenu(!showAssignMenu); setShowStageMenu(false) }}
+              disabled={bulkLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-primary-200 rounded-lg hover:bg-primary-50 text-primary-700 font-medium disabled:opacity-50"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              담당자 배정
+            </button>
+            {showAssignMenu && (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 min-w-[140px]">
+                {users.map(u => (
+                  <button
+                    key={u.id}
+                    onClick={() => bulkAssign(u.id, u.name)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                  >
+                    {u.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="ml-auto">
+            <button
+              onClick={clearSelection}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-text-tertiary hover:text-text-primary"
+            >
+              <X className="w-3.5 h-3.5" />
+              선택 해제
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Board - scrollable area */}
       <div className="flex gap-3 overflow-x-auto flex-1 pb-2">
         {STAGES.map((stage) => {
           const stageLeads = getLeadsByStage(stage)
           const stageOverdue = stageLeads.filter(l => isOverdue(l.next_action_date)).length
           const colors = STAGE_COLUMN_COLORS[stage] || STAGE_COLUMN_COLORS['이탈']
+          const stageIds = stageLeads.map(l => l.id)
+          const allStageSelected = stageIds.length > 0 && stageIds.every(id => selectedIds.has(id))
+          const someStageSelected = stageIds.some(id => selectedIds.has(id))
           return (
             <div
               key={stage}
@@ -211,6 +450,22 @@ export default function PipelineBoardPage() {
                 <div className={`h-1 ${colors.bar}`} />
                 <div className={`flex items-center justify-between px-3 py-2.5 ${colors.headerBg}`}>
                   <div className="flex items-center gap-2">
+                    {selectionMode && stageLeads.length > 0 && (
+                      <button
+                        onClick={() => toggleSelectAll(stage)}
+                        className="flex items-center"
+                      >
+                        {allStageSelected ? (
+                          <CheckSquare className="w-4 h-4 text-primary-500" />
+                        ) : someStageSelected ? (
+                          <div className="w-4 h-4 border-2 border-primary-400 rounded bg-primary-100 flex items-center justify-center">
+                            <div className="w-2 h-0.5 bg-primary-500 rounded" />
+                          </div>
+                        ) : (
+                          <Square className="w-4 h-4 text-gray-400" />
+                        )}
+                      </button>
+                    )}
                     <span className="text-sm font-semibold text-text-primary">{stage}</span>
                     <span className="text-xs font-bold text-text-tertiary bg-white/80 px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
                       {stageLeads.length}
@@ -227,96 +482,149 @@ export default function PipelineBoardPage() {
 
               {/* Cards - scrollable within column */}
               <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-0">
-                {stageLeads.map((lead) => (
-                  <div
-                    key={lead.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, lead.id)}
-                    className={`rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all ${
-                      draggingId === lead.id ? 'opacity-40 scale-95' : ''
-                    } ${getCardBorderClass(lead)}`}
-                  >
-                    <Link href={`/pipeline/${lead.id}`} className="block">
-                      {/* Top: priority + industry */}
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        {lead.priority && lead.priority !== '중간' && (
-                          <Badge className={`${PRIORITY_COLORS[lead.priority]} text-[10px] px-1.5 py-0 border`}>
-                            {lead.priority}
-                          </Badge>
-                        )}
-                        {lead.industry && (
-                          <span className="text-[10px] text-text-tertiary">{lead.industry}</span>
-                        )}
-                        {isOverdue(lead.next_action_date) && (
-                          <span className="ml-auto" title="기한 초과">
-                            <AlertCircle className="w-3.5 h-3.5 text-status-red" />
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Company name */}
-                      <p className="font-semibold text-sm text-text-primary mb-0.5">
-                        {lead.company_name}
-                      </p>
-
-                      {/* Contact */}
-                      {lead.contact_person && (
-                        <p className="text-xs text-text-secondary">
-                          {lead.contact_person}
-                          {lead.contact_position && <span className="text-text-tertiary"> · {lead.contact_position}</span>}
-                        </p>
-                      )}
-
-                      {/* Next action with date */}
-                      {lead.next_action && (
-                        <div className={`flex items-center gap-1 mt-1.5 text-xs ${
-                          isOverdue(lead.next_action_date) ? 'text-status-red font-medium' : 'text-primary-500'
-                        }`}>
-                          <span className="truncate" title={lead.next_action}>→ {lead.next_action}</span>
-                          {lead.next_action_date && (
-                            <span className="ml-auto shrink-0 flex items-center gap-0.5 text-[10px]">
-                              <Clock className="w-3 h-3" />
-                              {formatDate(lead.next_action_date, 'M/d')}
+                {stageLeads.map((lead) => {
+                  const isSelected = selectedIds.has(lead.id)
+                  return (
+                    <div
+                      key={lead.id}
+                      draggable={!selectionMode}
+                      onDragStart={(e) => handleDragStart(e, lead.id)}
+                      onClick={selectionMode ? (e) => toggleSelect(lead.id, e) : undefined}
+                      className={`rounded-lg p-3 shadow-sm transition-all ${
+                        selectionMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+                      } hover:shadow-md ${
+                        draggingId === lead.id ? 'opacity-40 scale-95' : ''
+                      } ${getCardBorderClass(lead, isSelected)}`}
+                    >
+                      {selectionMode ? (
+                        // Selection mode: card content without Link
+                        <div>
+                          {/* Checkbox + top row */}
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="shrink-0" onClick={(e) => { e.stopPropagation(); toggleSelect(lead.id, e) }}>
+                              {isSelected ? (
+                                <CheckSquare className="w-4 h-4 text-primary-500" />
+                              ) : (
+                                <Square className="w-4 h-4 text-gray-300" />
+                              )}
                             </span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Latest activity */}
-                      {activityMap[lead.id]?.latest && (
-                        <div className="flex items-center gap-1 mt-1.5 text-[10px] text-text-tertiary">
-                          <span>{ACTIVITY_TYPE_ICONS[activityMap[lead.id].latest!.type] || '💬'}</span>
-                          <span className="truncate">{activityMap[lead.id].latest!.title}</span>
-                          <span className="ml-auto shrink-0 flex items-center gap-1">
-                            <span className="text-[9px] text-text-placeholder">{formatDate(activityMap[lead.id].latest!.date, 'M/d')}</span>
-                            {activityMap[lead.id].count > 1 && (
-                              <span className="bg-surface-tertiary text-text-tertiary px-1 rounded text-[9px]">+{activityMap[lead.id].count - 1}</span>
+                            {lead.priority && lead.priority !== '중간' && (
+                              <Badge className={`${PRIORITY_COLORS[lead.priority]} text-[10px] px-1.5 py-0 border`}>
+                                {lead.priority}
+                              </Badge>
                             )}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Bottom: dates + assignee */}
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-light">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] text-text-tertiary" title="유입일">
-                            {lead.inquiry_date ? formatDate(lead.inquiry_date, 'M/d') : formatDate(lead.created_at, 'M/d')}
-                          </span>
-                          {lead.updated_at && lead.updated_at !== lead.created_at && (
-                            <span className="text-[10px] text-text-placeholder" title="최근 수정">
-                              · {formatDate(lead.updated_at, 'M/d')}
-                            </span>
+                            {lead.industry && (
+                              <span className="text-[10px] text-text-tertiary">{lead.industry}</span>
+                            )}
+                            {isOverdue(lead.next_action_date) && (
+                              <span className="ml-auto" title="기한 초과">
+                                <AlertCircle className="w-3.5 h-3.5 text-status-red" />
+                              </span>
+                            )}
+                          </div>
+                          <p className="font-semibold text-sm text-text-primary mb-0.5">{lead.company_name}</p>
+                          {lead.contact_person && (
+                            <p className="text-xs text-text-secondary">
+                              {lead.contact_person}
+                              {lead.contact_position && <span className="text-text-tertiary"> · {lead.contact_position}</span>}
+                            </p>
                           )}
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-light">
+                            <span className="text-[11px] text-text-tertiary">
+                              {lead.inquiry_date ? formatDate(lead.inquiry_date, 'M/d') : formatDate(lead.created_at, 'M/d')}
+                            </span>
+                            {lead.assigned_user && (
+                              <span className="text-[11px] bg-surface-tertiary text-text-secondary px-1.5 py-0.5 rounded-md font-medium">
+                                {lead.assigned_user.name}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {lead.assigned_user && (
-                          <span className="text-[11px] bg-surface-tertiary text-text-secondary px-1.5 py-0.5 rounded-md font-medium">
-                            {lead.assigned_user.name}
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  </div>
-                ))}
+                      ) : (
+                        // Normal mode: card with Link
+                        <Link href={`/pipeline/${lead.id}`} className="block">
+                          {/* Top: priority + industry */}
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            {lead.priority && lead.priority !== '중간' && (
+                              <Badge className={`${PRIORITY_COLORS[lead.priority]} text-[10px] px-1.5 py-0 border`}>
+                                {lead.priority}
+                              </Badge>
+                            )}
+                            {lead.industry && (
+                              <span className="text-[10px] text-text-tertiary">{lead.industry}</span>
+                            )}
+                            {isOverdue(lead.next_action_date) && (
+                              <span className="ml-auto" title="기한 초과">
+                                <AlertCircle className="w-3.5 h-3.5 text-status-red" />
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Company name */}
+                          <p className="font-semibold text-sm text-text-primary mb-0.5">
+                            {lead.company_name}
+                          </p>
+
+                          {/* Contact */}
+                          {lead.contact_person && (
+                            <p className="text-xs text-text-secondary">
+                              {lead.contact_person}
+                              {lead.contact_position && <span className="text-text-tertiary"> · {lead.contact_position}</span>}
+                            </p>
+                          )}
+
+                          {/* Next action with date */}
+                          {lead.next_action && (
+                            <div className={`flex items-center gap-1 mt-1.5 text-xs ${
+                              isOverdue(lead.next_action_date) ? 'text-status-red font-medium' : 'text-primary-500'
+                            }`}>
+                              <span className="truncate" title={lead.next_action}>→ {lead.next_action}</span>
+                              {lead.next_action_date && (
+                                <span className="ml-auto shrink-0 flex items-center gap-0.5 text-[10px]">
+                                  <Clock className="w-3 h-3" />
+                                  {formatDate(lead.next_action_date, 'M/d')}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Latest activity */}
+                          {activityMap[lead.id]?.latest && (
+                            <div className="flex items-center gap-1 mt-1.5 text-[10px] text-text-tertiary">
+                              <span>{ACTIVITY_TYPE_ICONS[activityMap[lead.id].latest!.type] || '💬'}</span>
+                              <span className="truncate">{activityMap[lead.id].latest!.title}</span>
+                              <span className="ml-auto shrink-0 flex items-center gap-1">
+                                <span className="text-[9px] text-text-placeholder">{formatDate(activityMap[lead.id].latest!.date, 'M/d')}</span>
+                                {activityMap[lead.id].count > 1 && (
+                                  <span className="bg-surface-tertiary text-text-tertiary px-1 rounded text-[9px]">+{activityMap[lead.id].count - 1}</span>
+                                )}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Bottom: dates + assignee */}
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-light">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] text-text-tertiary" title="유입일">
+                                {lead.inquiry_date ? formatDate(lead.inquiry_date, 'M/d') : formatDate(lead.created_at, 'M/d')}
+                              </span>
+                              {lead.updated_at && lead.updated_at !== lead.created_at && (
+                                <span className="text-[10px] text-text-placeholder" title="최근 수정">
+                                  · {formatDate(lead.updated_at, 'M/d')}
+                                </span>
+                              )}
+                            </div>
+                            {lead.assigned_user && (
+                              <span className="text-[11px] bg-surface-tertiary text-text-secondary px-1.5 py-0.5 rounded-md font-medium">
+                                {lead.assigned_user.name}
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+                      )}
+                    </div>
+                  )
+                })}
 
                 {stageLeads.length === 0 && (
                   <div className="flex items-center justify-center h-24 text-xs text-text-placeholder">
@@ -328,6 +636,14 @@ export default function PipelineBoardPage() {
           )
         })}
       </div>
+
+      {/* Click outside to close menus */}
+      {(showStageMenu || showAssignMenu) && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => { setShowStageMenu(false); setShowAssignMenu(false) }}
+        />
+      )}
     </div>
   )
 }

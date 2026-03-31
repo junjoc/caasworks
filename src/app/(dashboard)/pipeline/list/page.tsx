@@ -37,6 +37,7 @@ export default function PipelineListPage() {
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState('전체')
   const [priorityFilter, setPriorityFilter] = useState('전체')
+  const [assigneeFilter, setAssigneeFilter] = useState('전체')
   const [sortField, setSortField] = useState<'next_action_date' | 'created_at'>('created_at')
   const [sortAsc, setSortAsc] = useState(false)
   const { user } = useAuth()
@@ -68,7 +69,7 @@ export default function PipelineListPage() {
       .from('pipeline_leads')
       .select('*, assigned_user:users!pipeline_leads_assigned_to_fkey(id, name)')
       .order('created_at', { ascending: false })
-      .limit(200)
+      .limit(1000)
 
     if (stageFilter !== '전체') {
       query = query.eq('stage', stageFilter)
@@ -104,7 +105,8 @@ export default function PipelineListPage() {
         (lead.next_action || '').toLowerCase().includes(q) ||
         (lead.notes || '').toLowerCase().includes(q)
       const matchPriority = priorityFilter === '전체' || lead.priority === priorityFilter
-      return matchSearch && matchPriority
+      const matchAssignee = assigneeFilter === '전체' || lead.assigned_to === assigneeFilter || (assigneeFilter === '미배정' && !lead.assigned_to)
+      return matchSearch && matchPriority && matchAssignee
     })
     .sort((a, b) => {
       if (sortField === 'next_action_date') {
@@ -373,6 +375,16 @@ export default function PipelineListPage() {
           options={PRIORITIES.map((p) => ({ value: p, label: p === '전체' ? '우선순위' : p }))}
           className="w-32"
         />
+        <Select
+          value={assigneeFilter}
+          onChange={(e) => setAssigneeFilter(e.target.value)}
+          options={[
+            { value: '전체', label: '담당자 전체' },
+            ...users.map(u => ({ value: u.id, label: u.name })),
+            { value: '미배정', label: '미배정' },
+          ]}
+          className="w-32"
+        />
       </div>
 
       {/* 테이블 */}
@@ -497,6 +509,7 @@ export default function PipelineListPage() {
             </tbody>
           </table>
         </div>
+
       )}
     </div>
   )

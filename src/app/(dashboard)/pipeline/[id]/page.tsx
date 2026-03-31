@@ -95,6 +95,11 @@ export default function LeadDetailPage() {
   })
   const [savingActivity, setSavingActivity] = useState(false)
 
+  // Next action inline edit
+  const [editingNextAction, setEditingNextAction] = useState(false)
+  const [nextActionForm, setNextActionForm] = useState({ next_action: '', next_action_date: '' })
+  const [savingNextAction, setSavingNextAction] = useState(false)
+
   // VoC ticket creation
   const [showVocForm, setShowVocForm] = useState(false)
   const [vocForm, setVocForm] = useState({
@@ -251,6 +256,43 @@ export default function LeadDetailPage() {
     await supabase.from('pipeline_leads').update({ assigned_to: userId || null }).eq('id', id)
     toast.success('담당자가 변경되었습니다.')
     fetchAll()
+  }
+
+  const saveNextAction = async () => {
+    setSavingNextAction(true)
+    const { error } = await supabase.from('pipeline_leads').update({
+      next_action: nextActionForm.next_action || null,
+      next_action_date: nextActionForm.next_action_date || null,
+    }).eq('id', id)
+    if (error) {
+      toast.error('다음 액션 저장에 실패했습니다.')
+    } else {
+      toast.success('다음 액션이 저장되었습니다.')
+      setEditingNextAction(false)
+      fetchAll()
+    }
+    setSavingNextAction(false)
+  }
+
+  const startEditNextAction = () => {
+    if (!lead) return
+    setNextActionForm({
+      next_action: lead.next_action || '',
+      next_action_date: lead.next_action_date || '',
+    })
+    setEditingNextAction(true)
+  }
+
+  const clearNextAction = async () => {
+    setSavingNextAction(true)
+    await supabase.from('pipeline_leads').update({
+      next_action: null,
+      next_action_date: null,
+    }).eq('id', id)
+    toast.success('다음 액션이 초기화되었습니다.')
+    setEditingNextAction(false)
+    fetchAll()
+    setSavingNextAction(false)
   }
 
   const linkCustomer = async (customerId: string | null) => {
@@ -434,17 +476,6 @@ export default function LeadDetailPage() {
         </div>
       </div>
 
-      {/* ===== 액션 알림 (전체 폭) ===== */}
-      {lead.next_action && (
-        <div className={`rounded-lg px-4 py-3 flex items-center gap-3 mb-4 ${isOverdue ? 'bg-red-50 border border-red-200' : 'bg-blue-50 border border-blue-200'}`}>
-          {isOverdue ? <AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> : <Clock className="w-4 h-4 text-blue-500 shrink-0" />}
-          <p className={`text-sm font-medium ${isOverdue ? 'text-red-700' : 'text-blue-700'}`}>
-            다음 액션: {lead.next_action}
-            {lead.next_action_date && <span className={`ml-2 text-xs font-normal ${isOverdue ? 'text-red-500' : 'text-blue-500'}`}>({isOverdue ? '기한초과 ' : ''}{formatDate(lead.next_action_date)})</span>}
-          </p>
-        </div>
-      )}
-
       {/* ===== 3칸 레이아웃 ===== */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
 
@@ -481,6 +512,71 @@ export default function LeadDetailPage() {
                   options={PRIORITY_OPTIONS} className="mt-1" />
               </div>
             </div>
+            {/* 다음 액션 + 액션일 */}
+            <div className={`pt-3 border-t border-border-light ${
+              isOverdue ? 'bg-red-50 -mx-4 px-4 -mb-4 pb-4 rounded-b-xl' : ''
+            }`}>
+              {editingNextAction ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <label className="text-[11px] font-medium text-text-tertiary uppercase">다음 액션</label>
+                      <Input
+                        placeholder="예: 견적서 발송, 데모 일정 조율"
+                        value={nextActionForm.next_action}
+                        onChange={(e) => setNextActionForm({ ...nextActionForm, next_action: e.target.value })}
+                        className="mt-1 text-sm"
+                      />
+                    </div>
+                    <div className="w-36">
+                      <label className="text-[11px] font-medium text-text-tertiary uppercase">액션일</label>
+                      <Input
+                        type="date"
+                        value={nextActionForm.next_action_date}
+                        onChange={(e) => setNextActionForm({ ...nextActionForm, next_action_date: e.target.value })}
+                        className="mt-1 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button onClick={saveNextAction} loading={savingNextAction} size="sm">
+                      <Save className="w-3.5 h-3.5 mr-1" /> 저장
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => setEditingNextAction(false)}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                    {(lead.next_action || lead.next_action_date) && (
+                      <button onClick={clearNextAction} className="text-xs text-red-500 hover:text-red-700 ml-auto">초기화</button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 cursor-pointer group" onClick={startEditNextAction}>
+                  {isOverdue ? (
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  ) : (
+                    <Clock className={`w-4 h-4 shrink-0 ${lead.next_action ? 'text-blue-500' : 'text-text-quaternary'}`} />
+                  )}
+                  {lead.next_action ? (
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium ${isOverdue ? 'text-red-700' : 'text-blue-700'}`}>
+                        {lead.next_action}
+                      </p>
+                      {lead.next_action_date && (
+                        <p className={`text-xs mt-0.5 ${isOverdue ? 'text-red-500 font-medium' : 'text-blue-500'}`}>
+                          {isOverdue ? '⚠ 기한초과 · ' : ''}{formatDate(lead.next_action_date)}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-text-quaternary group-hover:text-text-secondary transition-colors flex-1">
+                      + 다음 액션을 지정하세요
+                    </p>
+                  )}
+                  <Pencil className={`w-3.5 h-3.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${isOverdue ? 'text-red-400' : 'text-text-quaternary'}`} />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 기본 정보 */}
@@ -512,8 +608,6 @@ export default function LeadDetailPage() {
                   <Select label="유입채널" value={editForm.inquiry_channel || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_channel: e.target.value })} options={CHANNEL_OPTIONS.map(c => ({ value: c, label: c }))} placeholder="채널" />
                 </div>
                 <Input label="유입경로" value={editForm.inquiry_source || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_source: e.target.value })} />
-                <Input label="다음 액션" value={editForm.next_action || ''} onChange={(e) => setEditForm({ ...editForm, next_action: e.target.value })} placeholder="예: 견적서 발송" />
-                <Input label="액션 예정일" type="date" value={editForm.next_action_date || ''} onChange={(e) => setEditForm({ ...editForm, next_action_date: e.target.value })} />
                 <Textarea label="문의내용" value={editForm.inquiry_content || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_content: e.target.value })} />
                 <Textarea label="메모" value={editForm.notes || ''} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
               </div>

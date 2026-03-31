@@ -6,6 +6,7 @@ import { formatCurrency, formatNumber, STAGE_COLORS } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
 import Link from 'next/link'
+import { useAuth } from '@/hooks/useAuth'
 import {
   TrendingUp,
   TrendingDown,
@@ -38,7 +39,7 @@ interface DashboardData {
   }
   monthlyTrend: { month: string; revenue: number; prevRevenue: number }[]
   newCompanyRevenue: number
-  actionDueLeads: { id: string; company_name: string; next_action: string | null; next_action_date: string; stage: string; assigned_name: string | null }[]
+  actionDueLeads: { id: string; company_name: string; next_action: string | null; next_action_date: string; stage: string; assigned_to: string | null; assigned_name: string | null }[]
 }
 
 export default function DashboardPage() {
@@ -46,6 +47,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [salesYear, setSalesYear] = useState(new Date().getFullYear())
   const [salesMonth, setSalesMonth] = useState<number | null>(null) // null = 전체(누적)
+  const [showAllActions, setShowAllActions] = useState(false)
+  const { user } = useAuth()
   const supabase = createClient()
 
   useEffect(() => {
@@ -82,8 +85,8 @@ export default function DashboardPage() {
       prevYearRevenueRes,
       actionDueRes,
     ] = await withTimeout(Promise.all([
-      supabase.from('monthly_revenues').select('amount').eq('year', year).eq('month', month),
-      supabase.from('monthly_revenues').select('amount').eq('year', prevYear).eq('month', prevMonth),
+      supabase.from('monthly_revenues').select('amount').eq('year', year).eq('month', month).limit(5000),
+      supabase.from('monthly_revenues').select('amount').eq('year', prevYear).eq('month', prevMonth).limit(5000),
       supabase.from('pipeline_leads').select('id', { count: 'exact' })
         .gte('created_at', `${year}-${String(month).padStart(2, '0')}-01`),
       supabase.from('pipeline_leads').select('id', { count: 'exact' })
@@ -107,22 +110,38 @@ export default function DashboardPage() {
       supabase.from('quotations')
         .select('lead_id, total_amount, status')
         .in('status', ['accepted', 'sent', 'draft']),
-      // 올해 월별 매출
-      supabase.from('monthly_revenues').select('month, amount').eq('year', year),
-      // 전년도 월별 매출
-      supabase.from('monthly_revenues').select('month, amount').eq('year', year - 1),
+      // 올해/전년도 매출: placeholder (pagination으로 별도 fetch)
+      Promise.resolve({ data: [] }),
+      Promise.resolve({ data: [] }),
       // 오늘/기한초과 리드 (알림용)
       supabase.from('pipeline_leads')
-        .select('id, company_name, next_action, next_action_date, stage, assigned_user:users!pipeline_leads_assigned_to_fkey(name)')
+        .select('id, company_name, next_action, next_action_date, stage, assigned_to, assigned_user:users!pipeline_leads_assigned_to_fkey(name)')
         .not('next_action_date', 'is', null)
         .lte('next_action_date', new Date().toISOString().split('T')[0])
         .not('stage', 'in', '("도입완료","이탈")')
         .order('next_action_date', { ascending: true })
-        .limit(10),
+        .limit(30),
     ]))
 
-    const monthlyRevenue = (revenueRes.data || []).reduce((sum, r) => sum + Number(r.amount), 0)
-    const prevMonthRevenue = (prevRevenueRes.data || []).reduce((sum, r) => sum + Number(r.amount), 0)
+    // Paginated fetch for yearly revenue (bypasses Supabase 1000-row limit)
+    const fetchAllRevenue = async (y: number) => {
+      let all: any[] = []
+      let from = 0
+      while (true) {
+        const { data } = await supabase.from('monthly_revenues').select('month, amount').eq('year', y).range(from, from + 999)
+        if (!data || data.length === 0) break
+        all = all.concat(data)
+        if (data.length < 1000) break
+        from += 1000
+      }
+      return all
+    }
+    const [yearRevenueAll, prevYearRevenueAll] = await Promise.all([
+      fetchAllRevenue(year),
+      fetchAllRevenue(year - 1),
+    ])
+    const monthlyRevenue = (revenueRes.data || []).reduce((sum: number, r: any) => sum + Number(r.amount), 0)
+    const prevMonthRevenue = (prevRevenueRes.data || []).reduce((sum: number, r: any) => sum + Number(r.amount), 0)
 
     const stageCounts: Record<string, number> = {}
     ;(pipelineRes.data || []).forEach((l) => {
@@ -160,11 +179,11 @@ export default function DashboardPage() {
 
     // 월별 매출 추이 (전년 대비)
     const yearByMonth: Record<number, number> = {}
-    ;(yearRevenueRes.data || []).forEach((r: any) => {
+    ;(yearRevenueAll).forEach((r: any) => {
       yearByMonth[r.month] = (yearByMonth[r.month] || 0) + Number(r.amount)
     })
     const prevYearByMonth: Record<number, number> = {}
-    ;(prevYearRevenueRes.data || []).forEach((r: any) => {
+    ;(prevYearRevenueAll).forEach((r: any) => {
       prevYearByMonth[r.month] = (prevYearByMonth[r.month] || 0) + Number(r.amount)
     })
     const monthlyTrend = Array.from({ length: 12 }, (_, i) => ({
@@ -210,6 +229,7 @@ export default function DashboardPage() {
         next_action: l.next_action,
         next_action_date: l.next_action_date,
         stage: l.stage,
+        assigned_to: l.assigned_to || null,
         assigned_name: l.assigned_user?.name || null,
       })),
     })
@@ -461,19 +481,32 @@ export default function DashboardPage() {
       </div>
 
       {/* Action Due Alerts */}
-      {data.actionDueLeads.length > 0 && (
+      {data.actionDueLeads.length > 0 && (() => {
+        const myActions = data.actionDueLeads.filter(l => l.assigned_to === user?.id)
+        const othersActions = data.actionDueLeads.filter(l => l.assigned_to !== user?.id)
+        const displayLeads = showAllActions ? data.actionDueLeads : (myActions.length > 0 ? myActions : data.actionDueLeads)
+        const title = showAllActions ? '전체 액션' : (myActions.length > 0 ? '내 오늘의 액션' : '오늘의 액션')
+        return (
         <div className="card border-l-4 border-l-status-red">
           <div className="card-header">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-status-red" />
-              <span className="card-header-title text-status-red">오늘의 액션 ({data.actionDueLeads.length}건)</span>
+              <span className="card-header-title text-status-red">{title} ({displayLeads.length}건)</span>
+              {myActions.length > 0 && othersActions.length > 0 && (
+                <button
+                  onClick={() => setShowAllActions(!showAllActions)}
+                  className="text-xs text-text-tertiary hover:text-primary-500 font-medium ml-1"
+                >
+                  {showAllActions ? '내 것만' : `전체 ${data.actionDueLeads.length}건`}
+                </button>
+              )}
             </div>
             <Link href="/pipeline/list" className="text-xs text-primary-400 hover:text-primary-500 font-medium flex items-center gap-0.5">
               전체보기 <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
           <div className="divide-y divide-border-light">
-            {data.actionDueLeads.map((lead) => {
+            {displayLeads.map((lead) => {
               const isOverdue = new Date(lead.next_action_date) < new Date(new Date().toDateString())
               const isToday = lead.next_action_date === new Date().toISOString().split('T')[0]
               return (
@@ -503,7 +536,8 @@ export default function DashboardPage() {
             })}
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Revenue Trend Chart */}
       {data.monthlyTrend.length > 0 && (

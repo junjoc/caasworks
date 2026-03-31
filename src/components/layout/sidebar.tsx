@@ -19,11 +19,13 @@ import {
   Menu,
   X,
   LogOut,
+  BarChart3,
 } from 'lucide-react'
 
 // Icon color mapping for each nav section
 const iconColors: Record<string, { color: string; bg: string }> = {
   '대시보드': { color: '#1890ff', bg: '#e8f4ff' },
+  '분석': { color: '#8b5cf6', bg: '#f3e8ff' },
   '마케팅': { color: '#f97316', bg: '#fff7ed' },
   '세일즈': { color: '#7c3aed', bg: '#f3e8ff' },
   '고객관리': { color: '#0a54bf', bg: '#e8f4ff' },
@@ -50,13 +52,19 @@ const navItems: NavItem[] = [
     icon: <LayoutDashboard className="w-[16px] h-[16px]" />,
   },
   {
+    label: '분석',
+    href: '/analytics',
+    icon: <BarChart3 className="w-[16px] h-[16px]" />,
+  },
+  {
     label: '마케팅',
     icon: <Megaphone className="w-[16px] h-[16px]" />,
     roles: ['admin'],
     children: [
-      { label: '광고 성과', href: '/marketing/ads' },
-      { label: '유입 분석', href: '/marketing/analytics' },
       { label: '캠페인 관리', href: '/marketing/campaigns' },
+      { label: '광고 성과', href: '/marketing/ads' },
+      { label: '콘텐츠 성과', href: '/marketing/content' },
+      { label: '마케팅 분석', href: '/marketing/analytics' },
     ],
   },
   {
@@ -277,7 +285,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
       {/* Mobile hamburger - positioned inside header area */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-2.5 left-3 z-30 p-2 rounded-lg bg-white text-text-secondary border border-border shadow-card"
+        className="lg:hidden fixed top-2.5 left-3 z-50 p-2 rounded-lg bg-white text-text-secondary border border-border shadow-card"
       >
         <Menu className="w-5 h-5" />
       </button>

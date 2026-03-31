@@ -112,7 +112,6 @@
 
   .data-table {
     @apply w-full text-body-sm;
-    table-layout: fixed;
   }
 
   .data-table thead {
@@ -120,11 +119,11 @@
   }
 
   .data-table th {
-    @apply px-3 py-2.5 text-left text-caption text-text-tertiary uppercase tracking-wider whitespace-nowrap;
+    @apply px-3 py-2.5 text-center text-caption text-text-tertiary uppercase tracking-wider whitespace-nowrap border-r border-border-light last:border-r-0;
   }
 
   .data-table td {
-    @apply px-3 py-2.5 text-text-primary;
+    @apply px-3 py-2.5 text-text-primary border-r border-border-light last:border-r-0;
   }
 
   .data-table tbody tr {

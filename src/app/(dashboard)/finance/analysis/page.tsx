@@ -17,10 +17,15 @@ export default function AnalysisPage() {
   useEffect(() => {
     async function fetch() {
       setLoading(true)
-      const { data: revenues } = await supabase
-        .from('monthly_revenues')
-        .select('month, amount')
-        .eq('year', year)
+      let revenues: any[] = []
+      let from = 0
+      while (true) {
+        const { data } = await supabase.from('monthly_revenues').select('month, amount').eq('year', year).range(from, from + 999)
+        if (!data || data.length === 0) break
+        revenues = revenues.concat(data)
+        if (data.length < 1000) break
+        from += 1000
+      }
 
       // Build monthly data
       const byMonth: Record<number, number> = {}

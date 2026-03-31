@@ -259,7 +259,7 @@ function CustomerDetailContent() {
           .eq('id', id)
           .single(),
         supabase.from('projects').select('*').eq('customer_id', id).order('created_at', { ascending: false }),
-        supabase.from('monthly_revenues').select('*').eq('customer_id', id).order('year', { ascending: false }).order('month', { ascending: false }),
+        supabase.from('monthly_revenues').select('*').eq('customer_id', id).order('year', { ascending: false }).order('month', { ascending: false }).limit(5000),
       ])
 
       if (custRes.error) {
