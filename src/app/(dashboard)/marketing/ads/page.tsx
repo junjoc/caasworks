@@ -11,6 +11,7 @@ import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import { toast } from 'sonner'
+import { CompanyTagInput } from '@/components/ui/company-tag-input'
 import {
   Plus, BarChart3, TrendingUp, MousePointerClick, Target,
   DollarSign, Trash2, Pencil, ChevronUp, ChevronDown,
@@ -26,6 +27,7 @@ interface AdPerformance {
   ad_type: string
   channel: string
   campaign_name: string
+  adgroup_name: string | null
   campaign_id: string | null
   impressions: number
   clicks: number
@@ -35,6 +37,9 @@ interface AdPerformance {
   signups: number
   inquiries: number
   adoptions: number
+  signup_companies: string | null
+  inquiry_companies: string | null
+  adoption_companies: string | null
   notes: string | null
   created_at: string
 }
@@ -42,6 +47,14 @@ interface AdPerformance {
 interface CampaignOption {
   id: string
   name: string
+  channel: string
+  status: string
+}
+
+interface AdGroupOption {
+  id: string
+  name: string
+  campaign_id: string
   channel: string
   status: string
 }
@@ -105,6 +118,8 @@ const emptyForm = {
   channel: '네이버',
   campaign_name: '',
   campaign_id: '',
+  adgroup_name: '',
+  adgroup_id: '',
   impressions: 0,
   clicks: 0,
   cost: 0,
@@ -113,6 +128,9 @@ const emptyForm = {
   signups: 0,
   inquiries: 0,
   adoptions: 0,
+  signup_companies: '',
+  inquiry_companies: '',
+  adoption_companies: '',
   notes: '',
 }
 
@@ -134,22 +152,34 @@ export default function AdsPage() {
   const [sortField, setSortField] = useState<SortField>('date')
   const [sortAsc, setSortAsc] = useState(false)
   const [campaigns, setCampaigns] = useState<CampaignOption[]>([])
+  const [adgroups, setAdgroups] = useState<AdGroupOption[]>([])
   const [syncing, setSyncing] = useState<string | null>(null)
+  const [companyOptions, setCompanyOptions] = useState<{value: string, label: string, sub?: string}[]>([])
+  const [dateLeadOptions, setDateLeadOptions] = useState<{value: string, label: string, sub?: string}[]>([])
   const supabase = createClient()
 
   const [year, m] = month.split('-').map(Number)
 
-  // Fetch campaigns for dropdown
+  // Fetch campaigns + adgroups + company list for dropdown
   useEffect(() => {
-    async function fetchCampaigns() {
-      const { data } = await supabase
-        .from('campaigns')
-        .select('id, name, channel, status')
-        .in('status', ['진행중', '준비'])
-        .order('name')
-      setCampaigns(data || [])
+    async function fetchCampaignsAndAdgroups() {
+      const [campResult, agResult, leadsResult] = await Promise.all([
+        supabase.from('campaigns').select('id, name, channel, status')
+          .in('status', ['진행중', '준비']).order('name'),
+        supabase.from('ad_groups').select('id, name, campaign_id, channel, status')
+          .eq('status', 'active').order('name'),
+        supabase.from('pipeline_leads').select('id, company_name, stage, inquiry_source')
+          .order('company_name').limit(2000),
+      ])
+      setCampaigns(campResult.data || [])
+      setAdgroups(agResult.data || [])
+      setCompanyOptions((leadsResult.data || []).map(l => ({
+        value: l.id,
+        label: l.company_name,
+        sub: `${l.stage}${l.inquiry_source ? ' · ' + l.inquiry_source : ''}`,
+      })))
     }
-    fetchCampaigns()
+    fetchCampaignsAndAdgroups()
   }, [])
 
   const campaignOptions = useMemo(() =>
@@ -161,6 +191,18 @@ export default function AdsPage() {
         sub: `${c.channel} · ${c.status}`,
       })),
     [campaigns, form.channel]
+  )
+
+  // 광고그룹 옵션 (선택된 캠페인에 따라 필터)
+  const adgroupOptions = useMemo(() =>
+    adgroups
+      .filter(ag => !form.campaign_id || ag.campaign_id === form.campaign_id)
+      .map(ag => ({
+        value: ag.id,
+        label: ag.name,
+        sub: campaigns.find(c => c.id === ag.campaign_id)?.name || '',
+      })),
+    [adgroups, form.campaign_id, campaigns]
   )
 
   // Auto sync handlers
@@ -176,6 +218,13 @@ export default function AdsPage() {
       if (result.success) {
         toast.success(`${platform === 'google' ? '구글' : '네이버'} 광고 동기화 완료: ${result.count || 0}건`)
         fetchData()
+        // 동기화 후 캠페인/광고그룹 목록도 새로고침
+        const [campRes, agRes] = await Promise.all([
+          supabase.from('campaigns').select('id, name, channel, status').in('status', ['진행중', '준비']).order('name'),
+          supabase.from('ad_groups').select('id, name, campaign_id, channel, status').eq('status', 'active').order('name'),
+        ])
+        setCampaigns(campRes.data || [])
+        setAdgroups(agRes.data || [])
       } else {
         toast.info(result.message || '동기화 준비 중')
       }
@@ -185,8 +234,8 @@ export default function AdsPage() {
     setSyncing(null)
   }
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     const startDate = `${year}-${String(m).padStart(2, '0')}-01`
     const endDate = `${year}-${String(m).padStart(2, '0')}-31`
 
@@ -217,7 +266,7 @@ export default function AdsPage() {
     } else {
       setBudgets(budgetResult.data || [])
     }
-    setLoading(false)
+    if (!silent) setLoading(false)
   }, [year, m])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -233,7 +282,13 @@ export default function AdsPage() {
       const bVal = b[sortField] as number | string
       if (aVal < bVal) return sortAsc ? -1 : 1
       if (aVal > bVal) return sortAsc ? 1 : -1
-      return 0
+      // 보조 정렬: 날짜(내림) → 채널 → 캠페인명 → 광고그룹명
+      if (a.date !== b.date) return a.date > b.date ? -1 : 1
+      if (a.channel !== b.channel) return a.channel < b.channel ? -1 : 1
+      if (a.campaign_name !== b.campaign_name) return a.campaign_name < b.campaign_name ? -1 : 1
+      const agA = a.adgroup_name || ''
+      const agB = b.adgroup_name || ''
+      return agA < agB ? -1 : agA > agB ? 1 : 0
     })
     return items
   }, [data, tab, sortField, sortAsc])
@@ -301,7 +356,27 @@ export default function AdsPage() {
   function openAdd() {
     setEditId(null)
     setForm(emptyForm)
+    fetchLeadsForDate(emptyForm.date)
     setShowModal(true)
+  }
+
+  // 해당 날짜에 유입된 리드만 가져오기
+  async function fetchLeadsForDate(dateStr: string) {
+    if (!dateStr) { setDateLeadOptions([]); return }
+    // created_at은 TIMESTAMPTZ이므로 날짜 범위로 필터
+    const startOfDay = `${dateStr}T00:00:00`
+    const endOfDay = `${dateStr}T23:59:59`
+    const { data } = await supabase.from('pipeline_leads')
+      .select('id, company_name, stage, inquiry_source, inquiry_channel')
+      .gte('created_at', startOfDay)
+      .lte('created_at', endOfDay)
+      .order('company_name')
+      .limit(200)
+    setDateLeadOptions((data || []).map(l => ({
+      value: l.id,
+      label: l.company_name,
+      sub: `${l.stage}${l.inquiry_source ? ' · ' + l.inquiry_source : ''}`,
+    })))
   }
 
   function openEdit(item: AdPerformance) {
@@ -312,6 +387,8 @@ export default function AdsPage() {
       channel: item.channel,
       campaign_name: item.campaign_name,
       campaign_id: item.campaign_id || '',
+      adgroup_name: item.adgroup_name || '',
+      adgroup_id: (item as any).adgroup_id || '',
       impressions: item.impressions,
       clicks: item.clicks,
       cost: item.cost,
@@ -320,9 +397,60 @@ export default function AdsPage() {
       signups: item.signups || 0,
       inquiries: item.inquiries || 0,
       adoptions: item.adoptions || 0,
+      signup_companies: item.signup_companies || '',
+      inquiry_companies: item.inquiry_companies || '',
+      adoption_companies: item.adoption_companies || '',
       notes: item.notes || '',
     })
+    fetchLeadsForDate(item.date)
     setShowModal(true)
+  }
+
+  // 마케팅 데이터 → pipeline_leads 스테이지 연동
+  async function syncLeadsFromMarketing(payload: Record<string, any>) {
+    const channel = payload.channel || ''
+    const campaignName = payload.campaign_name || ''
+
+    // 문의사 → 컨택 스테이지로 업데이트 (신규리드인 경우만)
+    if (payload.inquiry_companies) {
+      const companies = payload.inquiry_companies.split(',').map((s: string) => s.trim()).filter(Boolean)
+      for (const name of companies) {
+        const { data: leads } = await supabase.from('pipeline_leads')
+          .select('id, stage')
+          .eq('company_name', name)
+          .in('stage', ['신규리드'])
+          .limit(1)
+        if (leads && leads.length > 0) {
+          await supabase.from('pipeline_leads')
+            .update({
+              stage: '컨택',
+              inquiry_source: channel,
+              notes: `마케팅 문의 (${campaignName}, ${payload.date})`,
+            })
+            .eq('id', leads[0].id)
+        }
+      }
+    }
+
+    // 도입사 → 도입완료 스테이지로 업데이트
+    if (payload.adoption_companies) {
+      const companies = payload.adoption_companies.split(',').map((s: string) => s.trim()).filter(Boolean)
+      for (const name of companies) {
+        const { data: leads } = await supabase.from('pipeline_leads')
+          .select('id, stage')
+          .eq('company_name', name)
+          .not('stage', 'eq', '도입완료')
+          .limit(1)
+        if (leads && leads.length > 0) {
+          await supabase.from('pipeline_leads')
+            .update({
+              stage: '도입완료',
+              converted_at: new Date(payload.date).toISOString(),
+            })
+            .eq('id', leads[0].id)
+        }
+      }
+    }
   }
 
   async function updateCampaignSpend(campaignId: string | null) {
@@ -350,12 +478,21 @@ export default function AdsPage() {
       const c = campaigns.find(c => c.id === form.campaign_id)
       if (c) campaignName = c.name
     }
-    const payload = {
+    // 광고그룹명 자동 채움
+    let adgroupName = form.adgroup_name?.trim() || null
+    if (form.adgroup_id) {
+      const ag = adgroups.find(a => a.id === form.adgroup_id)
+      if (ag) adgroupName = ag.name
+    }
+
+    const payload: Record<string, any> = {
       date: form.date,
       ad_type: form.ad_type,
       channel: form.channel,
       campaign_name: campaignName,
       campaign_id: form.campaign_id || null,
+      adgroup_name: adgroupName,
+      adgroup_id: form.adgroup_id || null,
       impressions: Number(form.impressions) || 0,
       clicks: Number(form.clicks) || 0,
       cost: Number(form.cost) || 0,
@@ -364,6 +501,9 @@ export default function AdsPage() {
       signups: Number(form.signups) || 0,
       inquiries: Number(form.inquiries) || 0,
       adoptions: Number(form.adoptions) || 0,
+      signup_companies: form.signup_companies?.trim() || null,
+      inquiry_companies: form.inquiry_companies?.trim() || null,
+      adoption_companies: form.adoption_companies?.trim() || null,
       notes: form.notes?.trim() || null,
     }
 
@@ -380,9 +520,13 @@ export default function AdsPage() {
     if (saveOk && payload.campaign_id) {
       await updateCampaignSpend(payload.campaign_id)
     }
+    // 마케팅 데이터 → 고객 데이터 연동
+    if (saveOk) {
+      await syncLeadsFromMarketing(payload)
+    }
     setSaving(false)
     setShowModal(false)
-    fetchData()
+    fetchData(true)
   }
 
   async function handleDelete(id: string) {
@@ -393,7 +537,7 @@ export default function AdsPage() {
     else {
       toast.success('삭제 완료')
       if (row?.campaign_id) await updateCampaignSpend(row.campaign_id)
-      fetchData()
+      fetchData(true)
     }
   }
 
@@ -527,33 +671,34 @@ export default function AdsPage() {
           description="광고 성과 데이터를 입력하세요"
           action={<Button size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> 데이터 입력</Button>} />
       ) : (
-        <div className="table-container">
-          <table className="data-table">
+        <div className="table-container overflow-x-auto">
+          <table className="data-table w-full min-w-[1200px]">
             <thead>
               <tr>
-                <th className="cursor-pointer" onClick={() => toggleSort('date')}>
+                <th className="cursor-pointer w-[80px]" onClick={() => toggleSort('date')}>
                   날짜 <SortIcon field="date" />
                 </th>
-                <th>유형</th>
-                <th>채널</th>
-                <th>캠페인명</th>
-                <th className="text-right cursor-pointer" onClick={() => toggleSort('cost')}>
+                <th className="w-[60px]">유형</th>
+                <th className="w-[60px]">채널</th>
+                <th className="w-[140px]">캠페인명</th>
+                <th className="w-[120px]">광고그룹</th>
+                <th className="text-right w-[100px] cursor-pointer" onClick={() => toggleSort('cost')}>
                   비용 <SortIcon field="cost" />
                 </th>
-                <th className="text-right">노출</th>
-                <th className="text-right cursor-pointer" onClick={() => toggleSort('clicks')}>
+                <th className="text-right w-[80px]">노출</th>
+                <th className="text-right w-[70px] cursor-pointer" onClick={() => toggleSort('clicks')}>
                   클릭 <SortIcon field="clicks" />
                 </th>
-                <th className="text-right">CTR</th>
-                <th className="text-right">CPM</th>
-                <th className="text-right">GA유입</th>
-                <th className="text-right">문의클릭</th>
-                <th className="text-right cursor-pointer" onClick={() => toggleSort('signups')}>
+                <th className="text-right w-[60px]">CTR</th>
+                <th className="text-right w-[80px]">CPM</th>
+                <th className="text-right w-[60px]">GA유입</th>
+                <th className="text-right w-[60px]">문의클릭</th>
+                <th className="text-right w-[50px] cursor-pointer" onClick={() => toggleSort('signups')}>
                   가입 <SortIcon field="signups" />
                 </th>
-                <th className="text-right">문의</th>
-                <th className="text-right">도입</th>
-                <th />
+                <th className="text-right w-[50px]">문의</th>
+                <th className="text-right w-[50px]">도입</th>
+                <th className="w-[60px]" />
               </tr>
             </thead>
             <tbody>
@@ -571,14 +716,21 @@ export default function AdsPage() {
                         CHANNEL_COLORS[row.channel] || 'bg-gray-100 text-gray-700'
                       }`}>{row.channel}</span>
                     </td>
-                    <td className="font-medium max-w-[200px] truncate">
-                      {row.campaign_name}
-                      {!row.campaign_id && (
-                        <button onClick={() => openEdit(row)} title="캠페인 연결"
-                          className="ml-1 text-orange-400 hover:text-orange-600 inline">
-                          <Link2 className="w-3 h-3 inline" />
-                        </button>
-                      )}
+                    <td className="font-medium" title={row.campaign_name}>
+                      <div className="truncate max-w-[160px]">
+                        {row.campaign_name}
+                        {!row.campaign_id && (
+                          <button onClick={() => openEdit(row)} title="캠페인 연결"
+                            className="ml-1 text-orange-400 hover:text-orange-600 inline">
+                            <Link2 className="w-3 h-3 inline" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td title={row.adgroup_name || ''}>
+                      <div className="truncate max-w-[140px] text-text-secondary text-xs">
+                        {row.adgroup_name || '-'}
+                      </div>
                     </td>
                     <td className="text-right font-medium">{formatCurrency(row.cost)}</td>
                     <td className="text-right text-gray-500">{formatNumber(row.impressions)}</td>
@@ -587,9 +739,9 @@ export default function AdsPage() {
                     <td className="text-right text-gray-500">{formatCurrency(cpm)}</td>
                     <td className="text-right text-cyan-600 font-medium">{row.ga_visits || '-'}</td>
                     <td className="text-right text-amber-600 font-medium">{row.inquiry_clicks || '-'}</td>
-                    <td className="text-right text-blue-600 font-medium">{row.signups || '-'}</td>
-                    <td className="text-right text-purple-600 font-medium">{row.inquiries || '-'}</td>
-                    <td className="text-right text-green-600 font-medium">{row.adoptions || '-'}</td>
+                    <td className="text-right text-blue-600 font-medium cursor-help" title={row.signup_companies || ''}>{row.signups || '-'}</td>
+                    <td className="text-right text-purple-600 font-medium cursor-help" title={row.inquiry_companies || ''}>{row.inquiries || '-'}</td>
+                    <td className="text-right text-green-600 font-medium cursor-help" title={row.adoption_companies || ''}>{row.adoptions || '-'}</td>
                     <td>
                       <div className="flex gap-1 justify-end">
                         <button onClick={() => openEdit(row)} className="icon-btn" title="수정">
@@ -612,7 +764,7 @@ export default function AdsPage() {
                     const subCpm = totals.impressions > 0 ? Math.round(totals.cost / totals.impressions * 1000) : 0
                     return (
                       <tr key={`sub-${ch}`} className="bg-gray-50 font-semibold text-sm border-t border-border-light">
-                        <td colSpan={3}>
+                        <td colSpan={4}>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                             CHANNEL_COLORS[ch] || 'bg-gray-100 text-gray-700'
                           }`}>{ch} 합계</span>
@@ -637,7 +789,7 @@ export default function AdsPage() {
 
               {/* Grand Total */}
               <tr className="bg-gray-100 font-bold text-sm border-t-2 border-gray-300">
-                <td colSpan={4}>전체 합계</td>
+                <td colSpan={5}>전체 합계</td>
                 <td className="text-right">{formatCurrency(kpi.totalCost)}</td>
                 <td className="text-right">{formatNumber(kpi.totalImpressions)}</td>
                 <td className="text-right">{formatNumber(kpi.totalClicks)}</td>
@@ -662,7 +814,7 @@ export default function AdsPage() {
         title={editId ? '광고 데이터 수정' : '광고 데이터 입력'}>
         <div className="grid grid-cols-2 gap-3">
           <Input label="날짜" type="date" value={form.date}
-            onChange={e => setForm({ ...form, date: e.target.value })} />
+            onChange={e => { setForm({ ...form, date: e.target.value }); fetchLeadsForDate(e.target.value) }} />
           <Select label="광고유형" options={AD_TYPE_OPTIONS} value={form.ad_type}
             onChange={e => setForm({ ...form, ad_type: e.target.value })} />
           <Select label="채널" options={CHANNEL_OPTIONS} value={form.channel}
@@ -678,7 +830,7 @@ export default function AdsPage() {
               })
             }} />
           <div className="col-span-2">
-            <SearchSelect label="캠페인 (선택)" placeholder="캠페인 선택..."
+            <SearchSelect label="캠페인" placeholder="캠페인 선택..."
               options={campaignOptions} value={form.campaign_id}
               onChange={val => {
                 const c = campaigns.find(c => c.id === val)
@@ -687,12 +839,34 @@ export default function AdsPage() {
                   campaign_id: val,
                   campaign_name: c ? c.name : form.campaign_name,
                   channel: c ? c.channel : form.channel,
+                  adgroup_id: '', // 캠페인 변경 시 광고그룹 초기화
+                  adgroup_name: '',
+                })
+              }} />
+          </div>
+          <div className="col-span-2">
+            <SearchSelect label="광고그룹" placeholder="광고그룹 선택..."
+              options={adgroupOptions} value={form.adgroup_id}
+              onChange={val => {
+                const ag = adgroups.find(a => a.id === val)
+                setForm({
+                  ...form,
+                  adgroup_id: val,
+                  adgroup_name: ag ? ag.name : form.adgroup_name,
+                  // 캠페인 미선택 시 광고그룹의 캠페인으로 자동 설정
+                  ...(ag && !form.campaign_id ? {
+                    campaign_id: ag.campaign_id,
+                    campaign_name: campaigns.find(c => c.id === ag.campaign_id)?.name || form.campaign_name,
+                  } : {}),
                 })
               }} />
           </div>
           <Input label="캠페인명 (직접 입력)" value={form.campaign_name}
             onChange={e => setForm({ ...form, campaign_name: e.target.value })}
             placeholder="캠페인 미선택 시 직접 입력" />
+          <Input label="광고그룹명 (직접 입력)" value={form.adgroup_name}
+            onChange={e => setForm({ ...form, adgroup_name: e.target.value })}
+            placeholder="광고그룹 미선택 시 직접 입력" />
           <Input label="비용 (원)" type="number" value={form.cost}
             onChange={e => setForm({ ...form, cost: Number(e.target.value) })} />
           <Input label="노출수" type="number" value={form.impressions}
@@ -703,12 +877,28 @@ export default function AdsPage() {
             onChange={e => setForm({ ...form, ga_visits: Number(e.target.value) })} />
           <Input label="문의클릭" type="number" value={form.inquiry_clicks}
             onChange={e => setForm({ ...form, inquiry_clicks: Number(e.target.value) })} />
-          <Input label="가입사" type="number" value={form.signups}
-            onChange={e => setForm({ ...form, signups: Number(e.target.value) })} />
-          <Input label="문의사" type="number" value={form.inquiries}
-            onChange={e => setForm({ ...form, inquiries: Number(e.target.value) })} />
-          <Input label="도입사" type="number" value={form.adoptions}
-            onChange={e => setForm({ ...form, adoptions: Number(e.target.value) })} />
+          <div className="col-span-2 grid grid-cols-6 gap-2 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+            <Input label="가입사 수" type="number" value={form.signups}
+              onChange={e => setForm({ ...form, signups: Number(e.target.value) })} />
+            <CompanyTagInput label="가입 회사명" options={companyOptions}
+              value={form.signup_companies}
+              onChange={v => setForm({ ...form, signup_companies: v })}
+              placeholder="회사 검색..." className="col-span-2" />
+            <Input label="문의사 수" type="number" value={form.inquiries}
+              onChange={e => setForm({ ...form, inquiries: Number(e.target.value) })} />
+            <CompanyTagInput label={`문의 회사명 (${form.date} 리드${dateLeadOptions.length > 0 ? ' ' + dateLeadOptions.length + '건' : ''})`} options={dateLeadOptions}
+              value={form.inquiry_companies}
+              onChange={v => setForm({ ...form, inquiry_companies: v })}
+              placeholder="당일 리드에서 선택..." className="col-span-2" />
+          </div>
+          <div className="col-span-2 grid grid-cols-3 gap-2 p-3 bg-green-50/50 rounded-lg border border-green-100">
+            <Input label="도입사 수" type="number" value={form.adoptions}
+              onChange={e => setForm({ ...form, adoptions: Number(e.target.value) })} />
+            <CompanyTagInput label={`도입 회사명 (${form.date} 리드)`} options={dateLeadOptions}
+              value={form.adoption_companies}
+              onChange={v => setForm({ ...form, adoption_companies: v })}
+              placeholder="당일 리드에서 선택..." className="col-span-2" />
+          </div>
           <Input label="비고" value={form.notes}
             onChange={e => setForm({ ...form, notes: e.target.value })}
             placeholder="메모" />
