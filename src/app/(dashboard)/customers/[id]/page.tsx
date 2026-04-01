@@ -268,7 +268,7 @@ function CustomerDetailContent() {
           .eq('id', id)
           .single(),
         supabase.from('projects').select('*').eq('customer_id', id).order('created_at', { ascending: false }),
-        supabase.from('monthly_revenues').select('*').eq('customer_id', id).order('year', { ascending: false }).order('month', { ascending: false }).limit(5000),
+        supabase.from('monthly_revenues').select('*, project:projects(id, project_name, service_type, solutions, site_category, status)').eq('customer_id', id).order('year', { ascending: false }).order('month', { ascending: false }).limit(5000),
       ])
 
       if (custRes.error) {
@@ -1025,42 +1025,136 @@ function CustomerDetailContent() {
         </div>
       )}
 
-      {/* 매출이력 탭 */}
-      {tab === 'payments' && (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>연도</th>
-                <th>월</th>
-                <th>금액</th>
-                <th>입금확인</th>
-              </tr>
-            </thead>
-            <tbody>
-              {revenues.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.year}</td>
-                  <td>{r.month}월</td>
-                  <td className="font-medium">{formatCurrency(Number(r.amount))}</td>
-                  <td>
-                    <Badge className={r.is_confirmed ? 'bg-status-green-bg text-status-green' : 'bg-status-yellow-bg text-status-yellow'}>
-                      {r.is_confirmed ? '확인' : '미확인'}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
-              {revenues.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="text-center text-text-tertiary py-8">
-                    매출 이력이 없습니다.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* 매출이력 탭 — 프로젝트별 월별 매출 현황 */}
+      {tab === 'payments' && (() => {
+        // 연도 목록 추출
+        const years = Array.from(new Set(revenues.map(r => r.year))).sort((a, b) => b - a)
+        const selectedYear = years[0] || new Date().getFullYear()
+
+        // 프로젝트별 매출 그루핑
+        const yearRevenues = revenues.filter(r => r.year === selectedYear)
+        const byProject = new Map<string, { project: any; months: Record<number, { amount: number; confirmed: boolean }> }>()
+
+        for (const r of yearRevenues) {
+          const proj = (r as any).project
+          const projName = proj?.project_name || '(프로젝트 미지정)'
+          const projId = r.project_id || 'none'
+          const key = `${projId}|${projName}`
+
+          if (!byProject.has(key)) {
+            byProject.set(key, { project: proj, months: {} })
+          }
+          const entry = byProject.get(key)!
+          if (!entry.months[r.month]) {
+            entry.months[r.month] = { amount: 0, confirmed: true }
+          }
+          entry.months[r.month].amount += Number(r.amount) || 0
+          if (!r.is_confirmed) entry.months[r.month].confirmed = false
+        }
+
+        const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        const projectEntries = Array.from(byProject.entries())
+
+        // 월별 합계
+        const monthTotals: Record<number, number> = {}
+        for (const [, entry] of projectEntries) {
+          for (const [m, v] of Object.entries(entry.months)) {
+            monthTotals[Number(m)] = (monthTotals[Number(m)] || 0) + v.amount
+          }
+        }
+        const grandTotal = Object.values(monthTotals).reduce((s, v) => s + v, 0)
+
+        return (
+          <div>
+            {/* 연도 선택 */}
+            {years.length > 1 && (
+              <div className="flex gap-2 mb-3">
+                {years.map(y => (
+                  <button key={y} className={`px-3 py-1 text-sm rounded-lg border transition-colors ${
+                    y === selectedYear ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-text-secondary border-border hover:bg-surface-secondary'
+                  }`}>{y}년</button>
+                ))}
+              </div>
+            )}
+
+            <div className="table-container overflow-x-auto">
+              <table className="data-table text-xs">
+                <thead>
+                  <tr>
+                    <th className="sticky left-0 bg-surface-secondary z-10 min-w-[180px]">프로젝트</th>
+                    <th className="min-w-[60px]">솔루션</th>
+                    {months.map(m => (
+                      <th key={m} className="text-right min-w-[80px]">{m}월</th>
+                    ))}
+                    <th className="text-right min-w-[100px] font-bold">합계</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectEntries.map(([key, entry]) => {
+                    const proj = entry.project
+                    const projName = proj?.project_name || '(미지정)'
+                    const solutions = proj?.solutions || proj?.service_type || ''
+                    const rowTotal = Object.values(entry.months).reduce((s, v) => s + v.amount, 0)
+                    const isActive = proj?.status === 'active'
+
+                    return (
+                      <tr key={key} className="hover:bg-primary-50/30">
+                        <td className="sticky left-0 bg-white z-10 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-green-400' : 'bg-gray-300'}`} />
+                            <span className="truncate max-w-[160px]">{projName}</span>
+                          </div>
+                          {proj?.site_category && <div className="text-[10px] text-text-tertiary ml-3">{proj.site_category}</div>}
+                        </td>
+                        <td>
+                          <div className="flex flex-wrap gap-0.5">
+                            {solutions.split(',').filter(Boolean).slice(0, 2).map((s: string) => (
+                              <span key={s.trim()} className="px-1 py-0.5 text-[10px] bg-status-blue-bg text-status-blue rounded">{s.trim()}</span>
+                            ))}
+                          </div>
+                        </td>
+                        {months.map(m => {
+                          const val = entry.months[m]
+                          return (
+                            <td key={m} className={`text-right ${val ? 'font-medium' : 'text-text-tertiary'}`}>
+                              {val ? (
+                                <span className={!val.confirmed ? 'text-amber-500' : ''}>
+                                  {formatCurrency(val.amount)}
+                                </span>
+                              ) : '-'}
+                            </td>
+                          )
+                        })}
+                        <td className="text-right font-bold">{formatCurrency(rowTotal)}</td>
+                      </tr>
+                    )
+                  })}
+                  {projectEntries.length === 0 && (
+                    <tr>
+                      <td colSpan={14} className="text-center text-text-tertiary py-8">
+                        매출 이력이 없습니다.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {projectEntries.length > 0 && (
+                  <tfoot>
+                    <tr className="bg-surface-tertiary font-bold">
+                      <td className="sticky left-0 bg-surface-tertiary z-10" colSpan={2}>합계</td>
+                      {months.map(m => (
+                        <td key={m} className="text-right">
+                          {monthTotals[m] ? formatCurrency(monthTotals[m]) : '-'}
+                        </td>
+                      ))}
+                      <td className="text-right text-primary-600">{formatCurrency(grandTotal)}</td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 문서 탭 */}
       {tab === 'documents' && (
