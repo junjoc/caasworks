@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Loading } from '@/components/ui/loading'
 import { Select } from '@/components/ui/select'
@@ -68,7 +68,6 @@ interface ProjectOption {
 /* ──────────── Main Page ──────────── */
 
 export default function RevenuePage() {
-  const [data, setData] = useState<RevenueSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [year, setYear] = useState(new Date().getFullYear())
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set())
@@ -118,71 +117,75 @@ export default function RevenuePage() {
       }
 
       setRawRecords(revenues as RevenueRecord[])
-
-      // 고객별 -> 프로젝트별 집계
-      const customerMap = new Map<string, RevenueSummary>()
-      ;(revenues || []).forEach((r: any) => {
-        const custKey = r.customer_id
-        if (!customerMap.has(custKey)) {
-          customerMap.set(custKey, {
-            customer_name: r.customer?.company_name || '(알수없음)',
-            customer_id: custKey,
-            company_type: r.customer?.company_type || null,
-            months: {},
-            total: 0,
-            projects: [],
-            siteGroups: [],
-          })
-        }
-        const cust = customerMap.get(custKey)!
-        cust.months[r.month] = (cust.months[r.month] || 0) + Number(r.amount)
-        cust.total += Number(r.amount)
-
-        let proj = cust.projects.find(p => p.project_id === r.project_id)
-        if (!proj) {
-          proj = {
-            project_id: r.project_id,
-            project_name: r.project?.project_name || '(미지정)',
-            service_type: r.project?.service_type || null,
-            months: {},
-            total: 0,
-          }
-          cust.projects.push(proj)
-        }
-        proj.months[r.month] = {
-          amount: Number(r.amount),
-          id: r.id,
-          is_confirmed: r.is_confirmed,
-        }
-        proj.total += Number(r.amount)
-      })
-
-      // Build siteGroups for each customer: group projects by base name (before " - ")
-      Array.from(customerMap.values()).forEach((cust) => {
-        const siteMap = new Map<string, SiteGroup>()
-        for (const proj of cust.projects) {
-          const dashIdx = proj.project_name.indexOf(' - ')
-          const siteName = dashIdx > 0 ? proj.project_name.substring(0, dashIdx) : proj.project_name
-          if (!siteMap.has(siteName)) {
-            siteMap.set(siteName, { site_name: siteName, services: [], months: {}, total: 0 })
-          }
-          const sg = siteMap.get(siteName)!
-          sg.services.push(proj)
-          sg.total += proj.total
-          for (const [m, cell] of Object.entries(proj.months)) {
-            sg.months[Number(m)] = (sg.months[Number(m)] || 0) + cell.amount
-          }
-        }
-        cust.siteGroups = Array.from(siteMap.values()).sort((a, b) => b.total - a.total)
-      })
-
-      setData(Array.from(customerMap.values()).sort((a, b) => b.total - a.total))
     } catch (err) {
       console.error('Revenue fetch error:', err)
-      setData([])
+      setRawRecords([])
     }
     setLoading(false)
   }, [year])
+
+  // 데이터 가공을 useMemo로 분리 — rawRecords 변경 시에만 재계산
+  const data = useMemo(() => {
+    if (rawRecords.length === 0) return []
+
+    const customerMap = new Map<string, RevenueSummary>()
+    ;(rawRecords as any[]).forEach((r: any) => {
+      const custKey = r.customer_id
+      if (!customerMap.has(custKey)) {
+        customerMap.set(custKey, {
+          customer_name: r.customer?.company_name || '(알수없음)',
+          customer_id: custKey,
+          company_type: r.customer?.company_type || null,
+          months: {},
+          total: 0,
+          projects: [],
+          siteGroups: [],
+        })
+      }
+      const cust = customerMap.get(custKey)!
+      cust.months[r.month] = (cust.months[r.month] || 0) + Number(r.amount)
+      cust.total += Number(r.amount)
+
+      let proj = cust.projects.find(p => p.project_id === r.project_id)
+      if (!proj) {
+        proj = {
+          project_id: r.project_id,
+          project_name: r.project?.project_name || '(미지정)',
+          service_type: r.project?.service_type || null,
+          months: {},
+          total: 0,
+        }
+        cust.projects.push(proj)
+      }
+      proj.months[r.month] = {
+        amount: Number(r.amount),
+        id: r.id,
+        is_confirmed: r.is_confirmed,
+      }
+      proj.total += Number(r.amount)
+    })
+
+    // Build siteGroups
+    Array.from(customerMap.values()).forEach((cust) => {
+      const siteMap = new Map<string, SiteGroup>()
+      for (const proj of cust.projects) {
+        const dashIdx = proj.project_name.indexOf(' - ')
+        const siteName = dashIdx > 0 ? proj.project_name.substring(0, dashIdx) : proj.project_name
+        if (!siteMap.has(siteName)) {
+          siteMap.set(siteName, { site_name: siteName, services: [], months: {}, total: 0 })
+        }
+        const sg = siteMap.get(siteName)!
+        sg.services.push(proj)
+        sg.total += proj.total
+        for (const [m, cell] of Object.entries(proj.months)) {
+          sg.months[Number(m)] = (sg.months[Number(m)] || 0) + cell.amount
+        }
+      }
+      cust.siteGroups = Array.from(siteMap.values()).sort((a, b) => b.total - a.total)
+    })
+
+    return Array.from(customerMap.values()).sort((a, b) => b.total - a.total)
+  }, [rawRecords])
 
   useEffect(() => {
     fetchRevenue()
@@ -224,6 +227,13 @@ export default function RevenuePage() {
     setEditValue(String(currentAmount))
   }
 
+  // 로컬 상태 업데이트 (DB 저장 후 전체 refetch 대신 로컬만 수정)
+  const updateLocalRecord = useCallback((id: string, updates: Partial<RevenueRecord>) => {
+    setRawRecords(prev => prev.map(r =>
+      (r as any).id === id ? { ...r, ...updates } : r
+    ))
+  }, [])
+
   const saveEdit = async () => {
     if (!editingCell) return
     const amount = Number(editValue)
@@ -239,8 +249,8 @@ export default function RevenuePage() {
       toast.error('수정에 실패했습니다.')
     } else {
       toast.success('매출이 수정되었습니다.')
+      updateLocalRecord(editingCell.id, { amount })
       setEditingCell(null)
-      fetchRevenue()
     }
   }
 
@@ -253,7 +263,7 @@ export default function RevenuePage() {
       toast.error('확정 상태 변경에 실패했습니다.')
     } else {
       toast.success(!current ? '매출이 확정되었습니다.' : '확정이 취소되었습니다.')
-      fetchRevenue()
+      updateLocalRecord(id, { is_confirmed: !current })
     }
   }
 
@@ -271,19 +281,19 @@ export default function RevenuePage() {
       setCreatingCell(null)
       return
     }
-    const { error } = await supabase.from('monthly_revenues').insert({
+    const { data: newRec, error } = await supabase.from('monthly_revenues').insert({
       customer_id: creatingCell.customerId,
       project_id: creatingCell.projectId,
       year,
       month: creatingCell.month,
       amount,
       is_confirmed: false,
-    })
+    }).select('*, customer:customers(company_name, company_type), project:projects(project_name, service_type)').single()
     if (error) {
       toast.error('매출 등록 실패: ' + error.message)
     } else {
       toast.success(`${creatingCell.month}월 매출 ${formatCurrency(amount)} 등록`)
-      fetchRevenue()
+      if (newRec) setRawRecords(prev => [...prev, newRec as any])
     }
     setCreatingCell(null)
     setCreateValue('')
@@ -341,16 +351,17 @@ export default function RevenuePage() {
     } else {
       toast.success('매출이 삭제되었습니다.')
       setDeleteConfirm(null)
-      fetchRevenue()
+      setRawRecords(prev => prev.filter((r: any) => r.id !== id))
     }
   }
 
-  const months = Array.from({ length: 12 }, (_, i) => i + 1)
+  const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), [])
   const currentMonth = new Date().getMonth() + 1
-  const grandTotal = data.reduce((sum, d) => sum + d.total, 0)
-  const monthlyTotals = months.map((m) =>
-    data.reduce((sum, d) => sum + (d.months[m] || 0), 0)
-  )
+  const { grandTotal, monthlyTotals } = useMemo(() => {
+    const gt = data.reduce((sum, d) => sum + d.total, 0)
+    const mt = months.map((m) => data.reduce((sum, d) => sum + (d.months[m] || 0), 0))
+    return { grandTotal: gt, monthlyTotals: mt }
+  }, [data, months])
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => {
     const y = new Date().getFullYear() - i
@@ -480,7 +491,7 @@ export default function RevenuePage() {
                                     ? <ChevronDown className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
                                     : <ChevronRight className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
                                   }
-                                  <MapPin className="w-3.5 h-3.5 text-primary-400 shrink-0" />
+                                  <MapPin className="w-3.5 h-3.5 text-primary-500 shrink-0" />
                                   <span className="text-sm font-semibold text-gray-800 truncate max-w-[180px]" title={sg.site_name}>{sg.site_name}</span>
                                   <span className="text-[10px] text-text-tertiary bg-white px-1.5 py-0.5 rounded-full whitespace-nowrap">{sg.services.length}개 서비스</span>
                                 </div>
@@ -537,7 +548,7 @@ export default function RevenuePage() {
                                           />
                                         ) : (
                                           <span
-                                            className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-gray-300 text-text-placeholder hover:bg-primary-50 hover:border-primary-400 hover:text-primary-500 cursor-pointer transition-all text-[10px]"
+                                            className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-gray-300 text-text-placeholder hover:bg-primary-50 hover:border-primary-500 hover:text-primary-500 cursor-pointer transition-all text-[10px]"
                                             onClick={(e) => { e.stopPropagation(); startCreate(row.customer_id, proj.project_id, m) }}
                                             title="클릭하여 매출 입력"
                                           >+</span>
@@ -1181,7 +1192,7 @@ function BatchRevenueModal({
                       <td key={m} className="px-1 py-1">
                         <input
                           type="number"
-                          className="w-full text-right text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary-400 focus:border-primary-400"
+                          className="w-full text-right text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                           placeholder="0"
                           value={grid[proj.id]?.[m] || ''}
                           onChange={(e) => updateCell(proj.id, m, e.target.value)}
