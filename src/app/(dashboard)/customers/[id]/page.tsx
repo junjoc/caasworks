@@ -65,9 +65,18 @@ const STATUS_OPTIONS = [
 ]
 
 const COMPANY_TYPE_OPTIONS = [
+  { value: '종합건설사', label: '종합건설사' },
+  { value: '전문건설사', label: '전문건설사' },
+  { value: '인테리어/리모델링', label: '인테리어/리모델링' },
+  { value: '건축사사무소', label: '건축사사무소' },
+  { value: '시행사', label: '시행사' },
+  { value: '발주처(법인)', label: '발주처(법인)' },
+  { value: '발주처(공공)', label: '발주처(공공)' },
+  { value: '공공기관/공기업', label: '공공기관/공기업' },
+  { value: '솔루션사', label: '솔루션사' },
+  { value: '대기업(메이저)', label: '대기업(메이저)' },
   { value: '법인', label: '법인' },
   { value: '개인', label: '개인' },
-  { value: '공공기관', label: '공공기관' },
   { value: '기타', label: '기타' },
 ]
 
@@ -1384,7 +1393,7 @@ function CustomerDetailContent() {
                           : f.solutions.filter(s => s !== sol),
                       }))
                     }}
-                    className="rounded border-gray-300 text-primary-400 focus:ring-primary-500"
+                    className="rounded border-gray-300 text-primary-500 focus:ring-primary-500"
                   />
                   {sol}
                 </label>
@@ -1484,7 +1493,7 @@ class CustomerErrorBoundary extends React.Component<{ children: React.ReactNode 
         <div className="p-8 text-center">
           <p className="text-status-red font-semibold mb-2">페이지 로딩 중 오류가 발생했습니다.</p>
           <p className="text-sm text-text-secondary mb-4">{this.state.error?.message}</p>
-          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-primary-400 text-white rounded-lg text-sm hover:bg-primary-500">
+          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-500">
             새로고침
           </button>
         </div>

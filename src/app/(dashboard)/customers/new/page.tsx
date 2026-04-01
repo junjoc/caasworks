@@ -20,9 +20,18 @@ const STATUS_OPTIONS = [
 ]
 
 const COMPANY_TYPE_OPTIONS = [
+  { value: '종합건설사', label: '종합건설사' },
+  { value: '전문건설사', label: '전문건설사' },
+  { value: '인테리어/리모델링', label: '인테리어/리모델링' },
+  { value: '건축사사무소', label: '건축사사무소' },
+  { value: '시행사', label: '시행사' },
+  { value: '발주처(법인)', label: '발주처(법인)' },
+  { value: '발주처(공공)', label: '발주처(공공)' },
+  { value: '공공기관/공기업', label: '공공기관/공기업' },
+  { value: '솔루션사', label: '솔루션사' },
+  { value: '대기업(메이저)', label: '대기업(메이저)' },
   { value: '법인', label: '법인' },
   { value: '개인', label: '개인' },
-  { value: '공공기관', label: '공공기관' },
   { value: '기타', label: '기타' },
 ]
 
