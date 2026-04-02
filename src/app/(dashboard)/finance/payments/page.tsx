@@ -86,7 +86,7 @@ export default function PaymentsPage() {
               {filtered.map((inv) => (
                 <tr key={inv.id}>
                   <td className="font-medium col-truncate">{inv.customer_name}</td>
-                  <td className="text-primary-400">{inv.invoice_number}</td>
+                  <td className="text-primary-500">{inv.invoice_number}</td>
                   <td className="text-center text-text-secondary">{inv.year}.{String(inv.month).padStart(2, '0')}</td>
                   <td className="text-right font-semibold text-status-green">{formatCurrency(inv.total)}</td>
                   <td className="text-center text-text-tertiary">{inv.paid_at ? formatDate(inv.paid_at) : '-'}</td>

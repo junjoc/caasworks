@@ -57,7 +57,7 @@ export default function MeetingsPage() {
                 <tr key={m.id}>
                   <td>{m.meeting_number || '-'}</td>
                   <td className="col-company">
-                    <Link href={`/meetings/${m.id}`} className="font-medium text-primary-400 hover:text-primary-500 hover:underline">
+                    <Link href={`/meetings/${m.id}`} className="font-medium text-primary-500 hover:text-primary-500 hover:underline">
                       {m.customer?.company_name || m.company_name || '-'}
                     </Link>
                   </td>

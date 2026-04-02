@@ -83,7 +83,7 @@ export function SearchSelect({
         className={cn(
           'input-base flex items-center gap-2 cursor-pointer',
           disabled && 'opacity-50 cursor-not-allowed',
-          open && 'ring-2 ring-primary-200 border-primary-400',
+          open && 'ring-2 ring-primary-200 border-primary-500',
           error && 'input-error',
         )}
       >
@@ -109,7 +109,7 @@ export function SearchSelect({
               <input
                 ref={inputRef}
                 type="text"
-                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-200 focus:border-primary-400"
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-200 focus:border-primary-500"
                 placeholder="검색..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}

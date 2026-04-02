@@ -8,6 +8,13 @@
   :root {
     --sidebar-width: 240px;
     --header-height: 48px;
+    /* CaaS Brand Spacing Tokens */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 0.75rem;
+    --spacing-lg: 1rem;
+    --spacing-xl: 1.25rem;
+    --spacing-xxl: 1.5rem;
   }
 
   body {
@@ -93,7 +100,7 @@
     @apply stat-change text-status-red;
   }
 
-  /* ─── Badge System ─── */
+  /* ─── Badge System (CaaS feedback colors) ─── */
   .badge {
     @apply inline-flex items-center px-2 py-0.5 rounded text-micro leading-5;
   }
@@ -149,7 +156,7 @@
   .input-base {
     @apply w-full px-3 py-2 rounded-md border border-border bg-surface text-body-sm text-text-primary
            placeholder:text-text-placeholder
-           focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-400
+           focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500
            transition-all duration-100;
   }
 
@@ -161,7 +168,7 @@
     @apply border-status-red focus:ring-status-red/20 focus:border-status-red;
   }
 
-  /* ─── Buttons ─── */
+  /* ─── Buttons (CaaS variant: filled/outlined/ghost) ─── */
   .btn {
     @apply inline-flex items-center justify-center gap-1.5 rounded-md font-semibold text-body-sm
            transition-all duration-100 cursor-pointer whitespace-nowrap
@@ -170,7 +177,7 @@
   }
 
   .btn-primary {
-    @apply btn bg-primary-400 text-white hover:bg-primary-500 active:bg-primary-600
+    @apply btn bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700
            focus:ring-primary-200 shadow-sm;
   }
 
@@ -231,7 +238,7 @@
   }
 
   .sidebar-link-active {
-    @apply bg-primary-50 text-primary-400 font-medium;
+    @apply bg-primary-50 text-primary-500 font-medium;
   }
 
   /* ─── Utility ─── */
@@ -244,7 +251,7 @@
   }
 
   .text-link {
-    @apply text-primary-400 hover:text-primary-500 font-medium cursor-pointer transition-colors;
+    @apply text-primary-500 hover:text-primary-600 font-medium cursor-pointer transition-colors;
   }
 
   .icon-btn {
@@ -280,7 +287,7 @@
   }
 
   .tab-item-active {
-    @apply text-primary-400 border-primary-400;
+    @apply text-primary-500 border-primary-500;
   }
 
   /* ─── Info Grid (key-value display) ─── */

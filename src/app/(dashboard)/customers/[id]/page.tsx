@@ -14,10 +14,12 @@ import { Modal } from '@/components/ui/modal'
 import { PageLoading } from '@/components/ui/loading'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import type { Customer, Project, MonthlyRevenue, User } from '@/types/database'
-import { ArrowLeft, Building2, CreditCard, FolderOpen, Receipt, Pencil, Trash2, Plus, FileText, Upload, Download, Eye, X } from 'lucide-react'
+import { ArrowLeft, Building2, CreditCard, FolderOpen, Receipt, Pencil, Trash2, Plus, FileText, Upload, Download, Eye, X, Package, Truck, ClipboardList } from 'lucide-react'
+import CustomerPricingTab from './pricing-tab'
+import CustomerShipmentsTab from './shipments-tab'
 import { toast } from 'sonner'
 
-type Tab = 'info' | 'billing' | 'projects' | 'payments' | 'documents'
+type Tab = 'info' | 'billing' | 'pricing' | 'projects' | 'shipments' | 'payments' | 'documents'
 
 interface CustomerDocument {
   id: string
@@ -158,6 +160,23 @@ function CustomerDetailContent() {
     invoice_phone: '',
     tax_invoice_email: '',
     deposit_amount: '',
+    deposit_paid_at: '',
+    deposit_returned_at: '',
+    deposit_return_type: '',
+    deposit_return_note: '',
+    invoice_grouping: 'combined' as string,
+  })
+
+  // Payment due rules
+  const [dueRules, setDueRules] = useState<any[]>([])
+  const [loadingRules, setLoadingRules] = useState(false)
+  const [savingRule, setSavingRule] = useState(false)
+  const [editingDueRule, setEditingDueRule] = useState<any>(null)
+  const [dueRuleForm, setDueRuleForm] = useState({
+    project_id: '' as string,
+    rule_type: 'next_month_end' as string,
+    fixed_day: '' as string,
+    description: '' as string,
   })
 
   const [projectForm, setProjectForm] = useState({
@@ -312,7 +331,14 @@ function CustomerDetailContent() {
         invoice_phone: cust.invoice_phone || '',
         tax_invoice_email: cust.tax_invoice_email || '',
         deposit_amount: cust.deposit_amount ? String(cust.deposit_amount) : '',
+        deposit_paid_at: cust.deposit_paid_at || '',
+        deposit_returned_at: cust.deposit_returned_at || '',
+        deposit_return_type: (cust as any).deposit_return_type || '',
+        deposit_return_note: (cust as any).deposit_return_note || '',
+        invoice_grouping: cust.invoice_grouping || 'combined',
       })
+      // Fetch payment due rules
+      fetchDueRules()
     } catch (err) {
       console.error('fetchAll error:', err)
       setError('데이터를 불러오는 중 오류가 발생했습니다.')
@@ -369,6 +395,11 @@ function CustomerDetailContent() {
         invoice_phone: billingForm.invoice_phone || null,
         tax_invoice_email: billingForm.tax_invoice_email || null,
         deposit_amount: billingForm.deposit_amount ? Number(billingForm.deposit_amount) : null,
+        deposit_paid_at: billingForm.deposit_paid_at || null,
+        deposit_returned_at: billingForm.deposit_returned_at || null,
+        deposit_return_type: billingForm.deposit_return_type || null,
+        deposit_return_note: billingForm.deposit_return_note || null,
+        invoice_grouping: billingForm.invoice_grouping || 'combined',
       })
       .eq('id', id)
 
@@ -380,6 +411,68 @@ function CustomerDetailContent() {
       fetchAll()
     }
     setSavingBilling(false)
+  }
+
+  // --- Payment Due Rules ---
+  const DUE_RULE_OPTIONS = [
+    { value: 'next_month_end', label: '익월 말일' },
+    { value: 'next_next_month_end', label: '익익월 말일' },
+    { value: 'same_month_end', label: '당월 말일' },
+    { value: 'fixed_day', label: '매월 고정일' },
+    { value: 'custom', label: '직접 입력' },
+  ]
+
+  const getDueRuleLabel = (ruleType: string, fixedDay?: number | null) => {
+    if (ruleType === 'fixed_day' && fixedDay) return `매월 ${fixedDay}일`
+    return DUE_RULE_OPTIONS.find(o => o.value === ruleType)?.label || ruleType
+  }
+
+  async function fetchDueRules() {
+    if (!id) return
+    setLoadingRules(true)
+    const { data } = await supabase
+      .from('payment_due_rules')
+      .select('*, project:projects(id, project_name)')
+      .eq('customer_id', id)
+      .order('created_at')
+    setDueRules(data || [])
+    setLoadingRules(false)
+  }
+
+  async function handleSaveDueRule() {
+    if (!id) return
+    setSavingRule(true)
+    try {
+      const payload: any = {
+        customer_id: id,
+        project_id: dueRuleForm.project_id || null,
+        rule_type: dueRuleForm.rule_type,
+        fixed_day: dueRuleForm.rule_type === 'fixed_day' ? Number(dueRuleForm.fixed_day) || null : null,
+        description: dueRuleForm.description || getDueRuleLabel(dueRuleForm.rule_type, dueRuleForm.rule_type === 'fixed_day' ? Number(dueRuleForm.fixed_day) : null),
+      }
+      if (editingDueRule?.id) {
+        const { error } = await supabase.from('payment_due_rules').update(payload).eq('id', editingDueRule.id)
+        if (error) throw error
+        toast.success('납기일 규칙이 수정되었습니다.')
+      } else {
+        const { error } = await supabase.from('payment_due_rules').insert(payload)
+        if (error) throw error
+        toast.success('납기일 규칙이 추가되었습니다.')
+      }
+      setEditingDueRule(null)
+      setDueRuleForm({ project_id: '', rule_type: 'next_month_end', fixed_day: '', description: '' })
+      fetchDueRules()
+    } catch (err: any) {
+      toast.error('저장 실패: ' + (err?.message || ''))
+    }
+    setSavingRule(false)
+  }
+
+  async function handleDeleteDueRule(ruleId: string) {
+    const { error } = await supabase.from('payment_due_rules').delete().eq('id', ruleId)
+    if (error) { toast.error('삭제 실패'); return }
+    toast.success('납기일 규칙이 삭제되었습니다.')
+    fetchDueRules()
   }
 
   // --- Delete customer ---
@@ -396,9 +489,82 @@ function CustomerDetailContent() {
     router.push('/customers')
   }
 
+  // --- Default solutions & annual limit ---
+  const [defaultSolutions, setDefaultSolutions] = useState<any[]>([])
+  const [annualLimitInfo, setAnnualLimitInfo] = useState<{ limit: number; used: number; serviceName: string } | null>(null)
+
+  async function fetchDefaultSolutionsAndLimits() {
+    if (!id) return
+    // Fetch default solutions
+    const { data: solData } = await supabase
+      .from('customer_default_solutions')
+      .select('*')
+      .eq('customer_id', id)
+      .order('sort_order')
+    setDefaultSolutions(solData || [])
+
+    // Fetch annual limits from customer_service_pricing
+    const { data: pricingData } = await supabase
+      .from('customer_service_pricing')
+      .select('*')
+      .eq('customer_id', id)
+      .eq('billing_type', 'annual')
+      .eq('is_active', true)
+
+    if (pricingData && pricingData.length > 0) {
+      const annualService = pricingData[0]
+      if (annualService.annual_project_limit) {
+        // Count active projects in the contract period
+        const startDate = annualService.annual_start_date
+        let projectCount = projects.filter(p => p.status === 'active').length
+        if (startDate) {
+          projectCount = projects.filter(p => {
+            const created = new Date(p.created_at)
+            return created >= new Date(startDate) && p.status === 'active'
+          }).length
+        }
+        setAnnualLimitInfo({
+          limit: annualService.annual_project_limit,
+          used: projectCount,
+          serviceName: annualService.service_name,
+        })
+      } else {
+        setAnnualLimitInfo(null)
+      }
+    } else {
+      setAnnualLimitInfo(null)
+    }
+  }
+
   // --- Project modal ---
   function openNewProject() {
     setEditingProject(null)
+    // Fetch defaults for solution presets
+    fetchDefaultSolutionsAndLimits().then(() => {
+      // After fetching, set default solutions as pre-checked
+      supabase
+        .from('customer_default_solutions')
+        .select('solution_name')
+        .eq('customer_id', id!)
+        .then(({ data }) => {
+          const defaultSols = (data || []).map((d: any) => d.solution_name).filter((s: string) => SOLUTION_OPTIONS.includes(s))
+          setProjectForm({
+            project_name: '',
+            service_type: '',
+            site_category: '',
+            billing_start: '',
+            billing_end: '',
+            monthly_amount: '',
+            status: 'active',
+            notes: '',
+            address: '',
+            created_by: '',
+            solutions: defaultSols,
+            project_start: '',
+            project_end: '',
+          })
+        })
+    })
     setProjectForm({
       project_name: '',
       service_type: '',
@@ -629,7 +795,9 @@ function CustomerDetailContent() {
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'info', label: '기본정보', icon: <Building2 className="w-4 h-4" /> },
     { key: 'billing', label: '과금/계약', icon: <CreditCard className="w-4 h-4" /> },
+    { key: 'pricing', label: '서비스 계약', icon: <ClipboardList className="w-4 h-4" /> },
     { key: 'projects', label: `프로젝트 (${projectGroupCount})`, icon: <FolderOpen className="w-4 h-4" /> },
+    { key: 'shipments', label: '카메라 반출', icon: <Truck className="w-4 h-4" /> },
     { key: 'payments', label: '매출이력', icon: <Receipt className="w-4 h-4" /> },
     { key: 'documents', label: `문서 (${documents.filter(d => d.file_url).length})`, icon: <FileText className="w-4 h-4" /> },
   ]
@@ -816,11 +984,21 @@ function CustomerDetailContent() {
                 ['이용유저 수', customer.user_count ? `${customer.user_count}명` : null],
                 ['과금 시작일', customer.billing_start ? formatDate(customer.billing_start) : null],
                 ['과금 종료일', customer.billing_end ? formatDate(customer.billing_end) : null],
+                ['청구서 방식', customer.invoice_grouping === 'per_project' ? '현장별 분리 청구' : '합산 청구 (회사 1장)'],
                 ['청구서 이메일', customer.invoice_email],
                 ['청구 담당자', customer.invoice_contact],
                 ['청구 연락처', customer.invoice_phone],
                 ['세금계산서 이메일', customer.tax_invoice_email],
                 ['보증금', customer.deposit_amount ? formatCurrency(Number(customer.deposit_amount)) : null],
+                ['보증금 납부일', customer.deposit_paid_at ? formatDate(customer.deposit_paid_at) : null],
+                ['보증금 반환 조건', (() => {
+                  const rt = (customer as any).deposit_return_type
+                  if (rt === 'on_churn') return '이탈 시 반환'
+                  if (rt === 'after_period') return '납입 후 일정기간 경과 시 반환'
+                  if (rt === 'custom') return (customer as any).deposit_return_note || '직접 입력'
+                  return null
+                })()],
+                ['보증금 반환(예정)일', customer.deposit_returned_at ? formatDate(customer.deposit_returned_at) : null],
               ].map(([label, value]) => (
                 <div key={label as string}>
                   <dt className="text-sm text-text-secondary">{label}</dt>
@@ -882,15 +1060,230 @@ function CustomerDetailContent() {
                 value={billingForm.tax_invoice_email}
                 onChange={(e) => setBillingForm(f => ({ ...f, tax_invoice_email: e.target.value }))}
               />
+              <Select
+                label="청구서 방식"
+                value={billingForm.invoice_grouping}
+                onChange={(e) => setBillingForm(f => ({ ...f, invoice_grouping: e.target.value }))}
+                options={[
+                  { value: 'combined', label: '합산 청구 (회사 1장)' },
+                  { value: 'per_project', label: '현장별 분리 청구' },
+                ]}
+              />
               <Input
                 label="보증금"
                 type="number"
                 value={billingForm.deposit_amount}
                 onChange={(e) => setBillingForm(f => ({ ...f, deposit_amount: e.target.value }))}
               />
+              <Input
+                label="보증금 납부일"
+                type="date"
+                value={billingForm.deposit_paid_at}
+                onChange={(e) => setBillingForm(f => ({ ...f, deposit_paid_at: e.target.value }))}
+              />
+              <Select
+                label="반환 조건"
+                value={billingForm.deposit_return_type}
+                onChange={(e) => setBillingForm(f => ({ ...f, deposit_return_type: e.target.value }))}
+                options={[
+                  { value: '', label: '미설정' },
+                  { value: 'on_churn', label: '이탈 시 반환' },
+                  { value: 'after_period', label: '납입 후 일정기간 경과 시' },
+                  { value: 'custom', label: '직접 입력' },
+                ]}
+              />
+              {billingForm.deposit_return_type === 'custom' && (
+                <Input
+                  label="반환 조건 메모"
+                  value={billingForm.deposit_return_note}
+                  onChange={(e) => setBillingForm(f => ({ ...f, deposit_return_note: e.target.value }))}
+                  placeholder="예: 납입 1년 후 반환"
+                />
+              )}
+              {billingForm.deposit_return_type === 'after_period' && (
+                <Input
+                  label="반환 조건 메모"
+                  value={billingForm.deposit_return_note}
+                  onChange={(e) => setBillingForm(f => ({ ...f, deposit_return_note: e.target.value }))}
+                  placeholder="예: 납입 1년 후"
+                />
+              )}
+              <Input
+                label="보증금 반환(예정)일"
+                type="date"
+                value={billingForm.deposit_returned_at}
+                onChange={(e) => setBillingForm(f => ({ ...f, deposit_returned_at: e.target.value }))}
+              />
             </div>
           )}
+
+          {/* 납기일 규칙 섹션 */}
+          <div className="mt-6 pt-6 border-t border-border-light">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h4 className="text-sm font-semibold text-text-secondary">납기일 규칙</h4>
+                <p className="text-xs text-text-tertiary mt-0.5">청구서 생성 시 납기일이 자동 계산됩니다</p>
+              </div>
+              {!editingDueRule && (
+                <Button variant="secondary" size="sm" onClick={() => {
+                  setEditingDueRule({ isNew: true })
+                  setDueRuleForm({ project_id: '', rule_type: 'next_month_end', fixed_day: '', description: '' })
+                }}>
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  규칙 추가
+                </Button>
+              )}
+            </div>
+
+            {/* Default (company-level) rule */}
+            {(() => {
+              const defaultRule = dueRules.find(r => !r.project_id)
+              const projectRules = dueRules.filter(r => r.project_id)
+              return (
+                <div className="space-y-3">
+                  {/* Company default */}
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-surface-tertiary">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-primary-50 text-primary-500 text-[11px]">회사 기본</Badge>
+                        <span className="text-sm font-medium text-text-primary">
+                          {defaultRule ? getDueRuleLabel(defaultRule.rule_type, defaultRule.fixed_day) : '미설정'}
+                        </span>
+                      </div>
+                      {defaultRule?.description && defaultRule.description !== getDueRuleLabel(defaultRule.rule_type, defaultRule.fixed_day) && (
+                        <p className="text-xs text-text-tertiary mt-1">{defaultRule.description}</p>
+                      )}
+                    </div>
+                    {defaultRule ? (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => {
+                            setEditingDueRule(defaultRule)
+                            setDueRuleForm({
+                              project_id: '',
+                              rule_type: defaultRule.rule_type,
+                              fixed_day: defaultRule.fixed_day ? String(defaultRule.fixed_day) : '',
+                              description: defaultRule.description || '',
+                            })
+                          }}
+                          className="icon-btn"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleDeleteDueRule(defaultRule.id)} className="icon-btn text-text-tertiary hover:text-status-red">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setEditingDueRule({ isNew: true })
+                        setDueRuleForm({ project_id: '', rule_type: 'next_month_end', fixed_day: '', description: '' })
+                      }}>
+                        설정
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Per-project exceptions */}
+                  {projectRules.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-text-tertiary mb-2">현장별 예외 규칙</p>
+                      <div className="space-y-2">
+                        {projectRules.map(rule => (
+                          <div key={rule.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-border-light">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <Badge className="bg-amber-50 text-amber-600 text-[11px]">예외</Badge>
+                                <span className="text-sm text-text-primary">
+                                  {rule.project?.project_name?.split(' - ')[0] || '(프로젝트 삭제됨)'}
+                                </span>
+                                <span className="text-xs text-text-tertiary">→</span>
+                                <span className="text-sm font-medium text-text-primary">
+                                  {getDueRuleLabel(rule.rule_type, rule.fixed_day)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => {
+                                  setEditingDueRule(rule)
+                                  setDueRuleForm({
+                                    project_id: rule.project_id || '',
+                                    rule_type: rule.rule_type,
+                                    fixed_day: rule.fixed_day ? String(rule.fixed_day) : '',
+                                    description: rule.description || '',
+                                  })
+                                }}
+                                className="icon-btn"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => handleDeleteDueRule(rule.id)} className="icon-btn text-text-tertiary hover:text-status-red">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inline edit/create form */}
+                  {editingDueRule && (
+                    <div className="p-4 rounded-lg border-2 border-primary-200 bg-primary-50/30 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <Select
+                          label="적용 범위"
+                          value={dueRuleForm.project_id}
+                          onChange={(e) => setDueRuleForm(f => ({ ...f, project_id: e.target.value }))}
+                          options={[
+                            { value: '', label: '회사 전체 (기본)' },
+                            ...projects.filter(p => p.status === 'active').map(p => ({
+                              value: p.id,
+                              label: p.project_name?.split(' - ')[0] || p.project_name || '',
+                            }))
+                          ]}
+                        />
+                        <Select
+                          label="납기 규칙"
+                          value={dueRuleForm.rule_type}
+                          onChange={(e) => setDueRuleForm(f => ({ ...f, rule_type: e.target.value }))}
+                          options={DUE_RULE_OPTIONS}
+                        />
+                        {dueRuleForm.rule_type === 'fixed_day' && (
+                          <Input
+                            label="고정일 (매월 N일)"
+                            type="number"
+                            value={dueRuleForm.fixed_day}
+                            onChange={(e) => setDueRuleForm(f => ({ ...f, fixed_day: e.target.value }))}
+                            placeholder="예: 25"
+                          />
+                        )}
+                        {dueRuleForm.rule_type === 'custom' && (
+                          <Input
+                            label="설명"
+                            value={dueRuleForm.description}
+                            onChange={(e) => setDueRuleForm(f => ({ ...f, description: e.target.value }))}
+                            placeholder="납기 규칙 설명"
+                          />
+                        )}
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button variant="secondary" size="sm" onClick={() => setEditingDueRule(null)}>취소</Button>
+                        <Button size="sm" loading={savingRule} onClick={handleSaveDueRule}>저장</Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
         </div>
+      )}
+
+      {/* 서비스 계약 탭 */}
+      {tab === 'pricing' && customer && (
+        <CustomerPricingTab customerId={customer.id} projects={projects} />
       )}
 
       {/* 프로젝트 탭 */}
@@ -1023,6 +1416,11 @@ function CustomerDetailContent() {
             )
           })()}
         </div>
+      )}
+
+      {/* 카메라 반출 탭 */}
+      {tab === 'shipments' && customer && (
+        <CustomerShipmentsTab customerId={customer.id} customerName={customer.company_name} projects={projects} />
       )}
 
       {/* 매출이력 탭 — 프로젝트별 월별 매출 현황 */}
@@ -1452,6 +1850,23 @@ function CustomerDetailContent() {
         title={editingProject ? '프로젝트 수정' : '프로젝트 추가'}
       >
         <div className="space-y-4">
+          {/* 연간 프로젝트 한도 경고 */}
+          {!editingProject && annualLimitInfo && (
+            <div className={`p-3 rounded-lg border text-sm ${
+              annualLimitInfo.used >= annualLimitInfo.limit
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : annualLimitInfo.used >= annualLimitInfo.limit * 0.9
+                  ? 'bg-amber-50 border-amber-200 text-amber-700'
+                  : 'bg-blue-50 border-blue-200 text-blue-700'
+            }`}>
+              {annualLimitInfo.used >= annualLimitInfo.limit ? (
+                <p><strong>연간 프로젝트 한도({annualLimitInfo.limit}개)를 초과합니다.</strong> 현재 {annualLimitInfo.used}개 사용 중. 추가 과금 대상입니다.</p>
+              ) : (
+                <p>연간 프로젝트 한도: {annualLimitInfo.used}/{annualLimitInfo.limit}개 사용 (잔여 {annualLimitInfo.limit - annualLimitInfo.used}개)</p>
+              )}
+            </div>
+          )}
+
           <Input
             label="프로젝트명 *"
             value={projectForm.project_name}
@@ -1472,26 +1887,43 @@ function CustomerDetailContent() {
           />
           {/* 투입 솔루션 체크박스 */}
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">투입 솔루션</label>
+            <div className="flex items-center gap-2 mb-2">
+              <label className="block text-sm font-medium text-text-secondary">투입 솔루션</label>
+              {!editingProject && defaultSolutions.length > 0 && (
+                <span className="text-[11px] text-primary-500 bg-primary-50 px-2 py-0.5 rounded-full">기본 솔루션 적용됨</span>
+              )}
+            </div>
             <div className="flex flex-wrap gap-3">
-              {SOLUTION_OPTIONS.map((sol) => (
-                <label key={sol} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={projectForm.solutions.includes(sol)}
-                    onChange={(e) => {
-                      setProjectForm(f => ({
-                        ...f,
-                        solutions: e.target.checked
-                          ? [...f.solutions, sol]
-                          : f.solutions.filter(s => s !== sol),
-                      }))
-                    }}
-                    className="rounded border-gray-300 text-primary-500 focus:ring-primary-500"
-                  />
-                  {sol}
-                </label>
-              ))}
+              {SOLUTION_OPTIONS.map((sol) => {
+                const isDefault = defaultSolutions.some((ds: any) => ds.solution_name === sol)
+                const isRequired = defaultSolutions.some((ds: any) => ds.solution_name === sol && ds.is_required)
+                return (
+                  <label key={sol} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={projectForm.solutions.includes(sol)}
+                      onChange={(e) => {
+                        if (!e.target.checked && isRequired && !editingProject) {
+                          if (!confirm(`"${sol}"은(는) 이 고객의 기본 필수 솔루션입니다. 정말 해제하시겠습니까?`)) return
+                        }
+                        setProjectForm(f => ({
+                          ...f,
+                          solutions: e.target.checked
+                            ? [...f.solutions, sol]
+                            : f.solutions.filter(s => s !== sol),
+                        }))
+                      }}
+                      className="rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+                    />
+                    {sol}
+                    {isDefault && (
+                      <span className={`text-[10px] px-1 py-0.5 rounded ${isRequired ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {isRequired ? '기본' : '권장'}
+                      </span>
+                    )}
+                  </label>
+                )
+              })}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

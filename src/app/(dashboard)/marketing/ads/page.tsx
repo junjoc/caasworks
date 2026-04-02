@@ -77,6 +77,8 @@ const CHANNEL_OPTIONS = [
   { value: '구글', label: '구글' },
   { value: '메타', label: '메타 (FB/IG)' },
   { value: '유튜브', label: '유튜브' },
+  { value: '검색유입', label: '검색유입 (오가닉)' },
+  { value: '자사채널', label: '자사채널' },
   { value: '블로그', label: '블로그' },
   { value: '언론', label: '언론' },
   { value: '이벤트', label: '이벤트/행사' },
@@ -86,17 +88,26 @@ const CHANNEL_OPTIONS = [
 const AD_TYPE_OPTIONS = [
   { value: '검색', label: '검색광고' },
   { value: 'SNS', label: 'SNS광고' },
-  { value: '콘텐츠', label: '콘텐츠/블로그' },
+  { value: '콘텐츠', label: '콘텐츠/유입' },
   { value: '영상', label: '영상광고' },
   { value: '오프라인', label: '오프라인/행사' },
   { value: '기타', label: '기타' },
 ]
+
+// 채널별 서브소스 프리셋 (시트 기반)
+const CHANNEL_SUB_SOURCES: Record<string, string[]> = {
+  '검색유입': ['네이버', '구글', '생성형AI', '기타'],
+  '자사채널': ['홈페이지', '깃북', '해피톡'],
+  '블로그': ['네이버', '티스토리', '아이콘'],
+}
 
 const CHANNEL_COLORS: Record<string, string> = {
   '네이버': 'bg-green-100 text-green-700',
   '구글': 'bg-blue-100 text-blue-700',
   '메타': 'bg-indigo-100 text-indigo-700',
   '유튜브': 'bg-red-100 text-red-700',
+  '검색유입': 'bg-teal-100 text-teal-700',
+  '자사채널': 'bg-cyan-100 text-cyan-700',
   '블로그': 'bg-emerald-100 text-emerald-700',
   '언론': 'bg-purple-100 text-purple-700',
   '이벤트': 'bg-orange-100 text-orange-700',
@@ -108,8 +119,13 @@ function channelToTab(channel: string): TabType {
   if (channel === '네이버') return '네이버'
   if (channel === '구글') return '구글'
   if (channel === '메타' || channel === '유튜브') return '메타'
-  if (channel === '블로그' || channel === '콘텐츠') return '콘텐츠'
+  if (channel === '블로그' || channel === '콘텐츠' || channel === '검색유입' || channel === '자사채널' || channel === '언론') return '콘텐츠'
   return '기타'
+}
+
+// 오가닉 채널 여부
+function isOrganicChannel(channel: string) {
+  return ['검색유입', '자사채널', '블로그', '언론'].includes(channel)
 }
 
 const emptyForm = {
@@ -495,7 +511,7 @@ export default function AdsPage() {
 
   async function handleSave() {
     if (!form.campaign_name.trim()) {
-      toast.error('캠페인명을 입력하세요')
+      toast.error(isOrganicChannel(form.channel) ? '소스를 선택하세요' : '캠페인명을 입력하세요')
       return
     }
     setSaving(true)
@@ -846,7 +862,7 @@ export default function AdsPage() {
 
       {/* Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}
-        title={editId ? '광고 데이터 수정' : '광고 데이터 입력'}>
+        title={editId ? '데이터 수정' : '데이터 입력'}>
         <div className="grid grid-cols-2 gap-3">
           <Input label="날짜" type="date" value={form.date}
             onChange={e => { setForm({ ...form, date: e.target.value }); fetchLeadsForDate(e.target.value) }} />
@@ -855,63 +871,90 @@ export default function AdsPage() {
           <Select label="채널" options={CHANNEL_OPTIONS} value={form.channel}
             onChange={e => {
               const newChannel = e.target.value
+              const subSources = CHANNEL_SUB_SOURCES[newChannel]
               const currentCampaign = campaigns.find(c => c.id === form.campaign_id)
               const keepCampaign = currentCampaign && currentCampaign.channel === newChannel
               setForm({
                 ...form,
                 channel: newChannel,
+                ad_type: isOrganicChannel(newChannel) ? '콘텐츠' : form.ad_type,
                 campaign_id: keepCampaign ? form.campaign_id : '',
-                campaign_name: keepCampaign ? form.campaign_name : '',
+                campaign_name: subSources ? subSources[0] : (keepCampaign ? form.campaign_name : ''),
               })
             }} />
-          <div className="col-span-2">
-            <SearchSelect label="캠페인" placeholder="캠페인 선택..."
-              options={campaignOptions} value={form.campaign_id}
-              onChange={val => {
-                const c = campaigns.find(c => c.id === val)
-                setForm({
-                  ...form,
-                  campaign_id: val,
-                  campaign_name: c ? c.name : form.campaign_name,
-                  channel: c ? c.channel : form.channel,
-                  adgroup_id: '', // 캠페인 변경 시 광고그룹 초기화
-                  adgroup_name: '',
-                })
-              }} />
-          </div>
-          <div className="col-span-2">
-            <SearchSelect label="광고그룹" placeholder="광고그룹 선택..."
-              options={adgroupOptions} value={form.adgroup_id}
-              onChange={val => {
-                const ag = adgroups.find(a => a.id === val)
-                setForm({
-                  ...form,
-                  adgroup_id: val,
-                  adgroup_name: ag ? ag.name : form.adgroup_name,
-                  // 캠페인 미선택 시 광고그룹의 캠페인으로 자동 설정
-                  ...(ag && !form.campaign_id ? {
-                    campaign_id: ag.campaign_id,
-                    campaign_name: campaigns.find(c => c.id === ag.campaign_id)?.name || form.campaign_name,
-                  } : {}),
-                })
-              }} />
-          </div>
-          <Input label="캠페인명 (직접 입력)" value={form.campaign_name}
-            onChange={e => setForm({ ...form, campaign_name: e.target.value })}
-            placeholder="캠페인 미선택 시 직접 입력" />
-          <Input label="광고그룹명 (직접 입력)" value={form.adgroup_name}
-            onChange={e => setForm({ ...form, adgroup_name: e.target.value })}
-            placeholder="광고그룹 미선택 시 직접 입력" />
-          <Input label="비용 (원)" type="number" value={form.cost}
-            onChange={e => setForm({ ...form, cost: Number(e.target.value) })} />
-          <Input label="노출수" type="number" value={form.impressions}
-            onChange={e => setForm({ ...form, impressions: Number(e.target.value) })} />
-          <Input label="클릭수" type="number" value={form.clicks}
-            onChange={e => setForm({ ...form, clicks: Number(e.target.value) })} />
-          <Input label="GA유입" type="number" value={form.ga_visits}
-            onChange={e => setForm({ ...form, ga_visits: Number(e.target.value) })} />
-          <Input label="문의클릭" type="number" value={form.inquiry_clicks}
-            onChange={e => setForm({ ...form, inquiry_clicks: Number(e.target.value) })} />
+          {/* 서브소스 프리셋 (오가닉 채널) */}
+          {CHANNEL_SUB_SOURCES[form.channel] && (
+            <Select label="소스" options={CHANNEL_SUB_SOURCES[form.channel].map(s => ({ value: s, label: s }))}
+              value={form.campaign_name}
+              onChange={e => setForm({ ...form, campaign_name: e.target.value })} />
+          )}
+          {/* 유료 광고 전용 필드 */}
+          {!isOrganicChannel(form.channel) && (
+            <>
+              <div className="col-span-2">
+                <SearchSelect label="캠페인" placeholder="캠페인 선택..."
+                  options={campaignOptions} value={form.campaign_id}
+                  onChange={val => {
+                    const c = campaigns.find(c => c.id === val)
+                    setForm({
+                      ...form,
+                      campaign_id: val,
+                      campaign_name: c ? c.name : form.campaign_name,
+                      channel: c ? c.channel : form.channel,
+                      adgroup_id: '',
+                      adgroup_name: '',
+                    })
+                  }} />
+              </div>
+              <div className="col-span-2">
+                <SearchSelect label="광고그룹" placeholder="광고그룹 선택..."
+                  options={adgroupOptions} value={form.adgroup_id}
+                  onChange={val => {
+                    const ag = adgroups.find(a => a.id === val)
+                    setForm({
+                      ...form,
+                      adgroup_id: val,
+                      adgroup_name: ag ? ag.name : form.adgroup_name,
+                      ...(ag && !form.campaign_id ? {
+                        campaign_id: ag.campaign_id,
+                        campaign_name: campaigns.find(c => c.id === ag.campaign_id)?.name || form.campaign_name,
+                      } : {}),
+                    })
+                  }} />
+              </div>
+              <Input label="캠페인명 (직접 입력)" value={form.campaign_name}
+                onChange={e => setForm({ ...form, campaign_name: e.target.value })}
+                placeholder="캠페인 미선택 시 직접 입력" />
+              <Input label="광고그룹명 (직접 입력)" value={form.adgroup_name}
+                onChange={e => setForm({ ...form, adgroup_name: e.target.value })}
+                placeholder="광고그룹 미선택 시 직접 입력" />
+            </>
+          )}
+          {/* 비용/노출/클릭 — 오가닉은 비용만 (보통 0) */}
+          {!isOrganicChannel(form.channel) ? (
+            <>
+              <Input label="비용 (원)" type="number" value={form.cost}
+                onChange={e => setForm({ ...form, cost: Number(e.target.value) })} />
+              <Input label="노출수" type="number" value={form.impressions}
+                onChange={e => setForm({ ...form, impressions: Number(e.target.value) })} />
+              <Input label="클릭수" type="number" value={form.clicks}
+                onChange={e => setForm({ ...form, clicks: Number(e.target.value) })} />
+              <Input label="GA유입" type="number" value={form.ga_visits}
+                onChange={e => setForm({ ...form, ga_visits: Number(e.target.value) })} />
+              <Input label="문의클릭" type="number" value={form.inquiry_clicks}
+                onChange={e => setForm({ ...form, inquiry_clicks: Number(e.target.value) })} />
+            </>
+          ) : (
+            <div className="col-span-2 p-3 bg-teal-50/50 rounded-lg border border-teal-100">
+              <p className="text-xs text-teal-600 mb-2 font-medium">유입 추적 (비용 없는 오가닉 채널)</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Input label="GA유입 (세션)" type="number" value={form.ga_visits}
+                  onChange={e => setForm({ ...form, ga_visits: Number(e.target.value) })} />
+                <Input label="문의클릭 (이벤트)" type="number" value={form.inquiry_clicks}
+                  onChange={e => setForm({ ...form, inquiry_clicks: Number(e.target.value) })} />
+              </div>
+            </div>
+          )}
           <div className="col-span-2 grid grid-cols-6 gap-2 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
             <Input label="가입사 수" type="number" value={form.signups}
               onChange={e => setForm({ ...form, signups: Number(e.target.value) })} />

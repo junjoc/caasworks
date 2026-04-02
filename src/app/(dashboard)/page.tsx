@@ -379,7 +379,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="bg-surface-tertiary rounded-full h-1.5 overflow-hidden">
                       <div
-                        className={`h-1.5 rounded-full transition-all duration-500 ${stageBarColors[item.stage] || 'bg-primary-400'}`}
+                        className={`h-1.5 rounded-full transition-all duration-500 ${stageBarColors[item.stage] || 'bg-primary-500'}`}
                         style={{ width: `${Math.max(pct, 2)}%` }}
                       />
                     </div>
@@ -425,7 +425,7 @@ export default function DashboardPage() {
         <div className="card">
           <div className="card-header">
             <span className="card-header-title">최근 리드</span>
-            <Link href="/pipeline/list" className="text-xs text-primary-400 hover:text-primary-500 font-medium flex items-center gap-0.5">
+            <Link href="/pipeline/list" className="text-xs text-primary-500 hover:text-primary-500 font-medium flex items-center gap-0.5">
               전체보기 <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
@@ -454,7 +454,7 @@ export default function DashboardPage() {
         <div className="card">
           <div className="card-header">
             <span className="card-header-title">최근 도입</span>
-            <Link href="/customers" className="text-xs text-primary-400 hover:text-primary-500 font-medium flex items-center gap-0.5">
+            <Link href="/customers" className="text-xs text-primary-500 hover:text-primary-500 font-medium flex items-center gap-0.5">
               고객관리 <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
@@ -465,7 +465,7 @@ export default function DashboardPage() {
                   <span className="text-body-sm font-medium text-text-primary block truncate">{conv.company_name}</span>
                   {conv.assigned_name && <span className="text-micro text-text-tertiary">{conv.assigned_name}</span>}
                 </div>
-                <span className="text-body-sm font-semibold text-primary-400 whitespace-nowrap">
+                <span className="text-body-sm font-semibold text-primary-500 whitespace-nowrap">
                   {conv.deal_amount > 0 ? formatCurrency(conv.deal_amount) : '-'}
                 </span>
                 <span className="text-micro text-text-tertiary w-10 text-right">
@@ -501,7 +501,7 @@ export default function DashboardPage() {
                 </button>
               )}
             </div>
-            <Link href="/pipeline/list" className="text-xs text-primary-400 hover:text-primary-500 font-medium flex items-center gap-0.5">
+            <Link href="/pipeline/list" className="text-xs text-primary-500 hover:text-primary-500 font-medium flex items-center gap-0.5">
               전체보기 <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
@@ -568,7 +568,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border-light">
               <div className="text-center">
                 <p className="text-caption text-text-tertiary">올해 누적</p>
-                <p className="text-heading-md text-primary-400 mt-1">
+                <p className="text-heading-md text-primary-500 mt-1">
                   {formatCurrency(data.monthlyTrend.reduce((s, m) => s + m.revenue, 0))}
                 </p>
               </div>

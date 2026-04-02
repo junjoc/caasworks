@@ -12,7 +12,7 @@ import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
   DollarSign, ChevronDown, ChevronRight, MapPin,
-  Plus, Pencil, Trash2, X, Check, Grid3X3,
+  Plus, Pencil, Trash2, X, Check, Grid3X3, Search,
 } from 'lucide-react'
 
 /* ──────────── Types ──────────── */
@@ -88,6 +88,9 @@ export default function RevenuePage() {
   const [newServiceName, setNewServiceName] = useState('')
   const [newServiceAmount, setNewServiceAmount] = useState('')
   const [savingService, setSavingService] = useState(false)
+
+  // Search
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Customers & projects for dropdowns
   const [customers, setCustomers] = useState<CustomerOption[]>([])
@@ -186,6 +189,17 @@ export default function RevenuePage() {
 
     return Array.from(customerMap.values()).sort((a, b) => b.total - a.total)
   }, [rawRecords])
+
+  // 검색 필터링
+  const filteredData = useMemo(() => {
+    if (!searchQuery.trim()) return data
+    const q = searchQuery.trim().toLowerCase()
+    return data.filter(d =>
+      d.customer_name.toLowerCase().includes(q) ||
+      d.siteGroups.some(sg => sg.site_name.toLowerCase().includes(q)) ||
+      d.projects.some(p => p.project_name.toLowerCase().includes(q))
+    )
+  }, [data, searchQuery])
 
   useEffect(() => {
     fetchRevenue()
@@ -358,10 +372,10 @@ export default function RevenuePage() {
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), [])
   const currentMonth = new Date().getMonth() + 1
   const { grandTotal, monthlyTotals } = useMemo(() => {
-    const gt = data.reduce((sum, d) => sum + d.total, 0)
-    const mt = months.map((m) => data.reduce((sum, d) => sum + (d.months[m] || 0), 0))
+    const gt = filteredData.reduce((sum, d) => sum + d.total, 0)
+    const mt = months.map((m) => filteredData.reduce((sum, d) => sum + (d.months[m] || 0), 0))
     return { grandTotal: gt, monthlyTotals: mt }
-  }, [data, months])
+  }, [filteredData, months])
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => {
     const y = new Date().getFullYear() - i
@@ -390,6 +404,25 @@ export default function RevenuePage() {
         </div>
       </div>
 
+      {/* 검색 */}
+      <div className="mb-4">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
+          <input
+            type="text"
+            placeholder="고객사 / 현장 / 프로젝트 검색..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* 요약 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="stat-card">
@@ -401,7 +434,7 @@ export default function RevenuePage() {
         </div>
         <div className="stat-card">
           <div className="stat-label">고객 수</div>
-          <div className="stat-value">{data.length}사</div>
+          <div className="stat-value">{filteredData.length}사{searchQuery && ` / ${data.length}사`}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">월 평균</div>
@@ -416,7 +449,8 @@ export default function RevenuePage() {
           <table className="w-full text-sm">
             <thead className="bg-surface-tertiary border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase min-w-[280px]">고객사 / 현장</th>
+                <th className="px-2 py-3 text-center text-xs font-medium text-text-secondary w-[40px]">NO</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase min-w-[260px]">고객사 / 현장</th>
                 {months.map((m) => (
                   <th key={m} className={`text-center min-w-[90px] ${m === currentMonth && year === new Date().getFullYear() ? 'bg-blue-50' : ''}`}>
                     {m}월
@@ -428,8 +462,9 @@ export default function RevenuePage() {
             </thead>
             <tbody>
               {/* 월간 매출 총액 - 최상단 */}
-              {data.length > 0 && (
+              {filteredData.length > 0 && (
                 <tr className="bg-surface-tertiary font-semibold border-b-2 border-gray-300 sticky top-0 z-10">
+                  <td className="px-2 py-3 text-center text-xs text-text-tertiary"></td>
                   <td className="px-4 py-3 font-semibold">월 합계</td>
                   {monthlyTotals.map((t, i) => (
                     <td key={i} className={`text-right ${i + 1 === currentMonth && year === new Date().getFullYear() ? 'bg-blue-100/50' : ''}`}>
@@ -440,7 +475,7 @@ export default function RevenuePage() {
                   <td></td>
                 </tr>
               )}
-              {data.map((row) => {
+              {filteredData.map((row, rowIndex) => {
                 const isExpanded = expandedCustomers.has(row.customer_id)
                 return (
                   <React.Fragment key={row.customer_id}>
@@ -449,6 +484,7 @@ export default function RevenuePage() {
                       className="cursor-pointer hover:bg-blue-50/50 transition-colors"
                       onClick={() => toggleCustomer(row.customer_id)}
                     >
+                      <td className="px-2 py-3 text-center text-xs text-text-tertiary font-medium">{rowIndex + 1}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {isExpanded
@@ -484,6 +520,7 @@ export default function RevenuePage() {
                             className="bg-gradient-to-r from-gray-100 to-gray-50 border-t border-gray-200 cursor-pointer hover:from-gray-150 hover:to-gray-100 transition-colors"
                             onClick={() => toggleSite(siteKey)}
                           >
+                            <td></td>
                             <td className="px-4 py-2 pl-10">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -519,6 +556,7 @@ export default function RevenuePage() {
                               : (proj.service_type || proj.project_name)
                             return (
                               <tr key={proj.project_id} className="bg-white hover:bg-blue-50/30 group">
+                                <td></td>
                                 <td className="px-4 py-2 pl-16">
                                   <div className="flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-primary-300 shrink-0" />

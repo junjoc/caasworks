@@ -587,8 +587,8 @@ export default function AnalyticsDashboardPage() {
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 10000).toFixed(0)}만`} />
               <Tooltip formatter={(v: number) => formatCurrency(v)} />
               <Legend />
-              <Bar dataKey="current" name={`${globalFilter.year}년`} fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="previous" name={`${globalFilter.year - 1}년`} fill="#e5e7eb" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="current" name={`${globalFilter.year}년`} fill="#1890ff" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="previous" name={`${globalFilter.year - 1}년`} fill="#D9D9D9" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )
@@ -626,7 +626,7 @@ export default function AnalyticsDashboardPage() {
               <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 10000).toFixed(0)}만`} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={75} />
               <Tooltip formatter={(v: number) => formatCurrency(v)} />
-              <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="value" fill="#b145ff" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )
@@ -721,7 +721,7 @@ export default function AnalyticsDashboardPage() {
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Area type="monotone" dataKey="count" name="신규 리드" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.15} />
+              <Area type="monotone" dataKey="count" name="신규 리드" stroke="#b145ff" fill="#b145ff" fillOpacity={0.15} />
             </AreaChart>
           </ResponsiveContainer>
         )
@@ -748,7 +748,7 @@ export default function AnalyticsDashboardPage() {
                 <div key={i} className="flex items-center gap-2">
                   <span className="text-xs text-text-tertiary w-16">{item.label}</span>
                   <div className="flex-1 h-4 bg-surface-tertiary rounded-full overflow-hidden">
-                    <div className="h-full bg-primary-400 rounded-full" style={{ width: `${d.total > 0 ? (item.count / d.total) * 100 : 0}%` }} />
+                    <div className="h-full bg-primary-500 rounded-full" style={{ width: `${d.total > 0 ? (item.count / d.total) * 100 : 0}%` }} />
                   </div>
                   <span className="text-xs font-medium w-8 text-right">{item.count}</span>
                 </div>
@@ -866,7 +866,7 @@ export default function AnalyticsDashboardPage() {
               <XAxis type="number" tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={75} />
               <Tooltip />
-              <Bar dataKey="value" name="리드 수" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="value" name="리드 수" fill="#FCBA16" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )

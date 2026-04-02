@@ -11,7 +11,7 @@ export function ComingSoon({ title = '준비 중입니다', description = '이 �
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <div className="w-14 h-14 rounded-2xl bg-primary-50 flex items-center justify-center mb-4">
-        <Construction className="w-7 h-7 text-primary-400" />
+        <Construction className="w-7 h-7 text-primary-500" />
       </div>
       <h2 className="text-heading-lg text-text-primary mb-2">{title}</h2>
       <p className="text-body-sm text-text-tertiary max-w-md">{description}</p>

@@ -249,7 +249,7 @@ function ColumnSettings({
           onDragEnd={() => { setDragIndex(null); setDragOverIndex(null) }}
           className={`
             flex items-center gap-3 px-3 py-2 rounded-lg border transition-all
-            ${dragOverIndex === idx ? 'border-primary-400 bg-primary-50' : 'border-border bg-surface'}
+            ${dragOverIndex === idx ? 'border-primary-500 bg-primary-50' : 'border-border bg-surface'}
             ${dragIndex === idx ? 'opacity-50' : ''}
             cursor-grab active:cursor-grabbing
           `}

@@ -458,7 +458,7 @@ export default function PipelineBoardPage() {
                         {allStageSelected ? (
                           <CheckSquare className="w-4 h-4 text-primary-500" />
                         ) : someStageSelected ? (
-                          <div className="w-4 h-4 border-2 border-primary-400 rounded bg-primary-100 flex items-center justify-center">
+                          <div className="w-4 h-4 border-2 border-primary-500 rounded bg-primary-100 flex items-center justify-center">
                             <div className="w-2 h-0.5 bg-primary-500 rounded" />
                           </div>
                         ) : (

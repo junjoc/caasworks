@@ -85,7 +85,7 @@ export default function UnpaidPage() {
                 return (
                   <tr key={inv.id} className={daysOver > 30 ? 'bg-status-red-bg/30' : daysOver > 0 ? 'bg-status-yellow-bg/30' : ''}>
                     <td className="font-medium col-truncate">{inv.customer_name}</td>
-                    <td className="text-primary-400">{inv.invoice_number}</td>
+                    <td className="text-primary-500">{inv.invoice_number}</td>
                     <td className="text-center text-text-secondary">{inv.year}.{String(inv.month).padStart(2, '0')}</td>
                     <td className="text-right font-semibold">{formatCurrency(inv.total)}</td>
                     <td className="text-center text-text-tertiary">{inv.due_date ? formatDate(inv.due_date, 'M/d') : '-'}</td>
@@ -106,7 +106,7 @@ export default function UnpaidPage() {
                         <div className="text-caption">
                           <span>{inv.contact_person}</span>
                           {inv.contact_phone && (
-                            <a href={`tel:${inv.contact_phone}`} className="text-primary-400 ml-1">
+                            <a href={`tel:${inv.contact_phone}`} className="text-primary-500 ml-1">
                               <Phone className="w-3 h-3 inline" />
                             </a>
                           )}

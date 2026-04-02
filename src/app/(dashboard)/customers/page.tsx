@@ -120,7 +120,7 @@ export default function CustomersPage() {
               {filtered.map((c) => (
                 <tr key={c.id}>
                   <td>
-                    <Link href={`/customers/${c.id}`} className="font-medium text-primary-400 hover:text-primary-500 hover:underline block truncate">
+                    <Link href={`/customers/${c.id}`} className="font-medium text-primary-500 hover:text-primary-500 hover:underline block truncate">
                       {c.company_name}
                     </Link>
                   </td>

@@ -550,7 +550,7 @@ export default function ContractsPage() {
 
                 return (
                   <tr key={contract.id} className="hover:bg-primary-50/30 transition-colors">
-                    <td className="px-4 py-3 font-medium text-primary-400 cursor-pointer" onClick={() => setDetailModal(contract)}>
+                    <td className="px-4 py-3 font-medium text-primary-500 cursor-pointer" onClick={() => setDetailModal(contract)}>
                       <div className="flex items-center gap-1.5">
                         {contract.contract_number}
                         {contract.file_url && <span title="파일 첨부됨"><Paperclip className="w-3 h-3 text-text-tertiary" /></span>}
@@ -580,8 +580,8 @@ export default function ContractsPage() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => setDetailModal(contract)} className="p-1 text-text-tertiary hover:text-primary-400 rounded" title="상세"><Eye className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => openEdit(contract)} className="p-1 text-text-tertiary hover:text-primary-400 rounded" title="수정"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setDetailModal(contract)} className="p-1 text-text-tertiary hover:text-primary-500 rounded" title="상세"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => openEdit(contract)} className="p-1 text-text-tertiary hover:text-primary-500 rounded" title="수정"><Pencil className="w-3.5 h-3.5" /></button>
                         {contract.status === 'draft' && (
                           <button onClick={() => handleStatusChange(contract, 'active')} className="p-1 text-text-tertiary hover:text-status-green rounded" title="체결"><CheckCircle className="w-3.5 h-3.5" /></button>
                         )}
@@ -688,7 +688,7 @@ export default function ContractsPage() {
                   type="checkbox"
                   checked={form.auto_renewal}
                   onChange={(e) => setForm(f => ({ ...f, auto_renewal: e.target.checked }))}
-                  className="rounded border-gray-300 text-primary-400 focus:ring-primary-500"
+                  className="rounded border-gray-300 text-primary-500 focus:ring-primary-500"
                 />
                 자동갱신
               </label>
@@ -809,7 +809,7 @@ export default function ContractsPage() {
               <div>
                 <dt className="text-xs text-text-secondary mb-1">연결 견적서</dt>
                 <dd>
-                  <Link href={`/quotations/${detailModal.quotation_id}`} className="text-sm text-primary-400 hover:underline">
+                  <Link href={`/quotations/${detailModal.quotation_id}`} className="text-sm text-primary-500 hover:underline">
                     {detailModal.quotation_number}
                   </Link>
                 </dd>

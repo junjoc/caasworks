@@ -117,7 +117,7 @@ export default function VocListPage() {
                 <tr key={t.id}>
                   <td className="text-text-tertiary">{t.ticket_number}</td>
                   <td className="col-truncate">
-                    <Link href={`/voc/${t.id}`} className="font-medium text-primary-400 hover:text-primary-500 hover:underline">
+                    <Link href={`/voc/${t.id}`} className="font-medium text-primary-500 hover:text-primary-500 hover:underline">
                       {t.title}
                     </Link>
                   </td>

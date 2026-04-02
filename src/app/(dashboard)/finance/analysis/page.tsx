@@ -69,8 +69,8 @@ export default function AnalysisPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
         <div className="stat-card">
-          <div className="flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4 text-primary-400" /><span className="stat-label">총 매출</span></div>
-          <div className="stat-value text-primary-400">{formatCurrency(totalRevenue)}</div>
+          <div className="flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4 text-primary-500" /><span className="stat-label">총 매출</span></div>
+          <div className="stat-value text-primary-500">{formatCurrency(totalRevenue)}</div>
         </div>
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-1"><TrendingDown className="w-4 h-4 text-status-red" /><span className="stat-label">총 비용</span></div>
@@ -106,8 +106,8 @@ export default function AnalysisPage() {
                     />
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                     <Bar dataKey="revenue" name="매출" fill="#1890ff" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="cost" name="비용" fill="#e2445c" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="profit" name="이익" fill="#00c875" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="cost" name="비용" fill="#FF6661" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="profit" name="이익" fill="#60CA21" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -136,7 +136,7 @@ export default function AnalysisPage() {
                     return (
                       <tr key={i} className={isCurrent ? 'bg-primary-50/30' : ''}>
                         <td className="font-medium">{d.month}</td>
-                        <td className="text-right text-primary-400">{d.revenue > 0 ? formatCurrency(d.revenue) : '-'}</td>
+                        <td className="text-right text-primary-500">{d.revenue > 0 ? formatCurrency(d.revenue) : '-'}</td>
                         <td className="text-right text-status-red">{d.cost > 0 ? formatCurrency(d.cost) : '-'}</td>
                         <td className="text-right font-semibold text-status-green">{d.profit > 0 ? formatCurrency(d.profit) : '-'}</td>
                         <td className="text-right text-text-secondary">{rate !== '-' ? `${rate}%` : '-'}</td>
@@ -145,7 +145,7 @@ export default function AnalysisPage() {
                   })}
                   <tr className="bg-surface-tertiary font-semibold">
                     <td>합계</td>
-                    <td className="text-right text-primary-400">{formatCurrency(totalRevenue)}</td>
+                    <td className="text-right text-primary-500">{formatCurrency(totalRevenue)}</td>
                     <td className="text-right text-status-red">{formatCurrency(totalCost)}</td>
                     <td className="text-right text-status-green">{formatCurrency(totalProfit)}</td>
                     <td className="text-right">{profitRate}%</td>

@@ -12,7 +12,7 @@ import { Modal } from '@/components/ui/modal'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, FileText, Check, Clock, AlertCircle, Search, Pencil, Trash2, X, Download } from 'lucide-react'
+import { Plus, FileText, Check, Clock, AlertCircle, Search, Pencil, Trash2, X, Download, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { InvoicePDFButton } from '@/components/invoices/InvoicePDFButton'
 
@@ -56,6 +56,10 @@ export default function InvoicesPage() {
   const [deleteModal, setDeleteModal] = useState<any>(null)
   const [deleting, setDeleting] = useState(false)
   const supabase = createClient()
+
+  // Payment due rules for auto-calculation
+  const [dueRules, setDueRules] = useState<any[]>([])
+  const [customerInvoiceGrouping, setCustomerInvoiceGrouping] = useState<string>('combined')
 
   // Form state
   const [form, setForm] = useState({
@@ -104,12 +108,68 @@ export default function InvoicesPage() {
     setProjects(data || [])
   }
 
+  // Calculate due date from rule and billing month/year
+  const calculateDueDate = (ruleType: string, fixedDay: number | null, billingYear: number, billingMonth: number): string => {
+    if (ruleType === 'same_month_end') {
+      const d = new Date(billingYear, billingMonth, 0) // last day of billing month
+      return d.toISOString().split('T')[0]
+    }
+    if (ruleType === 'next_month_end') {
+      const d = new Date(billingYear, billingMonth + 1, 0) // last day of billing month + 1
+      return d.toISOString().split('T')[0]
+    }
+    if (ruleType === 'next_next_month_end') {
+      const d = new Date(billingYear, billingMonth + 2, 0) // last day of billing month + 2
+      return d.toISOString().split('T')[0]
+    }
+    if (ruleType === 'fixed_day' && fixedDay) {
+      // next month, fixed day
+      let m = billingMonth + 1
+      let y = billingYear
+      if (m > 12) { m = 1; y++ }
+      const lastDay = new Date(y, m, 0).getDate()
+      const day = Math.min(fixedDay, lastDay)
+      return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    }
+    return '' // custom or unknown
+  }
+
+  const fetchDueRulesForCustomer = async (customerId: string) => {
+    if (!customerId) { setDueRules([]); return }
+    const { data } = await supabase
+      .from('payment_due_rules')
+      .select('*, project:projects(id, project_name)')
+      .eq('customer_id', customerId)
+    setDueRules(data || [])
+    // Also fetch invoice_grouping
+    const { data: custData } = await supabase
+      .from('customers')
+      .select('invoice_grouping')
+      .eq('id', customerId)
+      .single()
+    setCustomerInvoiceGrouping(custData?.invoice_grouping || 'combined')
+  }
+
   const handleCustomerChange = (customerId: string) => {
     setForm(f => ({ ...f, customer_id: customerId }))
     fetchProjectsForCustomer(customerId)
+    fetchDueRulesForCustomer(customerId)
     // Auto populate items from projects - group by site name
     if (customerId) {
-      supabase.from('projects').select('*').eq('customer_id', customerId).eq('status', 'active').order('project_name').then(({ data }) => {
+      Promise.all([
+        supabase.from('projects').select('*').eq('customer_id', customerId).eq('status', 'active').order('project_name'),
+        supabase.from('payment_due_rules').select('*').eq('customer_id', customerId),
+      ]).then(([projRes, rulesRes]) => {
+        const data = projRes.data
+        const rules = rulesRes.data || []
+        // Auto-calculate due date from default (company-level) rule
+        const defaultRule = rules.find((r: any) => !r.project_id)
+        if (defaultRule) {
+          const dueDate = calculateDueDate(defaultRule.rule_type, defaultRule.fixed_day, form.year, form.month)
+          if (dueDate) {
+            setForm(f => ({ ...f, due_date: dueDate }))
+          }
+        }
         if (data && data.length > 0) {
           const newItems = data.map(p => {
             const fullName = p.project_name || ''
@@ -378,7 +438,7 @@ export default function InvoicesPage() {
             <tbody>
               {filtered.map((inv) => (
                 <tr key={inv.id}>
-                  <td className="font-medium text-primary-400 cursor-pointer col-truncate" onClick={() => openEditInvoice(inv)}>{inv.invoice_number}</td>
+                  <td className="font-medium text-primary-500 cursor-pointer col-truncate" onClick={() => openEditInvoice(inv)}>{inv.invoice_number}</td>
                   <td className="col-truncate">{inv.customer_name}</td>
                   <td className="text-center text-text-secondary">{inv.year}.{String(inv.month).padStart(2, '0')}</td>
                   <td className="text-right text-text-secondary">{formatCurrency(inv.subtotal)}</td>
@@ -464,6 +524,39 @@ export default function InvoicesPage() {
               onChange={(e) => setForm(f => ({ ...f, bank_info: e.target.value }))}
             />
           </div>
+
+          {/* 납기일 가이드 + 청구 방식 */}
+          {form.customer_id && dueRules.length > 0 && (
+            <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 space-y-1">
+              {(() => {
+                const defaultRule = dueRules.find((r: any) => !r.project_id)
+                const projectRules = dueRules.filter((r: any) => r.project_id)
+                const ruleLabel = (r: any) => {
+                  if (r.rule_type === 'fixed_day' && r.fixed_day) return `매월 ${r.fixed_day}일`
+                  const labels: Record<string, string> = { next_month_end: '익월 말일', next_next_month_end: '익익월 말일', same_month_end: '당월 말일', custom: r.description || '직접 입력' }
+                  return labels[r.rule_type] || r.rule_type
+                }
+                return (
+                  <>
+                    {defaultRule && (
+                      <p className="text-xs text-blue-700">
+                        <span className="font-medium">※ 회사 기본 납기:</span> {ruleLabel(defaultRule)}
+                        {form.due_date && <span className="ml-1 text-blue-500">→ {form.due_date}</span>}
+                      </p>
+                    )}
+                    {projectRules.map((r: any) => (
+                      <p key={r.id} className="text-xs text-amber-700">
+                        <span className="font-medium">※ {r.project?.project_name?.split(' - ')[0] || '현장'}:</span> {ruleLabel(r)} (예외)
+                      </p>
+                    ))}
+                    <p className="text-xs text-blue-600 mt-1">
+                      <span className="font-medium">청구 방식:</span> {customerInvoiceGrouping === 'per_project' ? '현장별 분리 청구' : '합산 청구 (회사 1장)'}
+                    </p>
+                  </>
+                )
+              })()}
+            </div>
+          )}
 
           {/* Items */}
           <div>

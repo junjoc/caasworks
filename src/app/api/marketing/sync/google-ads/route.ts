@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
     const clientId = process.env.GOOGLE_ADS_CLIENT_ID
     const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET
 
+    const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID
+
     if (!customerId || !developerToken || !refreshToken) {
       return NextResponse.json({
         success: false,
@@ -73,13 +75,14 @@ export async function POST(request: NextRequest) {
 
     const cleanCustomerId = customerId.replace(/-/g, '')
     const adsRes = await fetch(
-      `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:searchStream`,
+      `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:searchStream`,
       {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`,
           'developer-token': developerToken,
           'Content-Type': 'application/json',
+          // login-customer-id는 MCC 하위 계정 접근 시에만 필요 (직접 접근 가능한 경우 생략)
         },
         body: JSON.stringify({ query: gaqlQuery }),
       }
@@ -88,10 +91,26 @@ export async function POST(request: NextRequest) {
     if (!adsRes.ok) {
       const errText = await adsRes.text()
       console.error('Google Ads API error:', errText)
+      // 에러 상세 파싱
+      let errorDetail = ''
+      try {
+        const errJson = JSON.parse(errText)
+        errorDetail = errJson.error?.message || errJson.error?.status || errText.substring(0, 300)
+      } catch {
+        errorDetail = errText.substring(0, 300)
+      }
+      // 404 = Basic Access 미승인 또는 API 버전 문제
+      const is404 = adsRes.status === 404
+      const is403 = adsRes.status === 403
       return NextResponse.json({
         success: false,
-        message: 'Google Ads API 호출 실패',
-        status: 'api_error',
+        message: is404
+          ? 'Google Ads API 접근 불가 — Basic Access 승인 대기 중입니다. Google Ads 콘솔에서 승인 상태를 확인해주세요.'
+          : is403
+          ? 'Google Ads API 권한 부족 — Developer Token 또는 계정 권한을 확인해주세요.'
+          : `Google Ads API 오류 (${adsRes.status}): ${errorDetail}`,
+        status: is404 ? 'pending_access' : 'api_error',
+        debug: { httpStatus: adsRes.status, error: errorDetail },
       })
     }
 
@@ -142,22 +161,55 @@ export async function POST(request: NextRequest) {
     const campaignMap = new Map<string, string>()
     campaigns?.forEach(c => campaignMap.set(c.name, c.id))
 
-    const upsertRows = rows.map(r => ({
-      date: r.date,
-      channel: '구글',
-      ad_type: '검색',
-      campaign_name: r.campaign_name,
-      campaign_id: campaignMap.get(r.campaign_name) || null,
-      impressions: r.impressions,
-      clicks: r.clicks,
-      cost: r.cost,
-      conversions: r.conversions,
-      signups: 0,
-      inquiries: 0,
-      adoptions: 0,
-    }))
+    // ─── 기존 수동 입력 데이터 보존을 위해 먼저 조회 ───
+    const { data: existingRows } = await supabase.from('ad_performance')
+      .select('date, campaign_name, signups, inquiries, adoptions, signup_companies, inquiry_companies, adoption_companies, ga_visits, inquiry_clicks')
+      .eq('channel', '구글').gte('date', startDate).lte('date', endDate)
 
-    // 기존 데이터 삭제 후 삽입 (해당 월, 구글 채널)
+    const manualDataMap = new Map<string, Record<string, any>>()
+    existingRows?.forEach(r => {
+      const key = `${r.date}|${r.campaign_name}`
+      if ((r.signups || 0) > 0 || (r.inquiries || 0) > 0 || (r.adoptions || 0) > 0 ||
+          (r.ga_visits || 0) > 0 || (r.inquiry_clicks || 0) > 0 ||
+          r.signup_companies || r.inquiry_companies || r.adoption_companies) {
+        manualDataMap.set(key, {
+          signups: r.signups || 0,
+          inquiries: r.inquiries || 0,
+          adoptions: r.adoptions || 0,
+          signup_companies: r.signup_companies || null,
+          inquiry_companies: r.inquiry_companies || null,
+          adoption_companies: r.adoption_companies || null,
+          ga_visits: r.ga_visits || 0,
+          inquiry_clicks: r.inquiry_clicks || 0,
+        })
+      }
+    })
+
+    const upsertRows = rows.map(r => {
+      const manualKey = `${r.date}|${r.campaign_name}`
+      const manual = manualDataMap.get(manualKey)
+      return {
+        date: r.date,
+        channel: '구글',
+        ad_type: '검색',
+        campaign_name: r.campaign_name,
+        campaign_id: campaignMap.get(r.campaign_name) || null,
+        impressions: r.impressions,
+        clicks: r.clicks,
+        cost: r.cost,
+        conversions: r.conversions,
+        signups: manual?.signups || 0,
+        inquiries: manual?.inquiries || 0,
+        adoptions: manual?.adoptions || 0,
+        ga_visits: manual?.ga_visits || 0,
+        inquiry_clicks: manual?.inquiry_clicks || 0,
+        signup_companies: manual?.signup_companies || null,
+        inquiry_companies: manual?.inquiry_companies || null,
+        adoption_companies: manual?.adoption_companies || null,
+      }
+    })
+
+    // 기존 데이터 삭제 후 삽입 (수동 입력값은 위에서 보존됨)
     await supabase
       .from('ad_performance')
       .delete()

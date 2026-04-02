@@ -5,391 +5,330 @@ import crypto from 'crypto'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// 네이버 검색광고 API 동기화 (StatReport 방식)
-// 환경변수: NAVER_ADS_API_KEY, NAVER_ADS_SECRET_KEY, NAVER_ADS_CUSTOMER_ID
+// 네이버 검색광고 API 동기화
+// 캠페인 → 광고그룹 → /stats 엔드포인트로 일별 성과 수집
+// /stats?ids=agId1,agId2,...&fields=[...]&timeRange={since,until}
 
 const BASE_URL = 'https://api.searchad.naver.com'
 
-function generateSignature(timestamp: string, method: string, path: string, secretKey: string) {
-  const message = `${timestamp}.${method}.${path}`
-  return crypto.createHmac('sha256', secretKey).update(message).digest('base64')
+function generateSignature(ts: string, method: string, path: string, secret: string) {
+  return crypto.createHmac('sha256', secret).update(`${ts}.${method}.${path}`).digest('base64')
 }
 
-function makeHeaders(apiKey: string, secretKey: string, customerId: string, method: string, path: string) {
-  const timestamp = String(Date.now())
-  const signature = generateSignature(timestamp, method, path, secretKey)
+function makeHeaders(apiKey: string, secret: string, cid: string, method: string, path: string) {
+  const ts = String(Date.now())
   return {
-    'X-API-KEY': apiKey,
-    'X-CUSTOMER': customerId,
-    'X-Signature': signature,
-    'X-Timestamp': timestamp,
-    'Content-Type': 'application/json',
+    'X-API-KEY': apiKey, 'X-CUSTOMER': cid,
+    'X-Signature': generateSignature(ts, method, path, secret),
+    'X-Timestamp': ts, 'Content-Type': 'application/json',
   }
 }
 
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
+interface DebugLog { step: string; status: number | string; detail: string }
+
+interface StatRow { date: string; campNaverId: string; agNaverId: string; impressions: number; clicks: number; cost: number; conversions: number }
 
 export async function POST(request: NextRequest) {
+  const debug: DebugLog[] = []
+
   try {
     const { year, month } = await request.json()
-
-    if (!year || !month) {
-      return NextResponse.json({ error: 'year, month 필수' }, { status: 400 })
-    }
+    if (!year || !month) return NextResponse.json({ error: 'year, month 필수' }, { status: 400 })
 
     const apiKey = process.env.NAVER_ADS_API_KEY
-    const secretKey = process.env.NAVER_ADS_SECRET_KEY
-    const customerId = process.env.NAVER_ADS_CUSTOMER_ID
-
-    if (!apiKey || !secretKey || !customerId) {
-      return NextResponse.json({
-        success: false,
-        message: '네이버 광고 API 키가 설정되지 않았습니다. 환경변수(NAVER_ADS_API_KEY, NAVER_ADS_SECRET_KEY, NAVER_ADS_CUSTOMER_ID)를 설정하세요.',
-        status: 'not_configured',
-      })
+    const secret = process.env.NAVER_ADS_SECRET_KEY
+    const cid = process.env.NAVER_ADS_CUSTOMER_ID
+    if (!apiKey || !secret || !cid) {
+      return NextResponse.json({ success: false, message: 'API 키 미설정', status: 'not_configured' })
     }
 
-    // 1. 캠페인 목록 가져오기
-    const campaignPath = '/ncc/campaigns'
-    const campaignsRes = await fetch(`${BASE_URL}${campaignPath}`, {
-      headers: makeHeaders(apiKey, secretKey, customerId, 'GET', campaignPath),
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // ─── 1. 캠페인 목록 ───
+    const campRes = await fetch(`${BASE_URL}/ncc/campaigns`, {
+      headers: makeHeaders(apiKey, secret, cid, 'GET', '/ncc/campaigns'),
     })
+    if (!campRes.ok) {
+      const err = await campRes.text()
+      return NextResponse.json({ success: false, message: `캠페인 조회 실패`, debug: [{ step: 'campaigns', status: campRes.status, detail: err.substring(0, 200) }] })
+    }
+    const naverCamps = await campRes.json()
+    const campNameMap = new Map<string, string>() // naverId → name
+    naverCamps.forEach((c: any) => campNameMap.set(c.nccCampaignId, c.name))
+    debug.push({ step: 'campaigns', status: 200, detail: `${naverCamps.length}개` })
 
-    if (!campaignsRes.ok) {
-      const errText = await campaignsRes.text()
-      console.error('Naver campaigns API error:', campaignsRes.status, errText)
-      return NextResponse.json({
-        success: false,
-        message: `네이버 캠페인 목록 조회 실패 (${campaignsRes.status}): ${errText.substring(0, 200)}`,
-        status: 'api_error',
-      })
+    // ─── 2. 광고그룹 목록 ───
+    const agNameMap = new Map<string, string>() // naverId → name
+    const agCampMap = new Map<string, string>() // agNaverId → campNaverId
+    for (const camp of naverCamps) {
+      try {
+        const res = await fetch(`${BASE_URL}/ncc/adgroups?nccCampaignId=${camp.nccCampaignId}`, {
+          headers: makeHeaders(apiKey, secret, cid, 'GET', '/ncc/adgroups'),
+        })
+        if (!res.ok) continue
+        const groups = await res.json()
+        if (Array.isArray(groups)) {
+          groups.forEach((g: any) => {
+            agNameMap.set(g.nccAdgroupId, g.name)
+            agCampMap.set(g.nccAdgroupId, camp.nccCampaignId)
+          })
+        }
+      } catch { /* skip */ }
+    }
+    debug.push({ step: 'adgroups', status: 200, detail: `${agNameMap.size}개` })
+
+    // ─── 3. DB에 캠페인 등록/업데이트 ───
+    const statusMap: Record<string, string> = { ELIGIBLE: '진행중', PAUSED: '중단', PENDING: '준비', FINISHED: '종료' }
+    const dbCampIdMap = new Map<string, string>() // naverId → db UUID
+
+    for (const camp of naverCamps) {
+      // 이름으로 기존 캠페인 검색
+      const { data: existing } = await supabase
+        .from('campaigns').select('id').eq('name', camp.name).limit(1)
+
+      if (existing && existing.length > 0) {
+        dbCampIdMap.set(camp.nccCampaignId, existing[0].id)
+        await supabase.from('campaigns').update({
+          status: statusMap[camp.status] || '준비',
+          channel: '네이버',
+        }).eq('id', existing[0].id)
+      } else {
+        const { data: ins } = await supabase.from('campaigns').insert({
+          name: camp.name,
+          channel: '네이버',
+          status: statusMap[camp.status] || '준비',
+          budget: (camp.dailyBudget || 0) * 30,
+        }).select('id').single()
+        if (ins) dbCampIdMap.set(camp.nccCampaignId, ins.id)
+      }
+    }
+    debug.push({ step: 'db-campaigns', status: 'ok', detail: `${dbCampIdMap.size}개` })
+
+    // ─── 4. DB에 광고그룹 등록 (ad_groups 테이블 있을 때만) ───
+    let hasAdGroupsTable = false
+    const dbAgIdMap = new Map<string, string>() // naverId → db UUID
+
+    // ad_groups 테이블 존재 여부 확인
+    const { error: agTableErr } = await supabase.from('ad_groups').select('id').limit(1)
+    hasAdGroupsTable = !agTableErr
+
+    if (hasAdGroupsTable) {
+      const agEntries = Array.from(agNameMap.entries())
+      for (const [naverId, name] of agEntries) {
+        const campNaverId = agCampMap.get(naverId)
+        const dbCampId = campNaverId ? dbCampIdMap.get(campNaverId) : null
+        if (!dbCampId) continue
+
+        const { data: existing } = await supabase
+          .from('ad_groups').select('id')
+          .eq('campaign_id', dbCampId).eq('name', name).limit(1)
+
+        if (existing && existing.length > 0) {
+          dbAgIdMap.set(naverId, existing[0].id)
+        } else {
+          const { data: ins } = await supabase.from('ad_groups').insert({
+            campaign_id: dbCampId,
+            name: name,
+            channel: '네이버',
+            status: 'active',
+          }).select('id').single()
+          if (ins) dbAgIdMap.set(naverId, ins.id)
+        }
+      }
+      debug.push({ step: 'db-adgroups', status: 'ok', detail: `${dbAgIdMap.size}개` })
+    } else {
+      debug.push({ step: 'db-adgroups', status: 'skip', detail: 'ad_groups 테이블 없음' })
     }
 
-    const naverCampaigns = await campaignsRes.json()
+    // ─── 5. 날짜 범위 ───
+    const mm = String(month).padStart(2, '0')
+    const startDate = `${year}-${mm}-01`
+    const lastDay = new Date(year, month, 0).getDate()
+    const endDate = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`
 
-    // 캠페인 ID → 이름 매핑
-    const naverCampaignMap = new Map<string, string>()
-    naverCampaigns.forEach((c: { nccCampaignId: string; name: string }) =>
-      naverCampaignMap.set(c.nccCampaignId, c.name)
-    )
-
-    const campaignIds = naverCampaigns.map((c: { nccCampaignId: string }) => c.nccCampaignId)
-
-    if (campaignIds.length === 0) {
+    // ─── 6. /stats 엔드포인트로 일별 광고그룹 성과 수집 ───
+    const allAgIds = Array.from(agNameMap.keys())
+    if (allAgIds.length === 0) {
+      const campDetails = naverCamps.map((c: any) => ({ name: c.name, status: c.status, type: c.campaignTp }))
       return NextResponse.json({
         success: true,
-        message: '네이버 광고 캠페인이 없습니다',
-        count: 0,
+        message: `캠페인 ${naverCamps.length}개 등록 완료 (광고그룹 없음)`,
+        count: 0, campaigns: campDetails, status: 'partial', debug,
       })
     }
 
-    // 2. StatReport 생성 요청
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const lastDay = new Date(year, month, 0).getDate()
-    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    const idsParam = allAgIds.join(',')
+    const fieldsParam = JSON.stringify(['impCnt', 'clkCnt', 'salesAmt'])
+    const rows: StatRow[] = []
 
-    const statReportPath = '/stat-reports'
-    const reportBody = {
-      reportTp: 'AD',
-      statDt: startDate.replace(/-/g, ''),
-      endDt: endDate.replace(/-/g, ''),
-    }
+    debug.push({ step: 'stats-start', status: 'ok', detail: `${allAgIds.length}개 광고그룹, ${lastDay}일 조회` })
 
-    const createRes = await fetch(`${BASE_URL}${statReportPath}`, {
-      method: 'POST',
-      headers: makeHeaders(apiKey, secretKey, customerId, 'POST', statReportPath),
-      body: JSON.stringify(reportBody),
-    })
+    for (let day = 1; day <= lastDay; day++) {
+      const dateStr = `${year}-${mm}-${String(day).padStart(2, '0')}`
+      const timeRange = JSON.stringify({ since: dateStr, until: dateStr })
+      const queryStr = `ids=${encodeURIComponent(idsParam)}&fields=${encodeURIComponent(fieldsParam)}&timeRange=${encodeURIComponent(timeRange)}`
+      const statsPath = '/stats'
+      const fullUrl = `${BASE_URL}${statsPath}?${queryStr}`
 
-    if (!createRes.ok) {
-      const errText = await createRes.text()
-      console.error('Naver stat-report create error:', createRes.status, errText)
+      try {
+        const res = await fetch(fullUrl, {
+          headers: makeHeaders(apiKey, secret, cid, 'GET', statsPath),
+        })
 
-      // stat-reports 실패 시 /stats 엔드포인트 fallback 시도
-      return await tryStatsEndpoint(
-        apiKey, secretKey, customerId, campaignIds, naverCampaignMap,
-        startDate, endDate, year, month
-      )
-    }
+        if (!res.ok) {
+          const errText = await res.text()
+          debug.push({ step: `stats-${dateStr}`, status: res.status, detail: errText.substring(0, 150) })
+          continue
+        }
 
-    const reportJob = await createRes.json()
-    const reportJobId = reportJob.reportJobId
+        const json = await res.json()
+        const dataArr = json.data
+        if (!Array.isArray(dataArr) || dataArr.length === 0) continue
 
-    if (!reportJobId) {
-      console.error('No reportJobId returned:', JSON.stringify(reportJob))
-      // fallback to /stats
-      return await tryStatsEndpoint(
-        apiKey, secretKey, customerId, campaignIds, naverCampaignMap,
-        startDate, endDate, year, month
-      )
-    }
+        for (const item of dataArr) {
+          const impCnt = Number(item.impCnt) || 0
+          const clkCnt = Number(item.clkCnt) || 0
+          const salesAmt = Math.round(Number(item.salesAmt) || 0)
 
-    // 3. 보고서 완료 대기 (polling)
-    let downloadUrl: string | null = null
-    for (let i = 0; i < 30; i++) {
-      await sleep(2000)
+          // 데이터가 모두 0이면 스킵
+          if (impCnt === 0 && clkCnt === 0 && salesAmt === 0) continue
 
-      const statusPath = `/stat-reports/${reportJobId}`
-      const statusRes = await fetch(`${BASE_URL}${statusPath}`, {
-        headers: makeHeaders(apiKey, secretKey, customerId, 'GET', statusPath),
-      })
+          const agNaverId = item.id
+          const campNaverId = agCampMap.get(agNaverId) || ''
 
-      if (!statusRes.ok) continue
-
-      const statusData = await statusRes.json()
-      if (statusData.status === 'BUILT' && statusData.downloadUrl) {
-        downloadUrl = statusData.downloadUrl
-        break
-      } else if (statusData.status === 'REGIST' || statusData.status === 'RUNNING') {
-        continue
-      } else if (statusData.status === 'ERROR') {
-        console.error('Naver report error:', JSON.stringify(statusData))
-        break
+          rows.push({
+            date: dateStr,
+            campNaverId,
+            agNaverId,
+            impressions: impCnt,
+            clicks: clkCnt,
+            cost: salesAmt,
+            conversions: 0,
+          })
+        }
+      } catch (err) {
+        debug.push({ step: `stats-${dateStr}`, status: 'error', detail: err instanceof Error ? err.message : String(err) })
       }
     }
 
-    if (!downloadUrl) {
-      // StatReport 타임아웃 → /stats 엔드포인트 fallback
-      return await tryStatsEndpoint(
-        apiKey, secretKey, customerId, campaignIds, naverCampaignMap,
-        startDate, endDate, year, month
-      )
-    }
-
-    // 4. CSV 다운로드 및 파싱
-    // 다운로드 URL이 상대 경로일 수 있음
-    const fullDownloadUrl = downloadUrl.startsWith('http')
-      ? downloadUrl
-      : `${BASE_URL}${downloadUrl}`
-
-    const dlPath = new URL(fullDownloadUrl).pathname
-    const csvRes = await fetch(fullDownloadUrl, {
-      headers: makeHeaders(apiKey, secretKey, customerId, 'GET', dlPath),
-    })
-    if (!csvRes.ok) {
-      const dlErr = await csvRes.text()
-      console.error('CSV download error:', csvRes.status, dlErr, 'URL:', fullDownloadUrl)
-      return NextResponse.json({
-        success: false,
-        message: `보고서 다운로드 실패 (${csvRes.status}): ${dlErr.substring(0, 200)}`,
-        downloadUrl: fullDownloadUrl,
-        status: 'download_error',
-      })
-    }
-
-    const csvText = await csvRes.text()
-    const rows = parseNaverCsv(csvText, naverCampaignMap)
+    debug.push({ step: 'stats-done', status: 'ok', detail: `${rows.length}건 수집` })
 
     if (rows.length === 0) {
+      const campDetails = naverCamps.map((c: any) => ({ name: c.name, status: c.status, type: c.campaignTp }))
       return NextResponse.json({
         success: true,
-        message: '해당 기간 데이터 없음',
-        count: 0,
+        message: `캠페인 ${naverCamps.length}개, 광고그룹 ${agNameMap.size}개 등록 완료 (해당 월 성과 데이터 없음)`,
+        count: 0, campaigns: campDetails, status: 'partial', debug,
       })
     }
 
-    // 5. Supabase에 저장
-    return await saveToSupabase(rows, startDate, endDate)
+    // ─── 7. ad_performance 저장 ───
+    // 컬럼 존재 여부에 따라 동적 구성
+    const { error: colCheck } = await supabase.from('ad_performance').select('adgroup_name').limit(1)
+    const hasAdgroupNameCol = !colCheck
+    const { error: colCheck2 } = await supabase.from('ad_performance').select('adgroup_id').limit(1)
+    const hasAdgroupIdCol = !colCheck2
+
+    // ─── 기존 수동 입력 데이터 보존을 위해 먼저 조회 ───
+    const { data: existingRows } = await supabase.from('ad_performance')
+      .select('date, campaign_name, adgroup_name, signups, inquiries, adoptions, signup_companies, inquiry_companies, adoption_companies, ga_visits, inquiry_clicks')
+      .eq('channel', '네이버').gte('date', startDate).lte('date', endDate)
+
+    // 키: date|campaign_name|adgroup_name → 수동 입력 값
+    const manualDataMap = new Map<string, Record<string, any>>()
+    existingRows?.forEach(r => {
+      const key = `${r.date}|${r.campaign_name}|${r.adgroup_name || ''}`
+      if ((r.signups || 0) > 0 || (r.inquiries || 0) > 0 || (r.adoptions || 0) > 0 ||
+          (r.ga_visits || 0) > 0 || (r.inquiry_clicks || 0) > 0 ||
+          r.signup_companies || r.inquiry_companies || r.adoption_companies) {
+        manualDataMap.set(key, {
+          signups: r.signups || 0,
+          inquiries: r.inquiries || 0,
+          adoptions: r.adoptions || 0,
+          signup_companies: r.signup_companies || null,
+          inquiry_companies: r.inquiry_companies || null,
+          adoption_companies: r.adoption_companies || null,
+          ga_visits: r.ga_visits || 0,
+          inquiry_clicks: r.inquiry_clicks || 0,
+        })
+      }
+    })
+    debug.push({ step: 'preserve-manual', status: 'ok', detail: `수동 입력 ${manualDataMap.size}건 보존` })
+
+    const upsertRows = rows.map(r => {
+      const campName = campNameMap.get(r.campNaverId) || r.campNaverId
+      const agName = hasAdgroupNameCol ? (agNameMap.get(r.agNaverId) || r.agNaverId) : ''
+      const manualKey = `${r.date}|${campName}|${agName}`
+      const manual = manualDataMap.get(manualKey)
+
+      const row: Record<string, any> = {
+        date: r.date,
+        channel: '네이버',
+        ad_type: '검색',
+        campaign_name: campName,
+        campaign_id: dbCampIdMap.get(r.campNaverId) || null,
+        impressions: r.impressions,
+        clicks: r.clicks,
+        cost: r.cost,
+        conversions: r.conversions,
+        signups: manual?.signups || 0,
+        inquiries: manual?.inquiries || 0,
+        adoptions: manual?.adoptions || 0,
+        ga_visits: manual?.ga_visits || 0,
+        inquiry_clicks: manual?.inquiry_clicks || 0,
+        signup_companies: manual?.signup_companies || null,
+        inquiry_companies: manual?.inquiry_companies || null,
+        adoption_companies: manual?.adoption_companies || null,
+      }
+      // 광고그룹명 컬럼 있으면 추가
+      if (hasAdgroupNameCol) {
+        row.adgroup_name = agNameMap.get(r.agNaverId) || r.agNaverId
+      }
+      // 광고그룹 ID 컬럼 있으면 추가
+      if (hasAdgroupIdCol && dbAgIdMap.has(r.agNaverId)) {
+        row.adgroup_id = dbAgIdMap.get(r.agNaverId)
+      }
+      // adgroup_name 컬럼 없으면 notes에 저장
+      if (!hasAdgroupNameCol) {
+        row.notes = `광고그룹: ${agNameMap.get(r.agNaverId) || r.agNaverId}`
+      }
+      return row
+    })
+
+    // 기존 네이버 데이터 삭제 후 삽입 (수동 입력값은 위에서 보존됨)
+    await supabase.from('ad_performance').delete()
+      .eq('channel', '네이버').gte('date', startDate).lte('date', endDate)
+
+    const { error: insertErr } = await supabase.from('ad_performance').insert(upsertRows)
+    if (insertErr) {
+      debug.push({ step: 'db-insert', status: 'error', detail: insertErr.message })
+      return NextResponse.json({ success: false, message: 'DB 저장 실패: ' + insertErr.message, debug })
+    }
+
+    // 요약
+    const summary = new Map<string, { campaign: string; impressions: number; clicks: number; cost: number }>()
+    upsertRows.forEach((r: any) => {
+      const name = r.adgroup_name || r.notes?.replace('광고그룹: ', '') || '?'
+      const ex = summary.get(name) || { campaign: r.campaign_name, impressions: 0, clicks: 0, cost: 0 }
+      ex.impressions += r.impressions; ex.clicks += r.clicks; ex.cost += r.cost
+      summary.set(name, ex)
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: `네이버 광고 ${rows.length}건 동기화 완료 (${summary.size}개 광고그룹)`,
+      count: rows.length,
+      campaigns_synced: dbCampIdMap.size,
+      adgroups_synced: dbAgIdMap.size,
+      adgroup_summary: Array.from(summary.entries()).map(([name, s]) => ({ name, ...s })),
+      debug,
+    })
 
   } catch (error) {
     console.error('Naver Ads sync error:', error)
-    return NextResponse.json({ error: '동기화 실패: ' + (error instanceof Error ? error.message : String(error)) }, { status: 500 })
-  }
-}
-
-// /stats 실시간 엔드포인트 (fallback)
-async function tryStatsEndpoint(
-  apiKey: string,
-  secretKey: string,
-  customerId: string,
-  campaignIds: string[],
-  naverCampaignMap: Map<string, string>,
-  startDate: string,
-  endDate: string,
-  year: number,
-  month: number,
-) {
-  const statPath = '/stats'
-  const fields = '["impCnt","clkCnt","salesAmt","convCnt"]'
-  const timeRange = `{"since":"${startDate}","until":"${endDate}"}`
-
-  // 각 캠페인별로 개별 호출 (id 단일 파라미터)
-  const allRows: Array<{
-    date: string
-    campaign_name: string
-    impressions: number
-    clicks: number
-    cost: number
-    conversions: number
-  }> = []
-
-  for (const campaignId of campaignIds) {
-    try {
-      const statsUrl = `https://api.searchad.naver.com${statPath}?id=${campaignId}&fields=${encodeURIComponent(fields)}&timeRange=${encodeURIComponent(timeRange)}&datePreset=custom&timeIncrement=1`
-
-      const statsRes = await fetch(statsUrl, {
-        headers: makeHeaders(apiKey, secretKey, customerId, 'GET', statPath),
-      })
-
-      if (!statsRes.ok) {
-        const errText = await statsRes.text()
-        console.error(`Naver stats error for ${campaignId}:`, statsRes.status, errText)
-        continue
-      }
-
-      const statsData = await statsRes.json()
-      const campaignName = naverCampaignMap.get(campaignId) || campaignId
-
-      // /stats 응답 형식: { data: [...] } 또는 직접 배열
-      const dataArray = Array.isArray(statsData) ? statsData : statsData.data
-      if (Array.isArray(dataArray)) {
-        for (const stat of dataArray) {
-          allRows.push({
-            date: stat.statDt || stat.date || startDate,
-            campaign_name: campaignName,
-            impressions: Number(stat.impCnt) || 0,
-            clicks: Number(stat.clkCnt) || 0,
-            cost: Number(stat.salesAmt) || 0,
-            conversions: Number(stat.convCnt) || 0,
-          })
-        }
-      }
-    } catch (err) {
-      console.error(`Stats error for campaign ${campaignId}:`, err)
-    }
-  }
-
-  if (allRows.length === 0) {
-    // 최종 fallback: 캠페인 목록만으로 기본 데이터 생성
     return NextResponse.json({
-      success: true,
-      message: `네이버 캠페인 ${campaignIds.length}개 확인됨 (성과 데이터 API 접근 불가 - 수동 입력 필요)`,
-      count: 0,
-      campaigns: Array.from(naverCampaignMap.entries()).map(([id, name]) => ({ id, name })),
-      status: 'partial',
-    })
+      error: '동기화 실패: ' + (error instanceof Error ? error.message : String(error)),
+      debug,
+    }, { status: 500 })
   }
-
-  return await saveToSupabase(allRows, startDate, endDate)
-}
-
-// CSV 파싱 (네이버 StatReport v2 형식 — 헤더 없음, 탭 구분)
-// AD 보고서 컬럼 순서:
-// 0:statDt  1:customerId  2:nccCampaignId  3:nccAdgroupId  4:nccKeywordId
-// 5:nccAdId  6:businessChannelId  7:queryType  8:pcMobileType
-// 9:impCnt  10:clkCnt  11:salesAmt  12:recentAvgRnk  13:recentAvgCpc
-function parseNaverCsv(csvText: string, naverCampaignMap: Map<string, string>) {
-  const lines = csvText.trim().split('\n')
-  if (lines.length === 0) return []
-
-  // 날짜+캠페인별 집계 (키워드/디바이스별 행을 합산)
-  const aggregated = new Map<string, {
-    date: string
-    campaign_name: string
-    impressions: number
-    clicks: number
-    cost: number
-  }>()
-
-  for (const line of lines) {
-    if (!line.trim()) continue
-    const cols = line.split('\t').map(c => c.trim().replace(/"/g, ''))
-    if (cols.length < 12) continue
-
-    const dateStr = cols[0]
-    const campaignId = cols[2]
-
-    // 날짜 포맷 변환: 20260301 → 2026-03-01
-    const formattedDate = dateStr.length === 8
-      ? `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}`
-      : dateStr.includes('-') ? dateStr : ''
-
-    if (!formattedDate) continue
-
-    const key = `${formattedDate}_${campaignId}`
-    const existing = aggregated.get(key) || {
-      date: formattedDate,
-      campaign_name: naverCampaignMap.get(campaignId) || campaignId,
-      impressions: 0,
-      clicks: 0,
-      cost: 0,
-    }
-
-    existing.impressions += Number(cols[9]) || 0
-    existing.clicks += Number(cols[10]) || 0
-    existing.cost += Math.round(Number(cols[11]) || 0)
-    aggregated.set(key, existing)
-  }
-
-  return Array.from(aggregated.values()).map(r => ({
-    ...r,
-    conversions: 0, // AD 보고서에는 전환 데이터 미포함 — 별도 전환 보고서 필요
-  }))
-}
-
-// Supabase 저장
-async function saveToSupabase(
-  rows: Array<{
-    date: string
-    campaign_name: string
-    impressions: number
-    clicks: number
-    cost: number
-    conversions: number
-  }>,
-  startDate: string,
-  endDate: string,
-) {
-  const supabase = createClient(supabaseUrl, supabaseKey)
-
-  // campaigns 테이블에서 이름 → id 매핑
-  const { data: campaigns } = await supabase
-    .from('campaigns')
-    .select('id, name')
-
-  const campaignMap = new Map<string, string>()
-  campaigns?.forEach(c => campaignMap.set(c.name, c.id))
-
-  const upsertRows = rows.map(r => ({
-    date: r.date,
-    channel: '네이버',
-    ad_type: '검색',
-    campaign_name: r.campaign_name,
-    campaign_id: campaignMap.get(r.campaign_name) || null,
-    impressions: r.impressions,
-    clicks: r.clicks,
-    cost: r.cost,
-    conversions: r.conversions,
-    signups: 0,
-    inquiries: 0,
-    adoptions: 0,
-  }))
-
-  // 기존 데이터 삭제 후 삽입 (해당 월, 네이버 채널)
-  await supabase
-    .from('ad_performance')
-    .delete()
-    .eq('channel', '네이버')
-    .gte('date', startDate)
-    .lte('date', endDate)
-
-  const { error: insertError } = await supabase
-    .from('ad_performance')
-    .insert(upsertRows)
-
-  if (insertError) {
-    return NextResponse.json({
-      success: false,
-      message: '데이터 저장 실패: ' + insertError.message,
-      status: 'db_error',
-    })
-  }
-
-  return NextResponse.json({
-    success: true,
-    message: `네이버 광고 ${rows.length}건 동기화 완료`,
-    count: rows.length,
-  })
 }

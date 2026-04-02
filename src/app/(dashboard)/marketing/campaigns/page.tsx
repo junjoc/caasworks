@@ -371,7 +371,7 @@ export default function CampaignsPage() {
                       <div className="flex items-center gap-4 text-xs text-text-secondary">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {formatDate(campaign.start_date)} ~ {campaign.end_date ? formatDate(campaign.end_date) : '진행중'}
+                          {campaign.start_date ? formatDate(campaign.start_date) : '-'} ~ {campaign.end_date ? formatDate(campaign.end_date) : '진행중'}
                         </span>
                         {campaign.daily_budget > 0 && (
                           <span className="flex items-center gap-1">
@@ -606,13 +606,13 @@ export default function CampaignsPage() {
             onChange={e => setForm({ ...form, start_date: e.target.value })} />
           <Input label="종료일" type="date" value={form.end_date}
             onChange={e => setForm({ ...form, end_date: e.target.value })} />
-          <Input label="총 예산 (원)" type="number" value={form.budget}
+          <Input label="월 예산 (원)" type="number" value={form.budget}
             onChange={e => setForm({ ...form, budget: Number(e.target.value) })} />
           <Input label="일 예산 (원)" type="number" value={form.daily_budget}
             onChange={e => setForm({ ...form, daily_budget: Number(e.target.value) })} />
-          <Input label="집행액 (원)" type="number" value={form.actual_spend}
-            onChange={e => setForm({ ...form, actual_spend: Number(e.target.value) })} />
-          <div />
+          <Input label="누적 집행액 (원)" type="number" value={form.actual_spend}
+            onChange={e => setForm({ ...form, actual_spend: Number(e.target.value) })}
+            placeholder="동기화 시 자동 계산" />
           <div className="col-span-2">
             <Input label="타겟 대상" value={form.target_audience}
               onChange={e => setForm({ ...form, target_audience: e.target.value })}

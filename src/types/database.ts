@@ -108,6 +108,7 @@ export interface Customer {
   user_count: number | null
   service_type: string | null
   status: CustomerStatus
+  invoice_grouping: 'combined' | 'per_project' | null
   invoice_email: string | null
   invoice_contact: string | null
   invoice_phone: string | null
@@ -116,6 +117,8 @@ export interface Customer {
   deposit_amount: number | null
   deposit_paid_at: string | null
   deposit_returned_at: string | null
+  deposit_return_type: 'on_churn' | 'after_period' | 'custom' | null
+  deposit_return_note: string | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -414,6 +417,88 @@ export interface UserSchedule {
   created_at: string
   // joined
   user?: User
+}
+
+// --- 고객관리 고도화 ---
+
+export type BillingFrequency = 'monthly' | 'annual' | 'one-time'
+
+export type ShipmentStatus = '준비중' | '출고완료' | '배송중' | '설치완료' | '회수요청' | '회수완료'
+
+export type DueRuleType = 'next_month_end' | 'next_next_month_end' | 'same_month_end' | 'fixed_day' | 'custom'
+
+export interface CustomerServicePricing {
+  id: string
+  customer_id: string
+  product_id: string | null
+  service_name: string
+  unit_price: number
+  quantity: number
+  billing_type: BillingFrequency
+  annual_amount: number | null
+  annual_project_limit: number | null
+  annual_start_date: string | null
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  // joined
+  product?: Product
+}
+
+export interface CustomerDefaultSolution {
+  id: string
+  customer_id: string
+  solution_name: string
+  is_required: boolean
+  sort_order: number
+  notes: string | null
+  created_at: string
+}
+
+export interface PaymentDueRule {
+  id: string
+  customer_id: string
+  project_id: string | null
+  rule_type: DueRuleType
+  fixed_day: number | null
+  description: string | null
+  created_at: string
+  // joined
+  project?: { id: string; project_name: string }
+}
+
+export interface CameraShipment {
+  id: string
+  customer_id: string | null
+  project_id: string | null
+  product_id: string | null
+  product_name: string | null
+  product_spec: string | null
+  recipient_name: string | null
+  recipient_phone: string | null
+  recipient_address: string | null
+  requested_ship_date: string | null
+  installation_type: string | null
+  power_type: string | null
+  quantity: number
+  shipping_method: string | null
+  billing_method: string | null
+  status: ShipmentStatus
+  shipped_date: string | null
+  tracking_number: string | null
+  installation_confirmed: boolean
+  return_quantity: number
+  return_requested_date: string | null
+  return_completed_date: string | null
+  return_staff: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // joined
+  customer?: { id: string; company_name: string }
+  project?: { id: string; project_name: string }
+  product?: Product
 }
 
 export type TemplateLayoutType = 'A' | 'B' | 'custom'

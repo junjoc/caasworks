@@ -50,12 +50,12 @@ interface YearlySummary {
 type GroupBy = 'weekly' | 'monthly' | 'quarterly' | 'yearly'
 
 const CHANNEL_COLORS: Record<string, string> = {
-  '네이버': '#2DB400',
-  '구글': '#4285F4',
-  '메타': '#6366F1',
-  '유튜브': '#EF4444',
-  '블로그': '#10B981',
-  '기타': '#6B7280',
+  '네이버': '#60CA21',   // CaaS green
+  '구글': '#1890ff',      // CaaS primary blue
+  '메타': '#b145ff',      // CaaS purple
+  '유튜브': '#FF6661',    // CaaS red
+  '블로그': '#06D6A6',    // CaaS mint
+  '기타': '#777777',      // CaaS gray-500
 }
 
 const GROUP_OPTIONS = [
@@ -501,9 +501,9 @@ export default function AnalyticsPage() {
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="가입사" fill="#3B82F6" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="문의사" fill="#8B5CF6" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="도입사" fill="#10B981" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="가입사" fill="#1890ff" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="문의사" fill="#b145ff" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="도입사" fill="#60CA21" radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -558,7 +558,7 @@ export default function AnalyticsPage() {
                 <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `${(v / 10000).toFixed(0)}만`} />
                 <YAxis dataKey="채널" type="category" tick={{ fontSize: 11 }} width={60} />
                 <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                <Bar dataKey="비용" fill="#3B82F6" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="비용" fill="#1890ff" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

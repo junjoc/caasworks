@@ -105,9 +105,9 @@ const navItems: NavItem[] = [
     icon: <Package className="w-[16px] h-[16px]" />,
     children: [
       { label: '현장 관리', href: '/operations/sites' },
-      { label: '장비 반출', href: '/operations/equipment' },
+      { label: '카메라 반출', href: '/operations/camera-shipments' },
+      { label: '장비 관리', href: '/operations/equipment' },
       { label: '협력사 발주', href: '/operations/orders' },
-      { label: '영상 기록', href: '/operations/video' },
     ],
   },
   {
