@@ -206,27 +206,54 @@ export default function AdsPage() {
   )
 
   // Auto sync handlers
-  async function handleSync(platform: 'google' | 'naver') {
+  async function handleSync(platform: 'google' | 'naver' | 'ga4' | 'all') {
     setSyncing(platform)
     try {
-      const res = await fetch(`/api/marketing/sync/${platform === 'google' ? 'google-ads' : 'naver-ads'}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ year, month: m }),
-      })
-      const result = await res.json()
-      if (result.success) {
-        toast.success(`${platform === 'google' ? '구글' : '네이버'} 광고 동기화 완료: ${result.count || 0}건`)
-        fetchData()
-        // 동기화 후 캠페인/광고그룹 목록도 새로고침
-        const [campRes, agRes] = await Promise.all([
-          supabase.from('campaigns').select('id, name, channel, status').in('status', ['진행중', '준비']).order('name'),
-          supabase.from('ad_groups').select('id, name, campaign_id, channel, status').eq('status', 'active').order('name'),
-        ])
-        setCampaigns(campRes.data || [])
-        setAdgroups(agRes.data || [])
+      if (platform === 'all') {
+        // 전체 동기화 (Cron과 동일)
+        const res = await fetch('/api/cron/daily-sync')
+        const result = await res.json()
+        if (result.success) {
+          toast.success(`전체 동기화 완료 — 구글: ${result.summary?.google_ads}, 네이버: ${result.summary?.naver_ads}, GA4: ${result.summary?.ga4_content}`)
+          fetchData()
+        } else {
+          toast.error('전체 동기화 실패')
+        }
+      } else if (platform === 'ga4') {
+        const startDate = `${year}-${String(m).padStart(2, '0')}-01`
+        const lastDay = new Date(year, m, 0).getDate()
+        const endDate = `${year}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+        const res = await fetch('/api/marketing/sync/ga4-content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startDate, endDate }),
+        })
+        const result = await res.json()
+        if (result.success) {
+          toast.success(`GA4 콘텐츠 동기화 완료: ${result.count || 0}건`)
+        } else {
+          toast.info(result.message || '동기화 준비 중')
+        }
       } else {
-        toast.info(result.message || '동기화 준비 중')
+        const res = await fetch(`/api/marketing/sync/${platform === 'google' ? 'google-ads' : 'naver-ads'}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ year, month: m }),
+        })
+        const result = await res.json()
+        if (result.success) {
+          toast.success(`${platform === 'google' ? '구글' : '네이버'} 광고 동기화 완료: ${result.count || 0}건`)
+          fetchData()
+          // 동기화 후 캠페인/광고그룹 목록도 새로고침
+          const [campRes, agRes] = await Promise.all([
+            supabase.from('campaigns').select('id, name, channel, status').in('status', ['진행중', '준비']).order('name'),
+            supabase.from('ad_groups').select('id, name, campaign_id, channel, status').eq('status', 'active').order('name'),
+          ])
+          setCampaigns(campRes.data || [])
+          setAdgroups(agRes.data || [])
+        } else {
+          toast.info(result.message || '동기화 준비 중')
+        }
       }
     } catch {
       toast.error('동기화 실패')
@@ -561,13 +588,21 @@ export default function AdsPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <Input type="month" value={month} onChange={e => setMonth(e.target.value)}
             className="!w-40" />
+          <Button size="sm" variant="primary" onClick={() => handleSync('all')}
+            loading={syncing === 'all'} disabled={!!syncing}>
+            <RefreshCw className="w-3.5 h-3.5 mr-1" /> 전체 동기화
+          </Button>
           <Button size="sm" variant="secondary" onClick={() => handleSync('google')}
             loading={syncing === 'google'} disabled={!!syncing}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1" /> 구글 동기화
+            <RefreshCw className="w-3.5 h-3.5 mr-1" /> 구글
           </Button>
           <Button size="sm" variant="secondary" onClick={() => handleSync('naver')}
             loading={syncing === 'naver'} disabled={!!syncing}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1" /> 네이버 동기화
+            <RefreshCw className="w-3.5 h-3.5 mr-1" /> 네이버
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => handleSync('ga4')}
+            loading={syncing === 'ga4'} disabled={!!syncing}>
+            <RefreshCw className="w-3.5 h-3.5 mr-1" /> GA4
           </Button>
           <Button size="sm" onClick={openAdd}>
             <Plus className="w-4 h-4 mr-1" /> 데이터 입력
