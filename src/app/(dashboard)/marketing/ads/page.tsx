@@ -222,7 +222,7 @@ export default function AdsPage() {
   )
 
   // Auto sync handlers
-  async function handleSync(platform: 'google' | 'naver' | 'ga4' | 'all') {
+  async function handleSync(platform: 'google' | 'naver' | 'ga4' | 'ga4-sources' | 'all') {
     setSyncing(platform)
     try {
       if (platform === 'all') {
@@ -230,7 +230,7 @@ export default function AdsPage() {
         const res = await fetch('/api/cron/daily-sync')
         const result = await res.json()
         if (result.success) {
-          toast.success(`전체 동기화 완료 — 구글: ${result.summary?.google_ads}, 네이버: ${result.summary?.naver_ads}, GA4: ${result.summary?.ga4_content}`)
+          toast.success(`전체 동기화 완료 — 구글: ${result.summary?.google_ads}, 네이버: ${result.summary?.naver_ads}, GA4: ${result.summary?.ga4_content}, 유입소스: ${result.summary?.ga4_sources}`)
           fetchData()
         } else {
           toast.error('전체 동기화 실패')
@@ -247,6 +247,22 @@ export default function AdsPage() {
         const result = await res.json()
         if (result.success) {
           toast.success(`GA4 콘텐츠 동기화 완료: ${result.count || 0}건`)
+        } else {
+          toast.info(result.message || '동기화 준비 중')
+        }
+      } else if (platform === 'ga4-sources') {
+        const startDate = `${year}-${String(m).padStart(2, '0')}-01`
+        const lastDay = new Date(year, m, 0).getDate()
+        const endDate = `${year}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+        const res = await fetch('/api/marketing/sync/ga4-sources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startDate, endDate }),
+        })
+        const result = await res.json()
+        if (result.success) {
+          toast.success(`유입 소스 동기화 완료: ${result.count || 0}건`)
+          fetchData()
         } else {
           toast.info(result.message || '동기화 준비 중')
         }
@@ -280,7 +296,9 @@ export default function AdsPage() {
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     const startDate = `${year}-${String(m).padStart(2, '0')}-01`
-    const endDate = `${year}-${String(m).padStart(2, '0')}-31`
+    // 해당 월의 마지막 날 계산 (4월=30, 2월=28/29 등)
+    const lastDay = new Date(year, m, 0).getDate()
+    const endDate = `${year}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
     const [adsResult, budgetResult] = await Promise.all([
       supabase
@@ -297,9 +315,11 @@ export default function AdsPage() {
     ])
 
     if (adsResult.error) {
-      console.error('ad_performance fetch error:', adsResult.error)
+      console.error('ad_performance fetch error:', JSON.stringify(adsResult.error))
+      toast.error(`광고 데이터 로드 실패: ${adsResult.error.message || adsResult.error.code || '알 수 없는 오류'}`)
       setData([])
     } else {
+      console.log(`ad_performance loaded: ${adsResult.data?.length || 0}건`)
       setData(adsResult.data || [])
     }
 
@@ -406,19 +426,16 @@ export default function AdsPage() {
   // 해당 날짜에 유입된 리드만 가져오기
   async function fetchLeadsForDate(dateStr: string) {
     if (!dateStr) { setDateLeadOptions([]); return }
-    // created_at은 TIMESTAMPTZ이므로 날짜 범위로 필터
-    const startOfDay = `${dateStr}T00:00:00`
-    const endOfDay = `${dateStr}T23:59:59`
+    // inquiry_date(유입일) 기준으로 필터 — created_at이 아닌 실제 유입일
     const { data } = await supabase.from('pipeline_leads')
       .select('id, company_name, stage, inquiry_source, inquiry_channel')
-      .gte('created_at', startOfDay)
-      .lte('created_at', endOfDay)
+      .eq('inquiry_date', dateStr)
       .order('company_name')
       .limit(200)
     setDateLeadOptions((data || []).map(l => ({
       value: l.id,
       label: l.company_name,
-      sub: `${l.stage}${l.inquiry_source ? ' · ' + l.inquiry_source : ''}`,
+      sub: `${l.stage}${l.inquiry_channel ? ' · ' + l.inquiry_channel : ''}${l.inquiry_source ? ' · ' + l.inquiry_source : ''}`,
     })))
   }
 
@@ -619,6 +636,10 @@ export default function AdsPage() {
           <Button size="sm" variant="secondary" onClick={() => handleSync('ga4')}
             loading={syncing === 'ga4'} disabled={!!syncing}>
             <RefreshCw className="w-3.5 h-3.5 mr-1" /> GA4
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => handleSync('ga4-sources')}
+            loading={syncing === 'ga4-sources'} disabled={!!syncing}>
+            <Link2 className="w-3.5 h-3.5 mr-1" /> 유입소스
           </Button>
           <Button size="sm" onClick={openAdd}>
             <Plus className="w-4 h-4 mr-1" /> 데이터 입력

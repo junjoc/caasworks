@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import { INDUSTRY_OPTIONS, CHANNEL_OPTIONS } from '@/lib/utils'
+import { syncLeadToAdPerformance } from '@/lib/sync-lead-to-ads'
 import type { User } from '@/types/database'
 import { toast } from 'sonner'
 import { ArrowLeft } from 'lucide-react'
@@ -82,6 +83,15 @@ export default function NewLeadPage() {
       setSaving(false)
       return
     }
+
+    // 광고성과에 문의 데이터 자동 반영
+    await syncLeadToAdPerformance(supabase, {
+      inquiry_date: form.inquiry_date || null,
+      inquiry_channel: form.inquiry_channel,
+      inquiry_source: form.inquiry_source,
+      company_name: form.company_name,
+      stage: '신규리드',
+    })
 
     toast.success('리드가 등록되었습니다.')
     router.push(`/pipeline/${data.id}`)

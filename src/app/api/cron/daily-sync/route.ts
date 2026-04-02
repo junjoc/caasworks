@@ -63,9 +63,10 @@ export async function GET(request: NextRequest) {
   }
 
   // 3. GA4 콘텐츠 동기화 (당월 1일 ~ 오늘)
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+  const endDate = `${year}-${String(month).padStart(2, '0')}-${String(kst.getDate()).padStart(2, '0')}`
+
   try {
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(kst.getDate()).padStart(2, '0')}`
     const res = await fetch(`${baseUrl}/api/marketing/sync/ga4-content`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -78,7 +79,21 @@ export async function GET(request: NextRequest) {
     console.error('[Daily Sync] GA4 콘텐츠 실패:', err)
   }
 
-  // 4. 전월 데이터도 월초(1~3일)에는 보정 동기화
+  // 4. GA4 유입 소스별 동기화 (검색유입/자사채널/블로그/언론)
+  try {
+    const res = await fetch(`${baseUrl}/api/marketing/sync/ga4-sources`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startDate, endDate }),
+    })
+    results.ga4_sources = await res.json()
+    console.log(`[Daily Sync] GA4 유입소스:`, results.ga4_sources.message || results.ga4_sources.error)
+  } catch (err) {
+    results.ga4_sources = { success: false, error: String(err) }
+    console.error('[Daily Sync] GA4 유입소스 실패:', err)
+  }
+
+  // 5. 전월 데이터도 월초(1~3일)에는 보정 동기화
   if (kst.getDate() <= 3) {
     const prevMonth = month === 1 ? 12 : month - 1
     const prevYear = month === 1 ? year - 1 : year
@@ -113,6 +128,7 @@ export async function GET(request: NextRequest) {
     google_ads: results.google_ads?.success ? `${results.google_ads.count}건` : results.google_ads?.message || 'failed',
     naver_ads: results.naver_ads?.success ? `${results.naver_ads.count}건` : results.naver_ads?.message || 'failed',
     ga4_content: results.ga4_content?.success ? `${results.ga4_content.count}건` : results.ga4_content?.message || 'failed',
+    ga4_sources: results.ga4_sources?.success ? `${results.ga4_sources.count}건` : results.ga4_sources?.message || 'failed',
   }
 
   console.log(`[Daily Sync] 완료:`, JSON.stringify(summary))

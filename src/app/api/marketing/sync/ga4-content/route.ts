@@ -88,10 +88,12 @@ export async function POST(request: NextRequest) {
 
     // Supabase에 upsert (page_path 기준)
     const supabase = createClient(supabaseUrl, supabaseKey)
+    let savedCount = 0
+    const errors: string[] = []
 
     for (const item of contentData) {
       if (!item.page_path) continue
-      await supabase
+      const { error } = await supabase
         .from('content_performance')
         .upsert({
           page_path: item.page_path,
@@ -106,12 +108,19 @@ export async function POST(request: NextRequest) {
         }, {
           onConflict: 'page_path',
         })
+      if (error) {
+        console.error(`[GA4 Content] upsert 실패 (${item.page_path}):`, error.message)
+        errors.push(`${item.page_path}: ${error.message}`)
+      } else {
+        savedCount++
+      }
     }
 
     return NextResponse.json({
       success: true,
-      message: `GA4 콘텐츠 ${contentData.length}건 동기화 완료`,
-      count: contentData.length,
+      message: `GA4 콘텐츠 ${savedCount}/${contentData.length}건 저장 완료`,
+      count: savedCount,
+      errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
       data: contentData,
     })
   } catch (error: unknown) {

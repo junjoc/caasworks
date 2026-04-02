@@ -153,13 +153,37 @@ export async function POST(request: NextRequest) {
     // 3. Supabase에 upsert
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // campaigns 테이블에서 이름 → id 매핑
-    const { data: campaigns } = await supabase
-      .from('campaigns')
-      .select('id, name')
+    // ─── 캠페인 테이블에 구글 캠페인 등록/업데이트 ───
+    const uniqueCampaignNames = Array.from(new Set(rows.map(r => r.campaign_name)))
+    const campaignMap = new Map<string, string>() // name → db UUID
 
-    const campaignMap = new Map<string, string>()
-    campaigns?.forEach(c => campaignMap.set(c.name, c.id))
+    for (const campName of uniqueCampaignNames) {
+      // 이름으로 기존 캠페인 검색
+      const { data: existing } = await supabase
+        .from('campaigns').select('id').eq('name', campName).limit(1)
+
+      if (existing && existing.length > 0) {
+        campaignMap.set(campName, existing[0].id)
+        // 채널 업데이트 (구글로 확인)
+        await supabase.from('campaigns').update({
+          channel: '구글',
+          status: '진행중',
+        }).eq('id', existing[0].id)
+      } else {
+        // 신규 캠페인 등록 — 해당 월 비용 합산으로 budget 추정
+        const campRows = rows.filter(r => r.campaign_name === campName)
+        const totalCost = campRows.reduce((sum, r) => sum + r.cost, 0)
+        const { data: ins } = await supabase.from('campaigns').insert({
+          name: campName,
+          channel: '구글',
+          status: '진행중',
+          budget: totalCost,
+        }).select('id').single()
+        if (ins) campaignMap.set(campName, ins.id)
+      }
+    }
+
+    console.log(`[Google Ads] 캠페인 ${campaignMap.size}개 등록/업데이트`)
 
     // ─── 기존 수동 입력 데이터 보존을 위해 먼저 조회 ───
     const { data: existingRows } = await supabase.from('ad_performance')

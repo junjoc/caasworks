@@ -21,6 +21,7 @@ import type { PipelineLead, PipelineHistory, User } from '@/types/database'
 import { toast } from 'sonner'
 import { ArrowLeft, Edit2, Save, X, Clock, AlertCircle, Plus, Send, MessageSquare, Link2, Building2, ExternalLink, Trash2, Pencil, Megaphone, FileText, BarChart3, Headphones, ChevronRight } from 'lucide-react'
 import QuotationSection from '@/components/pipeline/QuotationSection'
+import { syncLeadToAdPerformance } from '@/lib/sync-lead-to-ads'
 
 const STAGES = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료', '이탈']
 const PRIORITY_OPTIONS = [
@@ -241,6 +242,18 @@ export default function LeadDetailPage() {
     const updates: Record<string, unknown> = { stage: newStage }
     if (newStage === '도입직전' || newStage === '도입완료') updates.converted_at = new Date().toISOString()
     await supabase.from('pipeline_leads').update(updates).eq('id', id)
+
+    // 도입완료 시 광고성과에 도입 데이터 반영
+    if (newStage === '도입완료' && lead) {
+      await syncLeadToAdPerformance(supabase, {
+        inquiry_date: lead.inquiry_date || null,
+        inquiry_channel: lead.inquiry_channel || '',
+        inquiry_source: lead.inquiry_source || '',
+        company_name: lead.company_name,
+        stage: '도입완료',
+      })
+    }
+
     toast.success(`단계가 "${newStage}"로 변경되었습니다.`)
     fetchAll()
   }

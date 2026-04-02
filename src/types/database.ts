@@ -147,6 +147,8 @@ export interface Project {
   solutions: string | null
   source: ProjectSource | null
   notes: string | null
+  billing_method: string | null
+  invoice_day: number | null
   created_at: string
 }
 
