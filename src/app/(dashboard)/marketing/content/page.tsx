@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { Modal } from '@/components/ui/modal'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -56,12 +57,11 @@ export default function ContentPage() {
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all')
   const [sortField, setSortField] = useState<SortField>('page_views')
   const [sortAsc, setSortAsc] = useState(false)
-  const [startDate, setStartDate] = useState(() => {
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
     const d = new Date()
     d.setMonth(d.getMonth() - 3)
-    return d.toISOString().split('T')[0]
+    return { from: d.toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] }
   })
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0])
   const supabase = createClient()
 
   const fetchData = useCallback(async () => {
@@ -89,7 +89,7 @@ export default function ContentPage() {
       const res = await fetch('/api/marketing/sync/ga4-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startDate, endDate }),
+        body: JSON.stringify({ startDate: dateRange.from, endDate: dateRange.to }),
       })
       const result = await res.json()
       if (result.success) {
@@ -123,6 +123,17 @@ export default function ContentPage() {
 
   const filtered = useMemo(() => {
     let items = channelFilter === 'all' ? [...data] : data.filter(d => d.channel === channelFilter)
+    // 날짜 범위로 필터링 (published_at이 있는 콘텐츠만 필터)
+    // GA4 동기화 콘텐츠는 누적 데이터라 날짜 필터 미적용
+    if (dateRange.from || dateRange.to) {
+      items = items.filter(d => {
+        if (!d.published_at) return true // 발행일 없는 GA4 콘텐츠는 항상 표시
+        const dateVal = d.published_at.substring(0, 10)
+        if (dateRange.from && dateVal < dateRange.from) return false
+        if (dateRange.to && dateVal > dateRange.to) return false
+        return true
+      })
+    }
     items.sort((a, b) => {
       let aVal: number | string = 0
       let bVal: number | string = 0
@@ -134,7 +145,7 @@ export default function ContentPage() {
       return 0
     })
     return items
-  }, [data, channelFilter, sortField, sortAsc])
+  }, [data, channelFilter, sortField, sortAsc, dateRange])
 
   const kpi = useMemo(() => {
     const totalViews = filtered.reduce((s, d) => s + d.page_views, 0)
@@ -154,9 +165,7 @@ export default function ContentPage() {
       <div className="page-header">
         <h1 className="page-title">콘텐츠 성과</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="!w-36" />
-          <span className="text-text-secondary text-sm">~</span>
-          <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="!w-36" />
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
           <Button size="sm" variant="secondary" onClick={handleSync} loading={syncing}>
             <RefreshCw className="w-3.5 h-3.5 mr-1" /> GA4 동기화
           </Button>

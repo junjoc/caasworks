@@ -114,7 +114,8 @@
 
   /* ─── Table System ─── */
   .table-container {
-    @apply card overflow-hidden overflow-x-auto;
+    @apply bg-surface border border-border-light rounded-xl shadow-card overflow-auto;
+    max-height: calc(100vh - 280px);
   }
 
   .data-table {
@@ -122,7 +123,7 @@
   }
 
   .data-table thead {
-    @apply bg-surface-tertiary border-b border-border;
+    @apply bg-surface-tertiary border-b border-border sticky top-0 z-10;
   }
 
   .data-table th {

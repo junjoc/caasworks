@@ -9,6 +9,7 @@ import { SearchSelect } from '@/components/ui/search-select'
 import { Modal } from '@/components/ui/modal'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import { toast } from 'sonner'
 import { CompanyTagInput } from '@/components/ui/company-tag-input'
@@ -157,9 +158,13 @@ export default function AdsPage() {
   const [budgets, setBudgets] = useState<MarketingBudget[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<TabType>('전체')
-  const [month, setMonth] = useState(() => {
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
     const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const y = now.getFullYear()
+    const m = now.getMonth() + 1
+    const first = `${y}-${String(m).padStart(2, '0')}-01`
+    const last = `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
+    return { from: first, to: last }
   })
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -174,7 +179,10 @@ export default function AdsPage() {
   const [dateLeadOptions, setDateLeadOptions] = useState<{value: string, label: string, sub?: string}[]>([])
   const supabase = createClient()
 
-  const [year, m] = month.split('-').map(Number)
+  // Derive year/month from date range for sync and budget
+  const fromDate = new Date(dateRange.from)
+  const year = fromDate.getFullYear()
+  const m = fromDate.getMonth() + 1
 
   // Fetch campaigns + adgroups + company list for dropdown
   useEffect(() => {
@@ -226,23 +234,70 @@ export default function AdsPage() {
     setSyncing(platform)
     try {
       if (platform === 'all') {
-        // 전체 동기화 (Cron과 동일)
-        const res = await fetch('/api/cron/daily-sync')
-        const result = await res.json()
-        if (result.success) {
-          toast.success(`전체 동기화 완료 — 구글: ${result.summary?.google_ads}, 네이버: ${result.summary?.naver_ads}, GA4: ${result.summary?.ga4_content}, 유입소스: ${result.summary?.ga4_sources}`)
-          fetchData()
-        } else {
-          toast.error('전체 동기화 실패')
+        // 전체 동기화 — 선택 기간의 모든 월 병렬 처리
+        const fromD = new Date(dateRange.from)
+        const toD = new Date(dateRange.to)
+        const months: { year: number; month: number }[] = []
+        let cur = new Date(fromD.getFullYear(), fromD.getMonth(), 1)
+        while (cur <= toD) {
+          months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 })
+          cur.setMonth(cur.getMonth() + 1)
         }
+
+        toast.info(`${months.length}개월 동기화 시작...`)
+
+        let googleTotal = 0, naverTotal = 0, googleOk = true, naverOk = true
+
+        // 구글 + 네이버: 월별 병렬 처리
+        for (const mo of months) {
+          toast.loading(`${mo.year}년 ${mo.month}월 동기화 중...`, { id: 'sync-progress' })
+
+          const [gRes, nRes] = await Promise.allSettled([
+            fetch('/api/marketing/sync/google-ads', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(mo),
+            }).then(r => r.json()),
+            fetch('/api/marketing/sync/naver-ads', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(mo),
+            }).then(r => r.json()),
+          ])
+
+          if (gRes.status === 'fulfilled' && gRes.value.success) googleTotal += (gRes.value.count || 0)
+          else if (gRes.status === 'fulfilled' && gRes.value.status !== 'not_configured') googleOk = false
+
+          if (nRes.status === 'fulfilled' && nRes.value.success) naverTotal += (nRes.value.count || 0)
+          else if (nRes.status === 'fulfilled' && nRes.value.status !== 'not_configured') naverOk = false
+        }
+
+        // GA4 콘텐츠 + 유입소스: 병렬
+        toast.loading('GA4 동기화 중...', { id: 'sync-progress' })
+        const [ga4Res, srcRes] = await Promise.allSettled([
+          fetch('/api/marketing/sync/ga4-content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ startDate: dateRange.from, endDate: dateRange.to }),
+          }).then(r => r.json()),
+          fetch('/api/marketing/sync/ga4-sources', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ startDate: dateRange.from, endDate: dateRange.to }),
+          }).then(r => r.json()),
+        ])
+
+        const ga4Result = ga4Res.status === 'fulfilled' && ga4Res.value.success ? `${ga4Res.value.count || 0}건` : 'failed'
+        const sourcesResult = srcRes.status === 'fulfilled' && srcRes.value.success ? `${srcRes.value.count || 0}건` : 'failed'
+
+        toast.dismiss('sync-progress')
+        toast.success(`${months.length}개월 동기화 완료 — 구글: ${googleOk ? googleTotal + '건' : 'failed'}, 네이버: ${naverOk ? naverTotal + '건' : 'failed'}, GA4: ${ga4Result}, 유입소스: ${sourcesResult}`)
+        fetchData()
       } else if (platform === 'ga4') {
-        const startDate = `${year}-${String(m).padStart(2, '0')}-01`
-        const lastDay = new Date(year, m, 0).getDate()
-        const endDate = `${year}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
         const res = await fetch('/api/marketing/sync/ga4-content', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ startDate, endDate }),
+          body: JSON.stringify({ startDate: dateRange.from, endDate: dateRange.to }),
         })
         const result = await res.json()
         if (result.success) {
@@ -251,13 +306,10 @@ export default function AdsPage() {
           toast.info(result.message || '동기화 준비 중')
         }
       } else if (platform === 'ga4-sources') {
-        const startDate = `${year}-${String(m).padStart(2, '0')}-01`
-        const lastDay = new Date(year, m, 0).getDate()
-        const endDate = `${year}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
         const res = await fetch('/api/marketing/sync/ga4-sources', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ startDate, endDate }),
+          body: JSON.stringify({ startDate: dateRange.from, endDate: dateRange.to }),
         })
         const result = await res.json()
         if (result.success) {
@@ -267,16 +319,36 @@ export default function AdsPage() {
           toast.info(result.message || '동기화 준비 중')
         }
       } else {
-        const res = await fetch(`/api/marketing/sync/${platform === 'google' ? 'google-ads' : 'naver-ads'}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ year, month: m }),
-        })
-        const result = await res.json()
-        if (result.success) {
-          toast.success(`${platform === 'google' ? '구글' : '네이버'} 광고 동기화 완료: ${result.count || 0}건`)
+        // 구글/네이버 개별 동기화 — 선택 기간의 모든 월
+        const endpoint = platform === 'google' ? 'google-ads' : 'naver-ads'
+        const label = platform === 'google' ? '구글' : '네이버'
+        const fromD = new Date(dateRange.from)
+        const toD = new Date(dateRange.to)
+        const months: { year: number; month: number }[] = []
+        let cur = new Date(fromD.getFullYear(), fromD.getMonth(), 1)
+        while (cur <= toD) {
+          months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 })
+          cur.setMonth(cur.getMonth() + 1)
+        }
+
+        let totalCount = 0
+        let ok = true
+        for (const mo of months) {
+          try {
+            const res = await fetch(`/api/marketing/sync/${endpoint}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(mo),
+            })
+            const r = await res.json()
+            if (r.success) totalCount += (r.count || 0)
+            else if (r.status !== 'not_configured') ok = false
+          } catch { ok = false }
+        }
+
+        if (ok) {
+          toast.success(`${label} 광고 ${months.length}개월 동기화 완료: ${totalCount}건`)
           fetchData()
-          // 동기화 후 캠페인/광고그룹 목록도 새로고침
           const [campRes, agRes] = await Promise.all([
             supabase.from('campaigns').select('id, name, channel, status').in('status', ['진행중', '준비']).order('name'),
             supabase.from('ad_groups').select('id, name, campaign_id, channel, status').eq('status', 'active').order('name'),
@@ -284,7 +356,7 @@ export default function AdsPage() {
           setCampaigns(campRes.data || [])
           setAdgroups(agRes.data || [])
         } else {
-          toast.info(result.message || '동기화 준비 중')
+          toast.info(`${label} 광고 동기화 일부 실패`)
         }
       }
     } catch {
@@ -295,24 +367,44 @@ export default function AdsPage() {
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
-    const startDate = `${year}-${String(m).padStart(2, '0')}-01`
-    // 해당 월의 마지막 날 계산 (4월=30, 2월=28/29 등)
-    const lastDay = new Date(year, m, 0).getDate()
-    const endDate = `${year}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-    const [adsResult, budgetResult] = await Promise.all([
-      supabase
+    // Fetch budgets for all months covered by the date range
+    const fromD = new Date(dateRange.from)
+    const toD = new Date(dateRange.to)
+    const budgetMonths: { year: number; month: number }[] = []
+    const cur = new Date(fromD.getFullYear(), fromD.getMonth(), 1)
+    while (cur <= toD) {
+      budgetMonths.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 })
+      cur.setMonth(cur.getMonth() + 1)
+    }
+
+    // Batch fetch ads (may exceed 1000 rows)
+    let allAds: AdPerformance[] = []
+    let offset = 0
+    const batchSize = 1000
+    while (true) {
+      const { data: batch } = await supabase
         .from('ad_performance')
         .select('*')
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: false }),
-      supabase
-        .from('marketing_budgets')
-        .select('*')
-        .eq('year', year)
-        .eq('month', m),
-    ])
+        .gte('date', dateRange.from)
+        .lte('date', dateRange.to)
+        .order('date', { ascending: false })
+        .range(offset, offset + batchSize - 1)
+      if (!batch || batch.length === 0) break
+      allAds = allAds.concat(batch)
+      if (batch.length < batchSize) break
+      offset += batchSize
+    }
+
+    // Fetch budgets (병렬)
+    const budgetPromises = budgetMonths.map(bm =>
+      supabase.from('marketing_budgets').select('*').eq('year', bm.year).eq('month', bm.month)
+    )
+    const budgetResults = await Promise.all(budgetPromises)
+    const allBudgets: MarketingBudget[] = budgetResults.flatMap(r => r.data || [])
+
+    const adsResult = { data: allAds, error: null as any }
+    const budgetResult = { data: allBudgets, error: null as any }
 
     if (adsResult.error) {
       console.error('ad_performance fetch error:', JSON.stringify(adsResult.error))
@@ -330,7 +422,7 @@ export default function AdsPage() {
       setBudgets(budgetResult.data || [])
     }
     if (!silent) setLoading(false)
-  }, [year, m])
+  }, [dateRange.from, dateRange.to])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -364,15 +456,17 @@ export default function AdsPage() {
       ? data
       : data.filter(d => channelToTab(d.channel) === tab)
     const totalSpent = tabItems.reduce((s, d) => s + d.cost, 0)
-    const daysInMonth = new Date(year, m, 0).getDate()
+    // Calculate days in range
+    const fromD = new Date(dateRange.from)
+    const toD = new Date(dateRange.to)
+    const totalDays = Math.round((toD.getTime() - fromD.getTime()) / 86400000) + 1
     const today = new Date()
-    const daysPassed = (today.getFullYear() === year && today.getMonth() + 1 === m)
-      ? today.getDate()
-      : (new Date(year, m - 1, 1) > today ? 0 : daysInMonth)
+    today.setHours(0, 0, 0, 0)
+    const daysPassed = today > toD ? totalDays : today < fromD ? 0 : Math.round((today.getTime() - fromD.getTime()) / 86400000) + 1
     const burnRate = totalBudget > 0 ? (totalSpent / totalBudget * 100) : 0
-    const timeRate = (daysPassed / daysInMonth * 100)
-    return { totalBudget, totalSpent, burnRate, timeRate, daysPassed, daysInMonth }
-  }, [budgets, data, tab, year, m])
+    const timeRate = totalDays > 0 ? (daysPassed / totalDays * 100) : 0
+    return { totalBudget, totalSpent, burnRate, timeRate, daysPassed, daysInMonth: totalDays }
+  }, [budgets, data, tab, dateRange])
 
   // ─── Performance KPIs ───────────────────────────────────
 
@@ -580,12 +674,12 @@ export default function AdsPage() {
     if (saveOk && payload.campaign_id) {
       await updateCampaignSpend(payload.campaign_id)
     }
-    // 마케팅 데이터 → 고객 데이터 연동
-    if (saveOk) {
-      await syncLeadsFromMarketing(payload)
-    }
     setSaving(false)
     setShowModal(false)
+    // 마케팅 데이터 → 고객 데이터 연동 (백그라운드)
+    if (saveOk) {
+      syncLeadsFromMarketing(payload)
+    }
     fetchData(true)
   }
 
@@ -619,8 +713,7 @@ export default function AdsPage() {
       <div className="page-header">
         <h1 className="page-title">광고 성과</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <Input type="month" value={month} onChange={e => setMonth(e.target.value)}
-            className="!w-40" />
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
           <Button size="sm" variant="primary" onClick={() => handleSync('all')}
             loading={syncing === 'all'} disabled={!!syncing}>
             <RefreshCw className="w-3.5 h-3.5 mr-1" /> 전체 동기화
@@ -743,7 +836,7 @@ export default function AdsPage() {
           description="광고 성과 데이터를 입력하세요"
           action={<Button size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> 데이터 입력</Button>} />
       ) : (
-        <div className="table-container overflow-x-auto">
+        <div className="table-container">
           <table className="data-table w-full min-w-[1200px]">
             <thead>
               <tr>
@@ -976,27 +1069,37 @@ export default function AdsPage() {
               </div>
             </div>
           )}
-          <div className="col-span-2 grid grid-cols-6 gap-2 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
-            <Input label="가입사 수" type="number" value={form.signups}
-              onChange={e => setForm({ ...form, signups: Number(e.target.value) })} />
-            <CompanyTagInput label="가입 회사명" options={companyOptions}
-              value={form.signup_companies}
-              onChange={v => setForm({ ...form, signup_companies: v })}
-              placeholder="회사 검색..." className="col-span-2" />
-            <Input label="문의사 수" type="number" value={form.inquiries}
-              onChange={e => setForm({ ...form, inquiries: Number(e.target.value) })} />
-            <CompanyTagInput label={`문의 회사명 (${form.date} 리드${dateLeadOptions.length > 0 ? ' ' + dateLeadOptions.length + '건' : ''})`} options={dateLeadOptions}
-              value={form.inquiry_companies}
-              onChange={v => setForm({ ...form, inquiry_companies: v })}
-              placeholder="당일 리드에서 선택..." className="col-span-2" />
+          <div className="col-span-2 p-3 bg-blue-50/50 rounded-lg border border-blue-100 space-y-2">
+            <p className="text-xs font-medium text-blue-600">가입/문의</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Input label="가입사 수" type="number" value={form.signups}
+                  onChange={e => setForm({ ...form, signups: Number(e.target.value) })} />
+                <CompanyTagInput label="가입 회사명" options={companyOptions}
+                  value={form.signup_companies}
+                  onChange={v => setForm({ ...form, signup_companies: v })}
+                  placeholder="회사 검색..." />
+              </div>
+              <div className="space-y-2">
+                <Input label="문의사 수" type="number" value={form.inquiries}
+                  onChange={e => setForm({ ...form, inquiries: Number(e.target.value) })} />
+                <CompanyTagInput label={`문의 회사명${dateLeadOptions.length > 0 ? ` (${dateLeadOptions.length}건)` : ''}`} options={dateLeadOptions}
+                  value={form.inquiry_companies}
+                  onChange={v => setForm({ ...form, inquiry_companies: v })}
+                  placeholder="당일 리드에서 선택..." />
+              </div>
+            </div>
           </div>
-          <div className="col-span-2 grid grid-cols-3 gap-2 p-3 bg-green-50/50 rounded-lg border border-green-100">
-            <Input label="도입사 수" type="number" value={form.adoptions}
-              onChange={e => setForm({ ...form, adoptions: Number(e.target.value) })} />
-            <CompanyTagInput label={`도입 회사명 (${form.date} 리드)`} options={dateLeadOptions}
-              value={form.adoption_companies}
-              onChange={v => setForm({ ...form, adoption_companies: v })}
-              placeholder="당일 리드에서 선택..." className="col-span-2" />
+          <div className="col-span-2 p-3 bg-green-50/50 rounded-lg border border-green-100 space-y-2">
+            <p className="text-xs font-medium text-green-600">도입</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="도입사 수" type="number" value={form.adoptions}
+                onChange={e => setForm({ ...form, adoptions: Number(e.target.value) })} />
+              <CompanyTagInput label="도입 회사명" options={dateLeadOptions}
+                value={form.adoption_companies}
+                onChange={v => setForm({ ...form, adoption_companies: v })}
+                placeholder="당일 리드에서 선택..." />
+            </div>
           </div>
           <Input label="비고" value={form.notes}
             onChange={e => setForm({ ...form, notes: e.target.value })}

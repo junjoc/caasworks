@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -38,6 +39,8 @@ export default function PipelineListPage() {
   const [stageFilter, setStageFilter] = useState('전체')
   const [priorityFilter, setPriorityFilter] = useState('전체')
   const [assigneeFilter, setAssigneeFilter] = useState('전체')
+  const [dateFilter, setDateFilter] = useState('전체')
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const [sortField, setSortField] = useState<'next_action_date' | 'created_at'>('created_at')
   const [sortAsc, setSortAsc] = useState(false)
   const { user } = useAuth()
@@ -106,7 +109,23 @@ export default function PipelineListPage() {
         (lead.notes || '').toLowerCase().includes(q)
       const matchPriority = priorityFilter === '전체' || lead.priority === priorityFilter
       const matchAssignee = assigneeFilter === '전체' || lead.assigned_to === assigneeFilter || (assigneeFilter === '미배정' && !lead.assigned_to)
-      return matchSearch && matchPriority && matchAssignee
+      // Date filter
+      let matchDate = true
+      const leadDate = lead.inquiry_date || lead.created_at?.substring(0, 10)
+      if (dateFilter === '오늘') {
+        matchDate = leadDate === new Date().toISOString().substring(0, 10)
+      } else if (dateFilter === '이번주') {
+        const now = new Date(); const day = now.getDay() || 7
+        const mon = new Date(now); mon.setDate(now.getDate() - day + 1); mon.setHours(0,0,0,0)
+        matchDate = !!leadDate && leadDate >= mon.toISOString().substring(0, 10) && leadDate <= now.toISOString().substring(0, 10)
+      } else if (dateFilter === '이번달') {
+        const ym = new Date().toISOString().substring(0, 7)
+        matchDate = !!leadDate && leadDate.startsWith(ym)
+      } else if (dateFilter === '직접선택') {
+        if (dateRange.from && leadDate) matchDate = leadDate >= dateRange.from
+        if (dateRange.to && leadDate && matchDate) matchDate = leadDate <= dateRange.to
+      }
+      return matchSearch && matchPriority && matchAssignee && matchDate
     })
     .sort((a, b) => {
       if (sortField === 'next_action_date') {
@@ -385,6 +404,21 @@ export default function PipelineListPage() {
           ]}
           className="w-32"
         />
+        <Select
+          value={dateFilter}
+          onChange={(e) => { setDateFilter(e.target.value); if (e.target.value !== '직접선택') { setDateRange({ from: '', to: '' }); } }}
+          options={[
+            { value: '전체', label: '기간 전체' },
+            { value: '오늘', label: '오늘' },
+            { value: '이번주', label: '이번주' },
+            { value: '이번달', label: '이번달' },
+            { value: '직접선택', label: '직접선택' },
+          ]}
+          className="w-32"
+        />
+        {dateFilter === '직접선택' && (
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
+        )}
       </div>
 
       {/* 테이블 */}

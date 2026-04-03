@@ -10,12 +10,15 @@ import { Modal } from '@/components/ui/modal'
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
+import { DatePicker } from '@/components/ui/date-picker'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
   Plus, Megaphone, Pencil, Trash2,
   Calendar, DollarSign, Target, TrendingUp,
-  ChevronDown, ChevronUp, BarChart3, Wallet
+  ChevronDown, ChevronUp, BarChart3, Wallet,
+  PlusCircle, Save
 } from 'lucide-react'
 
 interface Campaign {
@@ -120,10 +123,32 @@ export default function CampaignsPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [statusFilter, setStatusFilter] = useState('전체')
+  const [statusFilter, setStatusFilter] = useState('진행중')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [perfData, setPerfData] = useState<AdPerf[]>([])
   const [perfLoading, setPerfLoading] = useState(false)
+  const [showMonthlyCostForm, setShowMonthlyCostForm] = useState(false)
+  const [monthlyCostForm, setMonthlyCostForm] = useState({
+    date: new Date().toISOString().split('T')[0],
+    cost: 0,
+    ga_visits: 0,
+    inquiry_clicks: 0,
+    signups: 0,
+    inquiries: 0,
+    adoptions: 0,
+    notes: '',
+  })
+  const [savingMonthlyCost, setSavingMonthlyCost] = useState(false)
+  // 기간 필터 (기본: 이번 달)
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = now.getMonth() + 1
+    return {
+      from: `${y}-${String(m).padStart(2, '0')}-01`,
+      to: `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`,
+    }
+  })
   const supabase = createClient()
 
   useEffect(() => { fetchData() }, [])
@@ -139,7 +164,22 @@ export default function CampaignsPage() {
       console.error('campaigns fetch error:', error)
       setData([])
     } else {
-      setData(rows || [])
+      const today = new Date().toISOString().split('T')[0]
+      // end_date가 지난 '진행중' 캠페인을 자동으로 '종료' 처리
+      const expiredIds = (rows || [])
+        .filter(r => r.status === '진행중' && r.end_date && r.end_date < today)
+        .map(r => r.id)
+
+      if (expiredIds.length > 0) {
+        await supabase.from('campaigns').update({ status: '종료' }).in('id', expiredIds)
+        // 업데이트 반영
+        const updated = (rows || []).map(r =>
+          expiredIds.includes(r.id) ? { ...r, status: '종료' } : r
+        )
+        setData(updated)
+      } else {
+        setData(rows || [])
+      }
     }
     setLoading(false)
   }
@@ -150,6 +190,8 @@ export default function CampaignsPage() {
       .from('ad_performance')
       .select('*')
       .eq('campaign_id', campaignId)
+      .gte('date', dateRange.from)
+      .lte('date', dateRange.to)
       .order('date', { ascending: false })
 
     if (error) {
@@ -159,7 +201,7 @@ export default function CampaignsPage() {
       setPerfData(rows || [])
     }
     setPerfLoading(false)
-  }, [])
+  }, [dateRange])
 
   function toggleExpand(campaignId: string) {
     if (expandedId === campaignId) {
@@ -171,10 +213,31 @@ export default function CampaignsPage() {
     }
   }
 
+  // Re-fetch when dateRange changes and a campaign is expanded
+  useEffect(() => {
+    if (expandedId) fetchPerfData(expandedId)
+  }, [dateRange])
+
   const filtered = useMemo(() => {
-    if (statusFilter === '전체') return data
-    return data.filter(d => d.status === statusFilter)
-  }, [data, statusFilter])
+    let items = data
+
+    // 상태 필터
+    if (statusFilter !== '전체') {
+      items = items.filter(d => d.status === statusFilter)
+    }
+
+    // 날짜 범위 필터: 선택 기간에 활동하지 않은 캠페인 제외
+    items = items.filter(d => {
+      if (!d.start_date) return true
+      const campStart = d.start_date
+      // 종료/중단 캠페인: end_date 없으면 start_date를 종료일로 간주
+      const campEnd = d.end_date
+        || (d.status === '종료' || d.status === '중단' ? d.start_date : '9999-12-31')
+      return campStart <= dateRange.to && campEnd >= dateRange.from
+    })
+
+    return items
+  }, [data, statusFilter, dateRange])
 
   const summaryStats = useMemo(() => {
     const totalBudget = data.reduce((s, d) => s + d.budget, 0)
@@ -286,11 +349,245 @@ export default function CampaignsPage() {
     return perfData.slice(0, 7).reverse()
   }, [perfData])
 
+  // 월 비용 등록: 해당 월 1일에 비용만 기록
+  async function handleRegisterMonthlyCost(campaign: Campaign, monthStr: string) {
+    setSavingMonthlyCost(true)
+    const [y, mo] = monthStr.split('-').map(Number)
+    const dateStr = `${y}-${String(mo).padStart(2, '0')}-01`
+
+    // Check if cost entry already exists for this campaign + month 1st
+    const { data: existing } = await supabase
+      .from('ad_performance')
+      .select('id')
+      .eq('campaign_id', campaign.id)
+      .eq('date', dateStr)
+      .gt('cost', 0)
+      .limit(1)
+
+    if (existing && existing.length > 0) {
+      toast.info(`${y}년 ${mo}월 비용이 이미 등록되어 있습니다`)
+      setSavingMonthlyCost(false)
+      return
+    }
+
+    const { error } = await supabase.from('ad_performance').insert({
+      date: dateStr,
+      channel: campaign.channel || '콘텐츠',
+      ad_type: campaign.ad_type || '콘텐츠',
+      campaign_name: campaign.name,
+      campaign_id: campaign.id,
+      impressions: 0, clicks: 0,
+      cost: campaign.budget || 0,
+      ga_visits: 0, inquiry_clicks: 0,
+      signups: 0, inquiries: 0, adoptions: 0,
+      notes: `${campaign.name} ${y}년 ${mo}월 월정액`,
+    })
+
+    if (error) {
+      toast.error('등록 실패: ' + error.message)
+    } else {
+      toast.success(`${y}년 ${mo}월 비용 ${formatCurrency(campaign.budget)} 등록 완료`)
+      // Update campaign actual_spend
+      const { data: allPerf } = await supabase
+        .from('ad_performance').select('cost').eq('campaign_id', campaign.id)
+      const totalSpend = (allPerf || []).reduce((s: number, r: any) => s + (Number(r.cost) || 0), 0)
+      await supabase.from('campaigns').update({ actual_spend: totalSpend }).eq('id', campaign.id)
+      fetchPerfData(campaign.id)
+      fetchData()
+    }
+    setSavingMonthlyCost(false)
+  }
+
+  // 성과 삭제
+  async function handleDeletePerf(perfId: string, campaignId: string) {
+    if (!confirm('이 성과 기록을 삭제하시겠습니까?')) return
+    const { error } = await supabase.from('ad_performance').delete().eq('id', perfId)
+    if (error) {
+      toast.error('삭제 실패: ' + error.message)
+    } else {
+      toast.success('삭제 완료')
+      // Update campaign actual_spend
+      const { data: allPerf } = await supabase
+        .from('ad_performance').select('cost').eq('campaign_id', campaignId)
+      const totalSpend = (allPerf || []).reduce((s: number, r: any) => s + (Number(r.cost) || 0), 0)
+      await supabase.from('campaigns').update({ actual_spend: totalSpend }).eq('id', campaignId)
+      fetchPerfData(campaignId)
+      fetchData()
+    }
+  }
+
+  // 일별 성과 등록: 해당 날짜에 성과만 기록 (비용 0)
+  async function handleSaveResult(campaign: Campaign) {
+    if (!monthlyCostForm.date) {
+      toast.error('날짜를 선택하세요')
+      return
+    }
+    if (!monthlyCostForm.signups && !monthlyCostForm.inquiries && !monthlyCostForm.adoptions) {
+      toast.error('성과를 입력하세요')
+      return
+    }
+    setSavingMonthlyCost(true)
+    const dateStr = monthlyCostForm.date
+
+    // Check if entry exists for this campaign + date
+    const { data: existing } = await supabase
+      .from('ad_performance')
+      .select('id, cost, ga_visits, inquiry_clicks, signups, inquiries, adoptions')
+      .eq('campaign_id', campaign.id)
+      .eq('date', dateStr)
+      .limit(1)
+
+    const existingRow = existing?.[0]
+    const payload = {
+      date: dateStr,
+      channel: campaign.channel || '콘텐츠',
+      ad_type: campaign.ad_type || '콘텐츠',
+      campaign_name: campaign.name,
+      campaign_id: campaign.id,
+      impressions: 0, clicks: 0,
+      cost: existingRow ? Number(existingRow.cost) : 0,  // preserve existing cost
+      ga_visits: Number(monthlyCostForm.ga_visits) || (existingRow?.ga_visits || 0),
+      inquiry_clicks: existingRow?.inquiry_clicks || 0,
+      signups: Number(monthlyCostForm.signups) || 0,
+      inquiries: Number(monthlyCostForm.inquiries) || 0,
+      adoptions: Number(monthlyCostForm.adoptions) || 0,
+      notes: monthlyCostForm.notes || `${campaign.name} 성과`,
+    }
+
+    let err
+    if (existingRow) {
+      const { error } = await supabase.from('ad_performance').update(payload).eq('id', existingRow.id)
+      err = error
+    } else {
+      const { error } = await supabase.from('ad_performance').insert(payload)
+      err = error
+    }
+
+    if (err) {
+      toast.error('저장 실패: ' + err.message)
+    } else {
+      toast.success(`${dateStr} 성과 등록 완료`)
+      setShowMonthlyCostForm(false)
+      fetchPerfData(campaign.id)
+    }
+    setSavingMonthlyCost(false)
+  }
+
+  // 월별 비용 등록 현황 (어떤 월이 이미 등록됐는지)
+  const registeredCostMonths = useMemo(() => {
+    const months = new Set<string>()
+    perfData.forEach(d => {
+      if (Number(d.cost) > 0) {
+        const m = d.date.substring(0, 7) // YYYY-MM
+        months.add(m)
+      }
+    })
+    return months
+  }, [perfData])
+
+  // 월 비용 등록 + 성과 등록 패널
+  function CampaignCostPanel({ campaign }: { campaign: Campaign }) {
+    const inputCls = "w-full px-2 py-1.5 text-xs border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary-300"
+    const now = new Date()
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    })
+
+    return (
+      <div className="space-y-3">
+        {/* 월 비용 등록 (월정액) */}
+        {campaign.budget > 0 && (
+          <div className="bg-white rounded-lg p-3 border border-border-light">
+            <h4 className="text-xs font-semibold text-text-primary mb-2 flex items-center gap-1.5">
+              <Wallet className="w-3.5 h-3.5 text-blue-500" />
+              월 비용 등록
+              <span className="text-[10px] font-normal text-text-tertiary ml-1">
+                (월정액 {formatCurrency(campaign.budget)})
+              </span>
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {months.map(m => {
+                const [y, mo] = m.split('-')
+                const isRegistered = registeredCostMonths.has(m)
+                return (
+                  <button key={m}
+                    onClick={() => !isRegistered && handleRegisterMonthlyCost(campaign, m)}
+                    disabled={isRegistered || savingMonthlyCost}
+                    className={`px-3 py-1.5 text-xs rounded-md transition-colors flex items-center gap-1 ${
+                      isRegistered
+                        ? 'bg-green-50 text-green-600 border border-green-200 cursor-default'
+                        : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 cursor-pointer'
+                    }`}>
+                    {isRegistered ? '✓' : <PlusCircle className="w-3 h-3" />}
+                    {parseInt(mo)}월
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 일별 성과 등록 */}
+        <div className="bg-white rounded-lg p-3 border border-border-light">
+          <h4 className="text-xs font-semibold text-text-primary mb-2 flex items-center gap-1.5">
+            <Target className="w-3.5 h-3.5 text-green-500" />
+            성과 등록
+            <span className="text-[10px] font-normal text-text-tertiary ml-1">
+              (발생일에 문의/도입 기록)
+            </span>
+          </h4>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="w-[140px]">
+              <DatePicker label="발생일" value={monthlyCostForm.date}
+                onChange={v => setMonthlyCostForm(f => ({ ...f, date: v }))} />
+            </div>
+            <div className="w-[80px]">
+              <label className="text-[10px] font-semibold text-text-secondary mb-0.5 block">GA유입</label>
+              <input type="number" value={monthlyCostForm.ga_visits || ''}
+                onChange={e => setMonthlyCostForm(f => ({ ...f, ga_visits: Number(e.target.value) }))}
+                className={inputCls} placeholder="0" />
+            </div>
+            <div className="w-[80px]">
+              <label className="text-[10px] font-semibold text-text-secondary mb-0.5 block">가입사</label>
+              <input type="number" value={monthlyCostForm.signups || ''}
+                onChange={e => setMonthlyCostForm(f => ({ ...f, signups: Number(e.target.value) }))}
+                className={inputCls} placeholder="0" />
+            </div>
+            <div className="w-[80px]">
+              <label className="text-[10px] font-semibold text-text-secondary mb-0.5 block">문의사</label>
+              <input type="number" value={monthlyCostForm.inquiries || ''}
+                onChange={e => setMonthlyCostForm(f => ({ ...f, inquiries: Number(e.target.value) }))}
+                className={inputCls} placeholder="0" />
+            </div>
+            <div className="w-[80px]">
+              <label className="text-[10px] font-semibold text-text-secondary mb-0.5 block">도입사</label>
+              <input type="number" value={monthlyCostForm.adoptions || ''}
+                onChange={e => setMonthlyCostForm(f => ({ ...f, adoptions: Number(e.target.value) }))}
+                className={inputCls} placeholder="0" />
+            </div>
+            <div>
+              <button onClick={() => handleSaveResult(campaign)}
+                disabled={savingMonthlyCost}
+                className="px-4 py-1.5 text-xs font-semibold text-white bg-primary-500 rounded-md hover:bg-primary-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1">
+                <Save className="w-3 h-3" />
+                {savingMonthlyCost ? '...' : '등록'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="page-header">
         <h1 className="page-title">캠페인 관리</h1>
-        <Button size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> 새 캠페인</Button>
+        <div className="flex items-center gap-2">
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
+          <Button size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> 새 캠페인</Button>
+        </div>
       </div>
 
       {/* Summary */}
@@ -415,10 +712,11 @@ export default function CampaignsPage() {
                     {perfLoading ? (
                       <div className="p-6"><Loading /></div>
                     ) : perfData.length === 0 ? (
-                      <div className="p-6 text-center text-sm text-text-secondary">
-                        이 캠페인에 연결된 광고 성과 데이터가 없습니다.
-                        <br />
-                        <span className="text-xs">광고 성과 페이지에서 데이터를 입력할 때 이 캠페인을 선택해주세요.</span>
+                      <div className="p-4 space-y-4">
+                        <div className="text-center text-sm text-text-secondary mb-2">
+                          선택 기간에 연결된 광고 성과 데이터가 없습니다.
+                        </div>
+                        <CampaignCostPanel campaign={campaign} />
                       </div>
                     ) : (
                       <div className="p-4 space-y-4">
@@ -530,6 +828,9 @@ export default function CampaignsPage() {
                           </div>
                         )}
 
+                        {/* 비용/성과 등록 패널 */}
+                        <CampaignCostPanel campaign={campaign} />
+
                         {/* Daily Performance Table */}
                         <div className="bg-white rounded-lg p-3">
                           <h4 className="text-xs font-semibold text-text-primary mb-2">일별 성과 ({perfData.length}건)</h4>
@@ -537,7 +838,7 @@ export default function CampaignsPage() {
                             <table className="w-full text-xs">
                               <thead className="sticky top-0 bg-white">
                                 <tr className="border-b border-border-light">
-                                  <th className="text-left py-1.5 px-2 text-text-secondary font-medium">날짜</th>
+                                  <th className="text-left py-1.5 px-2 text-text-secondary font-medium w-[90px]">날짜</th>
                                   <th className="text-right py-1.5 px-2 text-text-secondary font-medium">비용</th>
                                   <th className="text-right py-1.5 px-2 text-text-secondary font-medium">노출</th>
                                   <th className="text-right py-1.5 px-2 text-text-secondary font-medium">클릭</th>
@@ -547,6 +848,7 @@ export default function CampaignsPage() {
                                   <th className="text-right py-1.5 px-2 text-text-secondary font-medium">가입</th>
                                   <th className="text-right py-1.5 px-2 text-text-secondary font-medium">문의</th>
                                   <th className="text-right py-1.5 px-2 text-text-secondary font-medium">도입</th>
+                                  <th className="text-center py-1.5 px-2 text-text-secondary font-medium w-[70px]">관리</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -554,9 +856,24 @@ export default function CampaignsPage() {
                                   const ctr = d.impressions > 0 ? (d.clicks / d.impressions * 100) : 0
                                   const isOverBudget = campaign.daily_budget > 0 && Number(d.cost) > campaign.daily_budget
                                   return (
-                                    <tr key={d.id} className={`border-b border-border-light/50 hover:bg-surface-secondary/50 ${
+                                    <tr key={d.id} className={`border-b border-border-light/50 hover:bg-surface-secondary/50 cursor-pointer ${
                                       isOverBudget ? 'bg-red-50/50' : ''
-                                    }`}>
+                                    }`}
+                                      onClick={() => {
+                                        setMonthlyCostForm({
+                                          date: d.date,
+                                          cost: Number(d.cost),
+                                          ga_visits: d.ga_visits || 0,
+                                          inquiry_clicks: d.inquiry_clicks || 0,
+                                          signups: d.signups || 0,
+                                          inquiries: d.inquiries || 0,
+                                          adoptions: d.adoptions || 0,
+                                          notes: '',
+                                        })
+                                        setShowMonthlyCostForm(true)
+                                      }}
+                                      title="클릭하여 수정"
+                                    >
                                       <td className="py-1.5 px-2 font-medium">{formatDate(d.date)}</td>
                                       <td className={`text-right py-1.5 px-2 ${isOverBudget ? 'text-red-600 font-medium' : ''}`}>
                                         {formatCurrency(Number(d.cost))}
@@ -569,6 +886,40 @@ export default function CampaignsPage() {
                                       <td className="text-right py-1.5 px-2">{d.signups}</td>
                                       <td className="text-right py-1.5 px-2">{d.inquiries}</td>
                                       <td className="text-right py-1.5 px-2">{d.adoptions}</td>
+                                      <td className="text-center py-1.5 px-1">
+                                        <div className="flex items-center justify-center gap-0.5">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setMonthlyCostForm({
+                                                date: d.date,
+                                                cost: Number(d.cost),
+                                                ga_visits: d.ga_visits || 0,
+                                                inquiry_clicks: d.inquiry_clicks || 0,
+                                                signups: d.signups || 0,
+                                                inquiries: d.inquiries || 0,
+                                                adoptions: d.adoptions || 0,
+                                                notes: '',
+                                              })
+                                              setShowMonthlyCostForm(true)
+                                            }}
+                                            className="p-1 rounded hover:bg-blue-50 text-blue-500 transition-colors"
+                                            title="수정"
+                                          >
+                                            <Pencil className="w-3 h-3" />
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleDeletePerf(d.id, campaign.id)
+                                            }}
+                                            className="p-1 rounded hover:bg-red-50 text-red-500 transition-colors"
+                                            title="삭제"
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      </td>
                                     </tr>
                                   )
                                 })}
@@ -602,10 +953,10 @@ export default function CampaignsPage() {
           <Select label="상태" options={STATUS_OPTIONS} value={form.status}
             onChange={e => setForm({ ...form, status: e.target.value })} />
           <div />
-          <Input label="시작일" type="date" value={form.start_date}
-            onChange={e => setForm({ ...form, start_date: e.target.value })} />
-          <Input label="종료일" type="date" value={form.end_date}
-            onChange={e => setForm({ ...form, end_date: e.target.value })} />
+          <DatePicker label="시작일" value={form.start_date}
+            onChange={v => setForm({ ...form, start_date: v })} />
+          <DatePicker label="종료일" value={form.end_date}
+            onChange={v => setForm({ ...form, end_date: v })} />
           <Input label="월 예산 (원)" type="number" value={form.budget}
             onChange={e => setForm({ ...form, budget: Number(e.target.value) })} />
           <Input label="일 예산 (원)" type="number" value={form.daily_budget}

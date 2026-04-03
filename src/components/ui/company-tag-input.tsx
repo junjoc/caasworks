@@ -84,7 +84,7 @@ export function CompanyTagInput({
           setTimeout(() => inputRef.current?.focus(), 50)
         }}
         className={cn(
-          'input-base min-h-[36px] flex flex-wrap items-center gap-1 cursor-text py-1 px-2',
+          'input-base min-h-[36px] max-h-[100px] overflow-y-auto flex flex-wrap items-center gap-1 cursor-text py-1 px-2',
           open && 'ring-2 ring-primary-200 border-primary-500',
         )}
       >

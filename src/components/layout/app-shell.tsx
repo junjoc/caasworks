@@ -8,11 +8,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut } = useAuth()
 
   return (
-    <div className="min-h-screen bg-surface-page">
+    <div className="h-screen bg-surface-page overflow-hidden">
       <Sidebar user={user} onSignOut={signOut} />
-      <div className="lg:ml-[var(--sidebar-width)] min-h-screen flex flex-col">
+      <div className="lg:ml-[var(--sidebar-width)] h-screen flex flex-col overflow-hidden">
         <Header user={user} />
-        <main className="flex-1 p-5">{children}</main>
+        <main className="flex-1 p-5 overflow-auto">{children}</main>
       </div>
     </div>
   )
