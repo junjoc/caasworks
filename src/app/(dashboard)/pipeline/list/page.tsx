@@ -177,10 +177,8 @@ export default function PipelineListPage() {
   // Bulk operations
   const executeBulkStageChange = async () => {
     if (!bulkStage || selectedIds.size === 0 || !user) return
-    setBulkProcessing(true)
     const ids = Array.from(selectedIds)
 
-    // Insert history records for each lead
     const historyRecords = ids.map(leadId => {
       const lead = leads.find(l => l.id === leadId)
       return {
@@ -210,15 +208,11 @@ export default function PipelineListPage() {
       toast.error('일괄 단계 변경에 실패했습니다.')
     } else {
       toast.success(`${ids.length}건의 단계를 "${bulkStage}"로 변경했습니다.`)
-      clearSelection()
-      fetchLeads()
     }
-    setBulkProcessing(false)
   }
 
   const executeBulkAssigneeChange = async () => {
-    if (selectedIds.size === 0 || !user) return
-    setBulkProcessing(true)
+    if (!bulkAssignee || selectedIds.size === 0 || !user) return
     const ids = Array.from(selectedIds)
 
     const newAssigneeName = users.find(u => u.id === bulkAssignee)?.name || '(없음)'
@@ -245,10 +239,7 @@ export default function PipelineListPage() {
     } else {
       const assigneeName = users.find(u => u.id === bulkAssignee)?.name || '없음'
       toast.success(`${ids.length}건의 담당자를 "${assigneeName}"으로 변경했습니다.`)
-      clearSelection()
-      fetchLeads()
     }
-    setBulkProcessing(false)
   }
 
   const executeBulkDelete = async () => {
@@ -322,48 +313,46 @@ export default function PipelineListPage() {
           </div>
           <div className="h-5 w-px bg-primary-200" />
 
-          {/* 단계 일괄 변경 */}
-          {bulkAction === 'stage' ? (
-            <div className="flex items-center gap-2">
-              <Select
-                value={bulkStage}
-                onChange={(e) => setBulkStage(e.target.value)}
-                options={STAGE_OPTIONS.map(s => ({ value: s, label: s }))}
-                placeholder="단계 선택"
-                className="w-32 text-sm"
-              />
-              <Button size="sm" onClick={executeBulkStageChange} loading={bulkProcessing} disabled={!bulkStage}>
-                변경
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setBulkAction(null)}>취소</Button>
-            </div>
-          ) : bulkAction === 'assignee' ? (
-            <div className="flex items-center gap-2">
-              <Select
-                value={bulkAssignee}
-                onChange={(e) => setBulkAssignee(e.target.value)}
-                options={users.map(u => ({ value: u.id, label: u.name }))}
-                placeholder="담당자 선택"
-                className="w-32 text-sm"
-              />
-              <Button size="sm" onClick={executeBulkAssigneeChange} loading={bulkProcessing}>
-                변경
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setBulkAction(null)}>취소</Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="secondary" onClick={() => setBulkAction('stage')}>
-                <ArrowRight className="w-3.5 h-3.5 mr-1" /> 단계 변경
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => setBulkAction('assignee')}>
-                <UserCheck className="w-3.5 h-3.5 mr-1" /> 담당자 변경
-              </Button>
-              <Button size="sm" variant="danger" onClick={executeBulkDelete} loading={bulkProcessing}>
-                <Trash2 className="w-3.5 h-3.5 mr-1" /> 삭제
-              </Button>
-            </div>
-          )}
+          {/* 단계 + 담당자 동시 변경 */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select
+              value={bulkStage}
+              onChange={(e) => setBulkStage(e.target.value)}
+              options={STAGE_OPTIONS.map(s => ({ value: s, label: s }))}
+              placeholder="단계 선택"
+              className="w-32 text-sm"
+            />
+            <Select
+              value={bulkAssignee}
+              onChange={(e) => setBulkAssignee(e.target.value)}
+              options={[{ value: '', label: '담당자 선택' }, ...users.map(u => ({ value: u.id, label: u.name }))]}
+              placeholder="담당자 선택"
+              className="w-32 text-sm"
+            />
+            <Button
+              size="sm"
+              onClick={async () => {
+                if (!bulkStage && !bulkAssignee) return
+                setBulkProcessing(true)
+                try {
+                  if (bulkStage) await executeBulkStageChange()
+                  if (bulkAssignee) await executeBulkAssigneeChange()
+                  clearSelection()
+                  await fetchLeads()
+                } finally {
+                  setBulkProcessing(false)
+                }
+              }}
+              loading={bulkProcessing}
+              disabled={!bulkStage && !bulkAssignee}
+            >
+              변경
+            </Button>
+            <div className="h-5 w-px bg-primary-200" />
+            <Button size="sm" variant="danger" onClick={executeBulkDelete} loading={bulkProcessing}>
+              <Trash2 className="w-3.5 h-3.5 mr-1" /> 삭제
+            </Button>
+          </div>
 
           <button onClick={clearSelection} className="ml-auto text-xs text-primary-500 hover:text-primary-700">
             선택 해제
