@@ -619,8 +619,17 @@ async function main() {
   for (let i = 0; i < projectEntries.length; i++) {
     const p = projectEntries[i];
 
-    // Find customer_id
-    const customerId = custByName2[p.companyName];
+    // Find customer_id (exact match first, then fuzzy match)
+    let customerId = custByName2[p.companyName];
+    if (!customerId) {
+      // Fuzzy match: remove whitespace, parentheses, special chars
+      const normalize = (s) => s.replace(/\s+/g, '').replace(/[()（）\-·・]/g, '').toLowerCase();
+      const normalizedName = normalize(p.companyName);
+      const fuzzyMatch = Object.entries(custByName2).find(([k]) => normalize(k) === normalizedName);
+      if (fuzzyMatch) {
+        customerId = fuzzyMatch[1];
+      }
+    }
     if (!customerId) {
       projError++;
       if (projError <= 5) console.error(`    No customer found for: ${p.companyName}`);
@@ -671,6 +680,7 @@ async function main() {
           billing_start: p.billingStart,
           billing_end: p.billingEnd,
           monthly_amount: monthlyAmount,
+          billing_method: p.billingMethod,
           status: projectStatus,
           notes: p.notes ? p.notes.substring(0, 2000) : null,
         }])
@@ -683,6 +693,7 @@ async function main() {
         continue;
       }
       projectId = projData.id;
+      existingProjKeys.add(projKey);
       projSuccess++;
     }
 

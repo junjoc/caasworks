@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { Textarea } from '@/components/ui/textarea'
 import { Modal } from '@/components/ui/modal'
 import { Badge } from '@/components/ui/badge'
@@ -77,8 +78,7 @@ export default function VideoPage() {
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('전체')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const supabase = createClient()
 
   useEffect(() => { fetchData() }, [])
@@ -116,11 +116,11 @@ export default function VideoPage() {
         (d.notes || '').toLowerCase().includes(q) ||
         (d.storage_location || '').toLowerCase().includes(q)
       const matchType = typeFilter === '전체' || d.recording_type === typeFilter
-      const matchDateFrom = !dateFrom || d.date >= dateFrom
-      const matchDateTo = !dateTo || d.date <= dateTo
+      const matchDateFrom = !dateRange.from || d.date >= dateRange.from
+      const matchDateTo = !dateRange.to || d.date <= dateRange.to
       return matchSearch && matchType && matchDateFrom && matchDateTo
     })
-  }, [data, search, typeFilter, dateFrom, dateTo])
+  }, [data, search, typeFilter, dateRange])
 
   const summary = useMemo(() => {
     const bySite: Record<string, number> = {}
@@ -252,11 +252,7 @@ export default function VideoPage() {
               }`}>{s}</button>
           ))}
         </div>
-        <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-          className="!w-36" placeholder="시작일" />
-        <span className="text-text-secondary">~</span>
-        <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-          className="!w-36" placeholder="종료일" />
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
       {/* Calendar view placeholder */}

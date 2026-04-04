@@ -1475,7 +1475,7 @@ function CustomerDetailContent() {
               </div>
             )}
 
-            <div className="table-container overflow-x-auto">
+            <div className="table-container">
               <table className="data-table text-xs">
                 <thead>
                   <tr>

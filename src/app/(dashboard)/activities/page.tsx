@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Input } from '@/components/ui/input'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
@@ -26,8 +26,7 @@ export default function ActivitiesPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('전체')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const [users, setUsers] = useState<{ id: string; name: string }[]>([])
   const [userFilter, setUserFilter] = useState('전체')
   const supabase = createClient()
@@ -77,11 +76,11 @@ export default function ActivitiesPage() {
       const matchType = typeFilter === '전체' || a.activity_type === typeFilter
       const matchUser = userFilter === '전체' || a.performed_by === userFilter
       const actDate = a.performed_at.split('T')[0]
-      const matchDateFrom = !dateFrom || actDate >= dateFrom
-      const matchDateTo = !dateTo || actDate <= dateTo
+      const matchDateFrom = !dateRange.from || actDate >= dateRange.from
+      const matchDateTo = !dateRange.to || actDate <= dateRange.to
       return matchSearch && matchType && matchUser && matchDateFrom && matchDateTo
     })
-  }, [activities, search, typeFilter, userFilter, dateFrom, dateTo])
+  }, [activities, search, typeFilter, userFilter, dateRange])
 
   // Summary stats
   const stats = useMemo(() => {
@@ -177,16 +176,12 @@ export default function ActivitiesPage() {
             {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
         )}
-        <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-          className="!w-36" />
-        <span className="text-text-secondary">~</span>
-        <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-          className="!w-36" />
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
       {/* Results count */}
       <p className="text-xs text-text-secondary mb-3">
-        {filtered.length}건의 활동{search || typeFilter !== '전체' || userFilter !== '전체' || dateFrom || dateTo ? ' (필터 적용)' : ''}
+        {filtered.length}건의 활동{search || typeFilter !== '전체' || userFilter !== '전체' || dateRange.from || dateRange.to ? ' (필터 적용)' : ''}
       </p>
 
       {/* Timeline View */}
