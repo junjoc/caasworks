@@ -12,7 +12,7 @@ import { Modal } from '@/components/ui/modal'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, FileText, Check, Clock, AlertCircle, Search, Pencil, Trash2, X, Download, Info } from 'lucide-react'
+import { Plus, FileText, Check, Clock, AlertCircle, Search, Pencil, Trash2, X, Download, Info, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { InvoicePDFButton } from '@/components/invoices/InvoicePDFButton'
 
@@ -48,6 +48,8 @@ export default function InvoicesPage() {
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [year, setYear] = useState(new Date().getFullYear())
+  const [month, setMonth] = useState(new Date().getMonth() + 1)
+  const [viewAll, setViewAll] = useState(false)
   const [statusFilter, setStatusFilter] = useState('전체')
   const [searchQuery, setSearchQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -82,6 +84,7 @@ export default function InvoicesPage() {
       .eq('year', year)
       .order('month', { ascending: false })
 
+    if (!viewAll) query = query.eq('month', month)
     if (statusFilter !== '전체') query = query.eq('status', statusFilter)
 
     const { data } = await query
@@ -91,7 +94,7 @@ export default function InvoicesPage() {
       _items: inv.items || [],
     })))
     setLoading(false)
-  }, [year, statusFilter])
+  }, [year, month, viewAll, statusFilter])
 
   const fetchCustomers = useCallback(async () => {
     const { data } = await supabase.from('customers').select('id, company_name').eq('status', 'active').order('company_name')
@@ -408,13 +411,59 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mb-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        {/* Period navigation */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              if (viewAll) {
+                setYear(y => y - 1)
+              } else if (month === 1) {
+                setYear(y => y - 1); setMonth(12)
+              } else {
+                setMonth(m => m - 1)
+              }
+            }}
+            className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4 text-text-secondary" />
+          </button>
+          <span className="text-sm font-semibold text-text-primary min-w-[120px] text-center">
+            {viewAll ? `${year}년 전체` : `${year}년 ${month}월`}
+          </span>
+          <button
+            onClick={() => {
+              if (viewAll) {
+                setYear(y => y + 1)
+              } else if (month === 12) {
+                setYear(y => y + 1); setMonth(1)
+              } else {
+                setMonth(m => m + 1)
+              }
+            }}
+            className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+          >
+            <ChevronRight className="w-4 h-4 text-text-secondary" />
+          </button>
+        </div>
+
+        {/* View all toggle */}
+        <button
+          onClick={() => setViewAll(v => !v)}
+          className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+            viewAll ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-text-secondary border-border hover:bg-gray-50'
+          }`}
+        >
+          연간 전체
+        </button>
+
+        <div className="flex-1" />
+
+        <div className="relative max-w-[240px]">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-placeholder" />
-          <input className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-200" placeholder="고객사 또는 청구번호 검색..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <input className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-200" placeholder="고객사 검색..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
         <Select options={statusOptions} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-28" />
-        <Select options={yearOptions} value={String(year)} onChange={(e) => setYear(Number(e.target.value))} className="w-28" />
       </div>
 
       {loading ? <Loading /> : filtered.length === 0 ? (
@@ -424,22 +473,20 @@ export default function InvoicesPage() {
           <table className="data-table" style={{ minWidth: '900px' }}>
             <thead>
               <tr>
-                <th style={{ width: '12%' }}>청구번호</th>
-                <th style={{ width: '16%' }}>고객사</th>
+                <th style={{ width: '22%' }}>고객사</th>
                 <th style={{ width: '9%' }} className="text-center">청구월</th>
-                <th style={{ width: '12%' }} className="text-right">공급가</th>
-                <th style={{ width: '10%' }} className="text-right">VAT</th>
-                <th style={{ width: '12%' }} className="text-right">합계</th>
+                <th style={{ width: '13%' }} className="text-right">공급가</th>
+                <th style={{ width: '11%' }} className="text-right">VAT</th>
+                <th style={{ width: '13%' }} className="text-right">합계</th>
                 <th style={{ width: '9%' }} className="text-center">상태</th>
                 <th style={{ width: '9%' }} className="text-center">납기일</th>
-                <th style={{ width: '11%' }} className="text-center">관리</th>
+                <th style={{ width: '14%' }} className="text-center">관리</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((inv) => (
                 <tr key={inv.id}>
-                  <td className="font-medium text-primary-500 cursor-pointer col-truncate" onClick={() => openEditInvoice(inv)}>{inv.invoice_number}</td>
-                  <td className="col-truncate">{inv.customer_name}</td>
+                  <td className="font-medium text-primary-500 cursor-pointer col-truncate" onClick={() => openEditInvoice(inv)}>{inv.customer_name}</td>
                   <td className="text-center text-text-secondary">{inv.year}.{String(inv.month).padStart(2, '0')}</td>
                   <td className="text-right text-text-secondary">{formatCurrency(inv.subtotal)}</td>
                   <td className="text-right text-text-tertiary">{formatCurrency(inv.vat)}</td>
