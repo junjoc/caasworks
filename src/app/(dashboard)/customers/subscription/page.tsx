@@ -64,6 +64,7 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [riskFilter, setRiskFilter] = useState('전체')
+  const [billingFilter, setBillingFilter] = useState('전체')
   const [editModal, setEditModal] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<SubscriptionCustomer | null>(null)
   const [saving, setSaving] = useState(false)
@@ -198,6 +199,7 @@ export default function SubscriptionPage() {
   const filtered = useMemo(() => {
     let result = customers
     if (riskFilter !== '전체') result = result.filter(c => c.churn_risk === riskFilter)
+    if (billingFilter !== '전체') result = result.filter(c => c.billing_type === billingFilter)
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       result = result.filter(c =>
@@ -207,7 +209,12 @@ export default function SubscriptionPage() {
       )
     }
     return result
-  }, [customers, riskFilter, searchQuery])
+  }, [customers, riskFilter, billingFilter, searchQuery])
+
+  const billingTypes = useMemo(() => {
+    const types = new Set(customers.map(c => c.billing_type).filter((t): t is string => !!t))
+    return ['전체', ...Array.from(types).sort()]
+  }, [customers])
 
   // Stats
   const totalMRR = customers.reduce((s, c) => s + c.monthly_total, 0)
@@ -246,7 +253,7 @@ export default function SubscriptionPage() {
     if (error) {
       toast.error('저장에 실패했습니다.')
     } else {
-      toast.success('구독 정보가 수정되었습니다.')
+      toast.success('과금 정보가 수정되었습니다.')
       setEditModal(false)
       fetchSubscriptionCustomers()
     }
@@ -263,13 +270,13 @@ export default function SubscriptionPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">구독 고객 관리</h1>
+        <h1 className="page-title">과금 고객 관리</h1>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
         <div className="stat-card">
-          <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-primary-500" /><span className="stat-label">구독 고객수</span></div>
+          <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-primary-500" /><span className="stat-label">과금 고객수</span></div>
           <div className="stat-value">{totalCustomers}개사</div>
         </div>
         <div className="stat-card">
@@ -297,12 +304,18 @@ export default function SubscriptionPage() {
             className="pl-9"
           />
         </div>
+        <Select
+          options={billingTypes.map(t => ({ value: t, label: t === '전체' ? '과금유형 전체' : t }))}
+          value={billingFilter}
+          onChange={(e) => setBillingFilter(e.target.value)}
+          className="w-36"
+        />
         <Select options={riskFilterOptions} value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} className="w-28" />
       </div>
 
       {/* Table */}
       {loading ? <Loading /> : filtered.length === 0 ? (
-        <EmptyState icon={Users} title="구독 고객이 없습니다" description="활성 고객 중 과금 정보가 있는 고객이 여기에 표시됩니다." />
+        <EmptyState icon={Users} title="과금 고객이 없습니다" description="활성 고객 중 과금 정보가 있는 고객이 여기에 표시됩니다." />
       ) : (
         <div className="table-container">
           <table className="data-table" style={{ minWidth: '1000px' }}>

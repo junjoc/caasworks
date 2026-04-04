@@ -82,9 +82,9 @@ const navItems: NavItem[] = [
     label: '고객관리',
     icon: <Users className="w-[16px] h-[16px]" />,
     children: [
-      { label: '고객 목록', href: '/customers' },
-      { label: '구독 고객', href: '/customers/subscription' },
       { label: '매출 현황', href: '/revenue' },
+      { label: '과금 고객', href: '/customers/subscription' },
+      { label: '전체 고객', href: '/customers' },
       { label: '계약 관리', href: '/contracts' },
     ],
   },

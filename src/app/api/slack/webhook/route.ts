@@ -26,10 +26,10 @@ function verifySlackSignature(
     .update(sigBasestring, 'utf8')
     .digest('hex')}`
 
-  return crypto.timingSafeEqual(
-    Buffer.from(mySignature, 'utf8'),
-    Buffer.from(signature, 'utf8'),
-  )
+  const a = Buffer.from(mySignature, 'utf8')
+  const b = Buffer.from(signature, 'utf8')
+  if (a.length !== b.length) return false
+  return crypto.timingSafeEqual(a, b)
 }
 
 // Parse project info from Slack message text
@@ -170,9 +170,15 @@ export async function POST(request: NextRequest) {
     if (body.type === 'event_callback') {
       const event = body.event
 
-      // Only process message events
-      if (event?.type !== 'message' || event.subtype) {
+      // Only process bot messages (문의알림봇 등)
+      // 사용자가 직접 작성한 메시지나 댓글은 무시
+      if (event?.type !== 'message') {
         return NextResponse.json({ ok: true })
+      }
+
+      // bot_message subtype이거나 bot_id가 있는 경우만 처리
+      if (event.subtype !== 'bot_message' && !event.bot_id) {
+        return NextResponse.json({ ok: true, skipped: 'not_bot_message' })
       }
 
       const text = event.text || ''
