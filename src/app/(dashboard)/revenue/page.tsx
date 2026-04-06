@@ -314,13 +314,13 @@ export default function RevenuePage() {
                       )}
                     </td>
 
-                    {/* Select fields: 현장구분, 현장구분2, 서비스, 과금방식 */}
-                    {(['site_category','site_category2','service_type','billing_method'] as Field[]).map(f => {
+                    {/* Select fields: 현장구분, 현장구분2, 서비스 */}
+                    {(['site_category','site_category2','service_type'] as Field[]).map(f => {
                       const val = r[f] as string|null
                       const isEdit = ec?.rid===r.id && ec.f===f
                       const opts = selOpts(f)
                       return (
-                        <td key={f} className={`px-1.5 py-1.5 ${B} text-center ${f==='billing_method'?'text-[10px]':''}`}>
+                        <td key={f} className={`px-1.5 py-1.5 ${B} text-center`}>
                           {isEdit ? (
                             <select className="w-full text-xs border border-primary-400 rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white"
                               value={ev} onChange={e=>{setEv(e.target.value);setTimeout(saveField,0)}} onBlur={saveField} onKeyDown={e=>{if(e.key==='Escape')cancelField()}} autoFocus>
@@ -362,6 +362,20 @@ export default function RevenuePage() {
                     </td>
                     {/* 비고 (readonly) */}
                     <td className={`px-1.5 py-1.5 ${B} text-left text-gray-500 truncate max-w-[140px]`} title={r.customer?.notes||''}>{r.customer?.notes||''}</td>
+                    {/* 과금 방식 */}
+                    <td className={`px-1.5 py-1.5 ${B} text-center text-[10px]`}>
+                      {ec?.rid===r.id && ec.f==='billing_method' ? (
+                        <select className="w-full text-xs border border-primary-400 rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white"
+                          value={ev} onChange={e=>{setEv(e.target.value);setTimeout(saveField,0)}} onBlur={saveField} onKeyDown={e=>{if(e.key==='Escape')cancelField()}} autoFocus>
+                          <option value="">-</option>
+                          {BILL.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      ) : (
+                        <div className="cursor-pointer min-h-[24px] flex items-center justify-center" onClick={()=>clickField(r.id,'billing_method',r.billing_method||'')}>
+                          <span className="text-gray-500">{r.billing_method||'-'}</span>
+                        </div>
+                      )}
+                    </td>
 
                     {/* 월별 매출 */}
                     {MS.map(m => {

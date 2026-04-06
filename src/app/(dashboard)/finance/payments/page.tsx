@@ -116,13 +116,28 @@ export default function PaymentsPage() {
       )}
 
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        {/* Period navigation */}
+        {/* Year tabs */}
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+          {[2025, 2026].map(y => (
+            <button
+              key={y}
+              onClick={() => setYear(y)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                year === y ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {y}년
+            </button>
+          ))}
+        </div>
+
+        {/* Month navigation */}
         <div className="flex items-center gap-1">
           <button onClick={handlePrev} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors">
             <ChevronLeft className="w-4 h-4 text-text-secondary" />
           </button>
-          <span className="text-sm font-semibold text-text-primary min-w-[120px] text-center">
-            {viewAll ? `${year}년 전체` : `${year}년 ${month}월`}
+          <span className="text-sm font-semibold text-text-primary min-w-[80px] text-center">
+            {viewAll ? '전체' : `${month}월`}
           </span>
           <button onClick={handleNext} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors">
             <ChevronRight className="w-4 h-4 text-text-secondary" />
