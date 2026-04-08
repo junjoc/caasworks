@@ -193,8 +193,24 @@ export async function POST(request: NextRequest) {
         .map((a: any) => [a.text, a.pretext, a.fallback].filter(Boolean).join('\n'))
         .join('\n')
 
-      const fullText = [text, attachmentText].filter(Boolean).join('\n')
-      console.log('[slack-webhook] Received message', { subtype: event.subtype, bot_id: event.bot_id, textLength: fullText.length, preview: fullText.substring(0, 100) })
+      // Handle blocks (rich_text, section, etc.)
+      const blocksText = (event.blocks || [])
+        .map((b: any) => {
+          if (b.type === 'rich_text') {
+            return (b.elements || []).map((el: any) =>
+              (el.elements || []).map((e: any) => e.text || '').join('')
+            ).join('\n')
+          }
+          if (b.type === 'section') {
+            return b.text?.text || ''
+          }
+          return ''
+        })
+        .filter(Boolean)
+        .join('\n')
+
+      const fullText = [text, attachmentText, blocksText].filter(Boolean).join('\n')
+      console.log('[slack-webhook] Received event', JSON.stringify({ subtype: event.subtype, bot_id: event.bot_id, text: text.substring(0, 50), attachments: event.attachments?.length || 0, blocks: event.blocks?.length || 0, fullTextLength: fullText.length, fullTextPreview: fullText.substring(0, 300) }))
 
       const supabase = getSupabase()
 
