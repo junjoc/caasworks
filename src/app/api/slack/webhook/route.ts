@@ -156,12 +156,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify Slack signature (if signing secret is configured)
-    const signingSecret = process.env.SLACK_SIGNING_SECRET
+    const signingSecret = process.env.SLACK_SIGNING_SECRET?.trim().replace(/\\n/g, '')
     if (signingSecret) {
       const slackSignature = request.headers.get('x-slack-signature') || ''
       const slackTimestamp = request.headers.get('x-slack-request-timestamp') || ''
 
       if (!verifySlackSignature(signingSecret, slackSignature, slackTimestamp, rawBody)) {
+        console.error('[slack-webhook] Signature verification failed', {
+          secretLength: signingSecret.length,
+          hasSignature: !!slackSignature,
+          timestamp: slackTimestamp,
+        })
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
       }
     }
@@ -189,6 +194,7 @@ export async function POST(request: NextRequest) {
         .join('\n')
 
       const fullText = [text, attachmentText].filter(Boolean).join('\n')
+      console.log('[slack-webhook] Received message', { subtype: event.subtype, bot_id: event.bot_id, textLength: fullText.length, preview: fullText.substring(0, 100) })
 
       const supabase = getSupabase()
 
