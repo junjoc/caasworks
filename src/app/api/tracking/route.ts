@@ -60,12 +60,9 @@ export async function POST(req: NextRequest) {
         })
         if (error) throw error
         // Update session page count
-        await sb.rpc('increment_page_count', { sid: payload.session_id }).catch(() => {
-          // fallback: direct update
-          sb.from('site_sessions')
-            .update({ page_count: payload.page_count || 1, ended_at: new Date().toISOString() })
-            .eq('session_id', payload.session_id)
-        })
+        await sb.from('site_sessions')
+          .update({ page_count: payload.page_count || 1, ended_at: new Date().toISOString() })
+          .eq('session_id', payload.session_id)
         break
       }
 
