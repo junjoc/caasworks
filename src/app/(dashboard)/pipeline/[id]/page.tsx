@@ -648,17 +648,17 @@ export default function LeadDetailPage() {
 
           {/* 문의내용 */}
           {(lead.inquiry_content || lead.notes) && !editing && (
-            <div className="card p-4">
+            <div className="card p-4 overflow-hidden">
               {lead.inquiry_content && (
                 <div className="mb-3">
                   <h3 className="text-xs font-semibold text-text-tertiary uppercase mb-1.5">문의내용</h3>
-                  <p className="text-sm text-text-primary whitespace-pre-wrap">{lead.inquiry_content}</p>
+                  <p className="text-sm text-text-primary whitespace-pre-wrap break-all">{lead.inquiry_content}</p>
                 </div>
               )}
               {lead.notes && (
                 <div className={lead.inquiry_content ? 'pt-3 border-t border-border-light' : ''}>
                   <h3 className="text-xs font-semibold text-text-tertiary uppercase mb-1.5">메모</h3>
-                  <p className="text-sm text-text-primary whitespace-pre-wrap">{lead.notes}</p>
+                  <p className="text-sm text-text-primary whitespace-pre-wrap break-all">{lead.notes}</p>
                 </div>
               )}
             </div>

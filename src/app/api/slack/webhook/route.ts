@@ -66,6 +66,25 @@ function parseProjectMessage(text: string): {
   }
 }
 
+/**
+ * Slack 마크업 정리
+ * <mailto:xxx@xxx.com|xxx@xxx.com> → xxx@xxx.com
+ * <https://url> → https://url
+ * &amp; → &
+ */
+function cleanSlackMarkup(text: string | null): string | null {
+  if (!text) return null
+  return text
+    .replace(/<mailto:([^|>]+)\|[^>]*>/g, '$1')  // <mailto:x|x> → x
+    .replace(/<mailto:([^>]+)>/g, '$1')            // <mailto:x> → x
+    .replace(/<(https?:\/\/[^|>]+)\|[^>]*>/g, '$1') // <url|label> → url
+    .replace(/<(https?:\/\/[^>]+)>/g, '$1')        // <url> → url
+    .replace(/&amp;/g, '&')                         // &amp; → &
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim()
+}
+
 // Parse inquiry notification from "문의알림봇" in #문의-알림 channel
 // Expected pattern:
 // caas 문의 알림
@@ -106,11 +125,11 @@ function parseInquiryMessage(text: string): {
 
   return {
     name,
-    email: getField('이메일') || getField('메일'),
-    phone: getField('전화번호') || getField('연락처') || getField('휴대폰'),
-    company_name: getField('회사명') || getField('회사') || getField('업체명'),
-    referrer: getField('레퍼러 주소') || getField('레퍼러') || getField('유입경로'),
-    extra_content: extraLines.length > 0 ? extraLines.join('\n') : null,
+    email: cleanSlackMarkup(getField('이메일') || getField('메일')),
+    phone: cleanSlackMarkup(getField('전화번호') || getField('연락처') || getField('휴대폰')),
+    company_name: cleanSlackMarkup(getField('회사명') || getField('회사') || getField('업체명')),
+    referrer: cleanSlackMarkup(getField('레퍼러 주소') || getField('레퍼러') || getField('유입경로')),
+    extra_content: extraLines.length > 0 ? extraLines.map(l => cleanSlackMarkup(l) || l).join('\n') : null,
   }
 }
 
