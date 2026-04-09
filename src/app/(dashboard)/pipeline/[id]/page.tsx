@@ -493,7 +493,7 @@ export default function LeadDetailPage() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
 
         {/* ── 좌측: 기본 정보 + 문의 (4칸) ── */}
-        <div className="xl:col-span-4 space-y-4">
+        <div className="xl:col-span-4 space-y-4 min-w-0">
           {/* 단계 + 담당자 (컴팩트) */}
           <div className="card p-4">
             <div className="flex items-center gap-3 mb-3">
