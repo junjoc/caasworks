@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { createClient } from '@/lib/supabase/client'
 import { Loading } from '@/components/ui/loading'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +17,7 @@ export default function PaymentsPage() {
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [viewAll, setViewAll] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const supabase = createClient()
 
   const fetchPayments = useCallback(async () => {
@@ -42,9 +44,17 @@ export default function PaymentsPage() {
 
   useEffect(() => { fetchPayments() }, [fetchPayments])
 
+  const dateFiltered = useMemo(() => {
+    if (!dateRange.from || !dateRange.to) return invoices
+    return invoices.filter(i => {
+      const paidDate = i.paid_at ? i.paid_at.split('T')[0] : `${i.year}-${String(i.month).padStart(2,'0')}-01`
+      return paidDate >= dateRange.from && paidDate <= dateRange.to
+    })
+  }, [invoices, dateRange])
+
   const filtered = searchQuery
-    ? invoices.filter(i => i.customer_name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : invoices
+    ? dateFiltered.filter(i => i.customer_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : dateFiltered
 
   const totalPaid = filtered.reduce((s, i) => s + Number(i.total || 0), 0)
 
@@ -152,6 +162,8 @@ export default function PaymentsPage() {
         >
           연간 전체
         </button>
+
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
 
         <div className="flex-1" />
 

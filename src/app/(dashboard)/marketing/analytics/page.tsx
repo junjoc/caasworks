@@ -20,6 +20,8 @@ import {
   Tooltip, Legend, ResponsiveContainer, ComposedChart, Area,
   Cell, ReferenceLine
 } from 'recharts'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
+import InboundTimeTab from './inbound-time-tab'
 
 /* ─── Types ─── */
 interface AdPerformance {
@@ -68,7 +70,7 @@ interface MonthlyRevenue {
 }
 
 type GroupBy = 'weekly' | 'monthly' | 'quarterly' | 'yearly'
-type ViewTab = 'overview' | 'budget' | 'channel' | 'campaign' | 'yearly'
+type ViewTab = 'overview' | 'budget' | 'channel' | 'campaign' | 'yearly' | 'inbound-time'
 
 /* ─── Constants ─── */
 const CHANNEL_COLORS: Record<string, string> = {
@@ -100,6 +102,7 @@ const TAB_ITEMS: { key: ViewTab; label: string }[] = [
   { key: 'channel', label: '채널 분석' },
   { key: 'campaign', label: '캠페인 비교' },
   { key: 'yearly', label: '연간 종합' },
+  { key: 'inbound-time', label: '인바운드 시간 분석' },
 ]
 
 /* ─── Helpers ─── */
@@ -1435,6 +1438,9 @@ export default function AnalyticsPage() {
       )}
 
       {/* ═══ 연간종합 편집 모달 ═══ */}
+      {/* 인바운드 시간 분석 탭 */}
+      {activeTab === 'inbound-time' && <InboundTimeTab />}
+
       <Modal open={editMonth !== null} onClose={() => setEditMonth(null)}
         title={`${year}년 ${editMonth}월 데이터 편집`} size="lg">
         {editMonth !== null && (

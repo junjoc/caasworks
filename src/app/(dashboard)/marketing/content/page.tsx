@@ -57,11 +57,7 @@ export default function ContentPage() {
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all')
   const [sortField, setSortField] = useState<SortField>('page_views')
   const [sortAsc, setSortAsc] = useState(false)
-  const [dateRange, setDateRange] = useState<DateRange>(() => {
-    const d = new Date()
-    d.setMonth(d.getMonth() - 3)
-    return { from: d.toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] }
-  })
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const supabase = createClient()
 
   const fetchData = useCallback(async () => {
@@ -89,7 +85,7 @@ export default function ContentPage() {
       const res = await fetch('/api/marketing/sync/ga4-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startDate: dateRange.from, endDate: dateRange.to }),
+        body: JSON.stringify({ startDate: dateRange.from || undefined, endDate: dateRange.to || undefined }),
       })
       const result = await res.json()
       if (result.success) {
@@ -123,15 +119,12 @@ export default function ContentPage() {
 
   const filtered = useMemo(() => {
     let items = channelFilter === 'all' ? [...data] : data.filter(d => d.channel === channelFilter)
-    // 날짜 범위로 필터링 (published_at이 있는 콘텐츠만 필터)
-    // GA4 동기화 콘텐츠는 누적 데이터라 날짜 필터 미적용
-    if (dateRange.from || dateRange.to) {
+    // 날짜 범위로 필터링 (published_at → created_at 순서로 fallback)
+    if (dateRange.from && dateRange.to) {
       items = items.filter(d => {
-        if (!d.published_at) return true // 발행일 없는 GA4 콘텐츠는 항상 표시
-        const dateVal = d.published_at.substring(0, 10)
-        if (dateRange.from && dateVal < dateRange.from) return false
-        if (dateRange.to && dateVal > dateRange.to) return false
-        return true
+        const dateVal = (d.published_at || d.created_at || '').substring(0, 10)
+        if (!dateVal) return true
+        return dateVal >= dateRange.from && dateVal <= dateRange.to
       })
     }
     items.sort((a, b) => {

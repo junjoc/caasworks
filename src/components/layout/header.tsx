@@ -82,6 +82,7 @@ export function Header({ user }: HeaderProps) {
   }
 
   const getTitle = () => {
+    if (!pathname) return ''
     if (pageTitles[pathname]) return pageTitles[pathname]
     if (pathname.startsWith('/pipeline/')) return '파이프라인'
     if (pathname.startsWith('/customers/')) return '고객 상세'

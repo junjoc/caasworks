@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -18,12 +18,14 @@ import {
 } from '@/lib/utils'
 import type { VocTicket } from '@/types/database'
 import { Plus, Search, MessageSquare } from 'lucide-react'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 
 export default function VocListPage() {
   const [tickets, setTickets] = useState<VocTicket[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const supabase = createClient()
 
   useEffect(() => {
@@ -46,7 +48,15 @@ export default function VocListPage() {
     setLoading(false)
   }
 
-  const filtered = tickets.filter((t) =>
+  const dateFiltered = useMemo(() => {
+    if (!dateRange.from || !dateRange.to) return tickets
+    return tickets.filter(t => {
+      const createdDate = t.created_at ? t.created_at.split('T')[0] : ''
+      return createdDate >= dateRange.from && createdDate <= dateRange.to
+    })
+  }, [tickets, dateRange])
+
+  const filtered = dateFiltered.filter((t) =>
     t.title.toLowerCase().includes(search.toLowerCase()) ||
     (t.customer?.company_name || '').toLowerCase().includes(search.toLowerCase())
   )
@@ -67,7 +77,7 @@ export default function VocListPage() {
         </Link>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row gap-3 mb-4 items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-placeholder" />
           <Input
@@ -77,6 +87,7 @@ export default function VocListPage() {
             className="pl-10"
           />
         </div>
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
         <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}

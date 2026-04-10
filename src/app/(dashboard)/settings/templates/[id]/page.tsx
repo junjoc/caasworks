@@ -342,7 +342,7 @@ function Toggle({
 export default function TemplateEditorPage() {
   const router = useRouter()
   const params = useParams()
-  const id = params.id as string
+  const id = params?.id as string
   const isNew = id === 'new'
 
   const supabase = createClient()

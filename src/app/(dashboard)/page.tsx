@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency, formatNumber, STAGE_COLORS } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +17,8 @@ import {
   DollarSign,
   ArrowRight,
   ChevronRight,
+  ChevronLeft,
+  Calendar,
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 
@@ -31,6 +33,8 @@ interface DashboardData {
   recentLeads: { id: string; company_name: string; stage: string; created_at: string; quote_amount: number; assigned_name: string | null }[]
   recentConversions: { id: string; company_name: string; converted_at: string; quote_amount: number; deal_amount: number; assigned_name: string | null }[]
   salesByStage: { stage: string; count: number; amount: number }[]
+  rawLeads: { id: string; stage: string; inquiry_date: string }[]
+  quoteByLead: Record<string, { quote: number; accepted: number }>
   pendingItems: {
     unassignedLeads: number
     unpaidOver30: number
@@ -46,8 +50,12 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [salesYear, setSalesYear] = useState(new Date().getFullYear())
-  const [salesMonth, setSalesMonth] = useState<number | null>(null) // null = 전체(누적)
+  const [salesMonth, setSalesMonth] = useState<number | null>(null)
   const [showAllActions, setShowAllActions] = useState(false)
+  // 카드별 월 오프셋 (0=이번달, -1=지난달, ...)
+  const [revOffset, setRevOffset] = useState(0)
+  const [leadOffset, setLeadOffset] = useState(0)
+  const [convOffset, setConvOffset] = useState(0)
   const { user } = useAuth()
   const supabase = createClient()
 
@@ -62,6 +70,7 @@ export default function DashboardPage() {
     const month = now.getMonth() + 1
     const prevMonth = month === 1 ? 12 : month - 1
     const prevYear = month === 1 ? year - 1 : year
+    const today = now.toISOString().split('T')[0]
 
     const withTimeout = <T,>(promise: Promise<T>, ms = 8000): Promise<T> =>
       Promise.race([
@@ -88,12 +97,13 @@ export default function DashboardPage() {
       supabase.from('monthly_revenues').select('amount').eq('year', year).eq('month', month).limit(5000),
       supabase.from('monthly_revenues').select('amount').eq('year', prevYear).eq('month', prevMonth).limit(5000),
       supabase.from('pipeline_leads').select('id', { count: 'exact' })
-        .gte('created_at', `${year}-${String(month).padStart(2, '0')}-01`),
+        .eq('inquiry_date', today),
       supabase.from('pipeline_leads').select('id', { count: 'exact' })
-        .in('stage', ['도입직전', '도입완료'])
-        .gte('converted_at', `${year}-${String(month).padStart(2, '0')}-01`),
+        .eq('stage', '도입완료')
+        .gte('inquiry_date', `${year}-${String(month).padStart(2, '0')}-01`)
+        .lt('inquiry_date', `${month === 12 ? year + 1 : year}-${String(month === 12 ? 1 : month + 1).padStart(2, '0')}-01`),
       supabase.from('invoices').select('total').in('status', ['sent', 'overdue']),
-      supabase.from('pipeline_leads').select('stage'),
+      supabase.from('pipeline_leads').select('id, stage, inquiry_date'),
       supabase.from('pipeline_leads')
         .select('id, company_name, stage, created_at, assigned_user:users!pipeline_leads_assigned_to_fkey(name)')
         .order('created_at', { ascending: false })
@@ -186,7 +196,9 @@ export default function DashboardPage() {
     ;(prevYearRevenueAll).forEach((r: any) => {
       prevYearByMonth[r.month] = (prevYearByMonth[r.month] || 0) + Number(r.amount)
     })
-    const monthlyTrend = Array.from({ length: 12 }, (_, i) => ({
+    // 올해는 현재 월까지만, 전년도는 12개월 전체 표시
+    const trendMonths = year === new Date().getFullYear() ? month : 12
+    const monthlyTrend = Array.from({ length: trendMonths }, (_, i) => ({
       month: `${i + 1}월`,
       revenue: yearByMonth[i + 1] || 0,
       prevRevenue: prevYearByMonth[i + 1] || 0,
@@ -204,6 +216,8 @@ export default function DashboardPage() {
       unpaidAmount: unpaidInvoiceData.reduce((sum, inv) => sum + Number(inv.total), 0),
       pipelineByStage,
       salesByStage,
+      rawLeads: (pipelineRes.data || []).map((l: any) => ({ id: l.id, stage: l.stage, inquiry_date: l.inquiry_date })),
+      quoteByLead,
       recentLeads: (recentRes.data || []).map((l: any) => ({
         ...l,
         quote_amount: quoteByLead[l.id]?.quote || 0,
@@ -238,13 +252,95 @@ export default function DashboardPage() {
       console.error('Dashboard fetch error:', err)
       setData({
         monthlyRevenue: 0, prevMonthRevenue: 0, newLeadsCount: 0, convertedCount: 0,
-        unpaidInvoices: 0, unpaidAmount: 0, pipelineByStage: [], salesByStage: [], recentLeads: [], recentConversions: [],
+        unpaidInvoices: 0, unpaidAmount: 0, pipelineByStage: [], salesByStage: [], rawLeads: [], quoteByLead: {},
+        recentLeads: [], recentConversions: [],
         pendingItems: { unassignedLeads: 0, unpaidOver30: 0, openVocTickets: 0, expiringBilling: 0 },
         monthlyTrend: [], newCompanyRevenue: 0, actionDueLeads: [],
       })
       setLoading(false)
     }
   }
+
+  // 세일즈 현황: 연도/월 필터링 (hooks must be before early returns)
+  const filteredSalesByStage = useMemo(() => {
+    if (!data) return []
+    const filtered = data.rawLeads.filter(l => {
+      if (!l.inquiry_date) return false
+      const y = parseInt(l.inquiry_date.substring(0, 4))
+      const m = parseInt(l.inquiry_date.substring(5, 7))
+      if (y !== salesYear) return false
+      if (salesMonth !== null && m !== salesMonth) return false
+      return true
+    })
+    const stageMap: Record<string, { count: number; amount: number }> = {}
+    filtered.forEach(l => {
+      if (!stageMap[l.stage]) stageMap[l.stage] = { count: 0, amount: 0 }
+      stageMap[l.stage].count++
+      stageMap[l.stage].amount += data.quoteByLead[l.id]?.quote || 0
+    })
+    return ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료'].map(stage => ({
+      stage,
+      count: stageMap[stage]?.count || 0,
+      amount: stageMap[stage]?.amount || 0,
+    }))
+  }, [data, salesYear, salesMonth])
+
+  const filteredSalesTotal = filteredSalesByStage.reduce((s, i) => s + i.count, 0)
+
+  // 카드별 오프셋 월 계산 helper
+  function offsetMonth(offset: number) {
+    const now = new Date()
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
+    return { year: d.getFullYear(), month: d.getMonth() + 1 }
+  }
+  function offsetLabel(offset: number) {
+    if (offset === 0) return '이번 달'
+    const { month } = offsetMonth(offset)
+    return `${month}월`
+  }
+
+  // 매출 카드: 오프셋 월의 매출
+  const revCard = useMemo(() => {
+    if (!data) return { value: 0, label: '이번 달 매출', prev: 0 }
+    const { month } = offsetMonth(revOffset)
+    const cur = data.monthlyTrend.find(t => t.month === `${month}월`)
+    const prevM = data.monthlyTrend.find(t => {
+      const pm = month === 1 ? 12 : month - 1
+      return t.month === `${pm}월`
+    })
+    return {
+      value: revOffset === 0 ? data.monthlyRevenue : (cur?.revenue || 0),
+      label: `${offsetLabel(revOffset)} 매출`,
+      prev: revOffset === 0 ? data.prevMonthRevenue : (prevM?.revenue || 0),
+    }
+  }, [data, revOffset])
+
+  // 신규리드 카드: 오프셋에 따라 오늘(0) 또는 해당 월
+  const leadCard = useMemo(() => {
+    if (!data) return { value: 0, label: '오늘 신규 리드' }
+    if (leadOffset === 0) {
+      return { value: data.newLeadsCount, label: '오늘 신규 리드' }
+    }
+    const { year, month } = offsetMonth(leadOffset)
+    const prefix = `${year}-${String(month).padStart(2, '0')}`
+    const count = data.rawLeads.filter(l => l.inquiry_date && l.inquiry_date.startsWith(prefix)).length
+    return { value: count, label: `${month}월 신규 리드` }
+  }, [data, leadOffset])
+
+  // 도입전환 카드: 오프셋에 따라 해당 월
+  const convCard = useMemo(() => {
+    if (!data) return { value: 0, label: '이번 달 전환' }
+    if (convOffset === 0) {
+      return { value: data.convertedCount, label: '이번 달 전환' }
+    }
+    const { year, month } = offsetMonth(convOffset)
+    const prefix = `${year}-${String(month).padStart(2, '0')}`
+    const count = data.rawLeads.filter(l =>
+      l.stage === '도입완료' &&
+      l.inquiry_date && l.inquiry_date.startsWith(prefix)
+    ).length
+    return { value: count, label: `${month}월 전환` }
+  }, [data, convOffset])
 
   if (loading) return <Loading />
   if (!data) return <Loading />
@@ -254,8 +350,8 @@ export default function DashboardPage() {
     '도입직전': '직전', '도입완료': '도입', '이탈': '이탈',
   }
 
-  const revenueChange = data.prevMonthRevenue > 0
-    ? ((data.monthlyRevenue - data.prevMonthRevenue) / data.prevMonthRevenue) * 100
+  const revenueChange = revCard.prev > 0
+    ? ((revCard.value - revCard.prev) / revCard.prev * 100)
     : 0
 
   const pipelineTotal = data.pipelineByStage.reduce((sum, i) => sum + i.count, 0)
@@ -273,75 +369,107 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {[
-          {
-            icon: <DollarSign className="w-4 h-4" />,
-            iconColor: 'text-primary-600 bg-primary-50',
-            label: '이번 달 매출',
-            value: formatCurrency(data.monthlyRevenue),
-            change: revenueChange,
-            sub: null,
-          },
-          {
-            icon: <GitBranch className="w-4 h-4" />,
-            iconColor: 'text-status-blue bg-status-blue-bg',
-            label: '신규 리드',
-            value: `${formatNumber(data.newLeadsCount)}건`,
-            change: null,
-            sub: null,
-          },
-          {
-            icon: <Users className="w-4 h-4" />,
-            iconColor: 'text-status-green bg-status-green-bg',
-            label: '도입 전환',
-            value: `${formatNumber(data.convertedCount)}건`,
-            change: null,
-            sub: null,
-          },
-          {
-            icon: <FileText className="w-4 h-4" />,
-            iconColor: 'text-status-yellow bg-status-yellow-bg',
-            label: '미납 청구서',
-            value: `${formatNumber(data.unpaidInvoices)}건`,
-            change: null,
-            sub: formatCurrency(data.unpaidAmount),
-          },
-          {
-            icon: <AlertCircle className="w-4 h-4" />,
-            iconColor: 'text-status-red bg-status-red-bg',
-            label: '미처리 VoC',
-            value: `${formatNumber(data.pendingItems.openVocTickets)}건`,
-            change: null,
-            sub: null,
-          },
-        ].map((kpi, idx) => (
-          <div key={idx} className="stat-card">
+        {/* 매출 카드 */}
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${kpi.iconColor}`}>
-                {kpi.icon}
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-primary-600 bg-primary-50">
+                <DollarSign className="w-4 h-4" />
               </div>
-              <span className="stat-label">{kpi.label}</span>
+              <span className="stat-label">{revCard.label}</span>
             </div>
-            <div className="stat-value">{kpi.value}</div>
-            {kpi.change !== null && kpi.change !== 0 && (
-              <div className={kpi.change > 0 ? 'stat-change-up' : 'stat-change-down'}>
-                {kpi.change > 0 ? (
-                  <><TrendingUp className="w-3 h-3" /> +{kpi.change.toFixed(1)}%</>
-                ) : (
-                  <><TrendingDown className="w-3 h-3" /> {kpi.change.toFixed(1)}%</>
-                )}
-              </div>
-            )}
-            {kpi.sub && <p className="text-xs text-text-tertiary">{kpi.sub}</p>}
+            <div className="flex items-center gap-0.5">
+              <button onClick={() => setRevOffset(o => o - 1)} className="p-0.5 rounded hover:bg-surface-secondary text-text-tertiary hover:text-text-primary transition-colors">
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setRevOffset(o => o + 1)} className="p-0.5 rounded hover:bg-surface-secondary text-text-tertiary hover:text-text-primary transition-colors" disabled={revOffset >= 0}>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-        ))}
+          <div className="stat-value">{formatCurrency(revCard.value)}</div>
+          {revenueChange !== 0 && (
+            <div className={revenueChange > 0 ? 'stat-change-up' : 'stat-change-down'}>
+              {revenueChange > 0 ? (
+                <><TrendingUp className="w-3 h-3" /> +{revenueChange.toFixed(1)}%</>
+              ) : (
+                <><TrendingDown className="w-3 h-3" /> {revenueChange.toFixed(1)}%</>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 신규 리드 카드 */}
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-status-blue bg-status-blue-bg">
+                <GitBranch className="w-4 h-4" />
+              </div>
+              <span className="stat-label">{leadCard.label}</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <button onClick={() => setLeadOffset(o => o - 1)} className="p-0.5 rounded hover:bg-surface-secondary text-text-tertiary hover:text-text-primary transition-colors">
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setLeadOffset(o => o + 1)} className="p-0.5 rounded hover:bg-surface-secondary text-text-tertiary hover:text-text-primary transition-colors" disabled={leadOffset >= 0}>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="stat-value">{formatNumber(leadCard.value)}건</div>
+        </div>
+
+        {/* 도입 전환 카드 */}
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-status-green bg-status-green-bg">
+                <Users className="w-4 h-4" />
+              </div>
+              <span className="stat-label">{convCard.label}</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <button onClick={() => setConvOffset(o => o - 1)} className="p-0.5 rounded hover:bg-surface-secondary text-text-tertiary hover:text-text-primary transition-colors">
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setConvOffset(o => o + 1)} className="p-0.5 rounded hover:bg-surface-secondary text-text-tertiary hover:text-text-primary transition-colors" disabled={convOffset >= 0}>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="stat-value">{formatNumber(convCard.value)}건</div>
+        </div>
+
+        {/* 미납 청구서 카드 */}
+        <div className="stat-card">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-status-yellow bg-status-yellow-bg">
+              <FileText className="w-4 h-4" />
+            </div>
+            <span className="stat-label">미납 청구서</span>
+          </div>
+          <div className="stat-value">{formatNumber(data.unpaidInvoices)}건</div>
+          <p className="text-xs text-text-tertiary">{formatCurrency(data.unpaidAmount)}</p>
+        </div>
+
+        {/* 미처리 VoC 카드 */}
+        <div className="stat-card">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-status-red bg-status-red-bg">
+              <AlertCircle className="w-4 h-4" />
+            </div>
+            <span className="stat-label">미처리 VoC</span>
+          </div>
+          <div className="stat-value">{formatNumber(data.pendingItems.openVocTickets)}건</div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Sales Status */}
         <div className="card lg:col-span-1">
           <div className="card-header">
-            <span className="card-header-title">세일즈 현황</span>
+            <span className="card-header-title">인바운드 현황</span>
             <Link href="/pipeline/board" className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-0.5">
               보기 <ChevronRight className="w-3 h-3" />
             </Link>
@@ -366,8 +494,8 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2.5">
-              {data.salesByStage.map((item) => {
-                const pct = pipelineTotal > 0 ? (item.count / pipelineTotal) * 100 : 0
+              {filteredSalesByStage.map((item) => {
+                const pct = filteredSalesTotal > 0 ? (item.count / filteredSalesTotal) * 100 : 0
                 return (
                   <div key={item.stage}>
                     <div className="flex items-center justify-between mb-1">
@@ -390,7 +518,7 @@ export default function DashboardPage() {
             <div className="mt-3 pt-3 border-t border-border-light flex justify-between text-xs">
               <span className="text-text-secondary font-medium">합계</span>
               <span className="font-bold text-text-primary">
-                {data.salesByStage.reduce((s, i) => s + i.count, 0)}건 / {formatCurrency(data.salesByStage.reduce((s, i) => s + i.amount, 0))}
+                {filteredSalesByStage.reduce((s, i) => s + i.count, 0)}건 / {formatCurrency(filteredSalesByStage.reduce((s, i) => s + i.amount, 0))}
               </span>
             </div>
 

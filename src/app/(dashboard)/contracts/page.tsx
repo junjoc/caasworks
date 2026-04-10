@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -99,6 +100,7 @@ export default function ContractsPage() {
   const [quotations, setQuotations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [tableExists, setTableExists] = useState(true)
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const [statusFilter, setStatusFilter] = useState('전체')
   const [searchQuery, setSearchQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -188,8 +190,16 @@ export default function ContractsPage() {
         c.contract_number.toLowerCase().includes(q)
       )
     }
+    // DateRange filter by start_date
+    if (dateRange.from && dateRange.to) {
+      result = result.filter(c => {
+        const d = c.start_date
+        if (!d) return false
+        return d >= dateRange.from && d <= dateRange.to
+      })
+    }
     return result
-  }, [contracts, statusFilter, searchQuery])
+  }, [contracts, statusFilter, searchQuery, dateRange])
 
   // Stats
   const totalContracts = contracts.length
@@ -517,6 +527,7 @@ export default function ContractsPage() {
           <input className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-200" placeholder="계약명, 고객사, 계약번호 검색..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
         <Select options={statusFilterOptions} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-28" />
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
       {/* Table */}

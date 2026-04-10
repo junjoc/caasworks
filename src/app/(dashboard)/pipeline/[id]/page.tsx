@@ -60,7 +60,8 @@ interface TimelineItem {
 }
 
 export default function LeadDetailPage() {
-  const { id } = useParams<{ id: string }>()
+  const params = useParams<{ id: string }>()
+  const id = params?.id as string
   const router = useRouter()
   const { user } = useAuth()
   const supabase = createClient()

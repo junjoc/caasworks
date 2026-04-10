@@ -12,6 +12,7 @@ import {
   Sparkles, Copy, Save, FileText, Clock,
   TrendingUp, Calendar, ChevronDown, ChevronUp, RefreshCw
 } from 'lucide-react'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 
 interface DailyReport {
   id: string
@@ -47,6 +48,7 @@ export default function ReportPage() {
   const [saving, setSaving] = useState(false)
   const [tableExists, setTableExists] = useState(true)
   const [reportId, setReportId] = useState<string | null>(null)
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [mainActivities, setMainActivities] = useState('')
   const [salesStatus, setSalesStatus] = useState('')
@@ -61,7 +63,7 @@ export default function ReportPage() {
       loadReport(date)
       loadHistory()
     }
-  }, [user, date])
+  }, [user, date, dateRange])
 
   async function loadReport(reportDate: string) {
     if (!user) return
@@ -93,12 +95,16 @@ export default function ReportPage() {
 
   async function loadHistory() {
     if (!user) return
-    const { data } = await supabase
+    let query = supabase
       .from('daily_reports')
       .select('*')
       .eq('created_by', user.id)
+    if (dateRange.from && dateRange.to) {
+      query = query.gte('report_date', dateRange.from).lte('report_date', dateRange.to)
+    }
+    const { data } = await query
       .order('report_date', { ascending: false })
-      .limit(10)
+      .limit(30)
     if (data) setHistory(data)
   }
 
@@ -294,6 +300,7 @@ ${tomorrowPlan}`
           <p className="text-sm text-text-secondary mt-0.5">{user?.name || '-'}</p>
         </div>
         <div className="flex items-center gap-2">
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="input-base !w-40" />
           <Button size="sm" variant="secondary" onClick={generateReport} loading={generating}

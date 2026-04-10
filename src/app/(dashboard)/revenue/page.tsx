@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { createClient } from '@/lib/supabase/client'
 import { Loading } from '@/components/ui/loading'
 import { Select } from '@/components/ui/select'
@@ -68,6 +69,7 @@ export default function RevenuePage() {
   const sb = useRef(createClient()).current
   const [loading, setLoading] = useState(true)
   const [year, setYear] = useState(new Date().getFullYear())
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const [rows, setRows] = useState<Row[]>([])
   const [q, setQ] = useState('')
   const [custs, setCusts] = useState<Cust[]>([])
@@ -108,7 +110,9 @@ export default function RevenuePage() {
       if (data.length < size) break
       from += size
     }
-    setRows(all)
+    // 해당 연도에 매출 데이터가 있는 프로젝트만 표시 (성능 + 연도 필터링)
+    const withRevenue = all.filter(r => r.revenues && r.revenues.length > 0)
+    setRows(withRevenue)
     setLoading(false)
   }, [year, sb])
 
@@ -120,10 +124,24 @@ export default function RevenuePage() {
 
   /* ── Filter ── */
   const filtered = useMemo(() => {
-    if (!q.trim()) return rows
-    const s = q.trim().toLowerCase()
-    return rows.filter(r => r.customer?.company_name?.toLowerCase().includes(s) || r.project_name.toLowerCase().includes(s) || r.service_type?.toLowerCase().includes(s))
-  }, [rows, q])
+    let result = rows
+    if (q.trim()) {
+      const s = q.trim().toLowerCase()
+      result = result.filter(r => r.customer?.company_name?.toLowerCase().includes(s) || r.project_name.toLowerCase().includes(s) || r.service_type?.toLowerCase().includes(s))
+    }
+    // DateRange filter: filter rows that have revenues within the dateRange
+    if (dateRange.from && dateRange.to) {
+      result = result.map(r => {
+        const filteredRevenues = (r.revenues || []).filter(v => {
+          const revDate = `${year}-${String(v.month).padStart(2, '0')}-01`
+          const revEndDate = `${year}-${String(v.month).padStart(2, '0')}-${String(new Date(year, v.month, 0).getDate()).padStart(2, '0')}`
+          return revEndDate >= dateRange.from && revDate <= dateRange.to
+        })
+        return { ...r, revenues: filteredRevenues }
+      }).filter(r => r.revenues.length > 0)
+    }
+    return result
+  }, [rows, q, dateRange, year])
 
   /* ── Totals ── */
   const totals = useMemo(() => {
@@ -219,7 +237,10 @@ export default function RevenuePage() {
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="page-header">
         <h1 className="page-title">CaaS.Works 현장별 매출 현황</h1>
-        <Select value={String(year)} onChange={e => setYear(Number(e.target.value))} options={yOpts} className="w-32" />
+        <div className="flex items-center gap-2">
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
+          <Select value={String(year)} onChange={e => setYear(Number(e.target.value))} options={yOpts} className="w-32" />
+        </div>
       </div>
 
       <div className="mb-4">

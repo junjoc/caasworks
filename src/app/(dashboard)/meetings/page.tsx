@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -9,10 +9,12 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { formatDate } from '@/lib/utils'
 import type { Meeting } from '@/types/database'
 import { Plus, Calendar } from 'lucide-react'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 
 export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([])
   const [loading, setLoading] = useState(true)
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const supabase = createClient()
 
   useEffect(() => {
@@ -26,18 +28,29 @@ export default function MeetingsPage() {
       })
   }, [])
 
+  const filteredMeetings = useMemo(() => {
+    if (!dateRange.from || !dateRange.to) return meetings
+    return meetings.filter(m => {
+      const meetingDate = m.meeting_date ? m.meeting_date.split('T')[0] : ''
+      return meetingDate >= dateRange.from && meetingDate <= dateRange.to
+    })
+  }, [meetings, dateRange])
+
   return (
     <div>
       <div className="page-header">
         <h1 className="page-title">미팅 관리</h1>
-        <Link href="/meetings/new">
-          <Button size="sm"><Plus className="w-4 h-4 mr-1" /> 새 미팅</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
+          <Link href="/meetings/new">
+            <Button size="sm"><Plus className="w-4 h-4 mr-1" /> 새 미팅</Button>
+          </Link>
+        </div>
       </div>
 
       {loading ? (
         <Loading />
-      ) : meetings.length === 0 ? (
+      ) : filteredMeetings.length === 0 ? (
         <EmptyState icon={Calendar} title="미팅 기록이 없습니다" />
       ) : (
         <div className="table-container">
@@ -53,7 +66,7 @@ export default function MeetingsPage() {
               </tr>
             </thead>
             <tbody>
-              {meetings.map((m) => (
+              {filteredMeetings.map((m) => (
                 <tr key={m.id}>
                   <td>{m.meeting_number || '-'}</td>
                   <td className="col-company">

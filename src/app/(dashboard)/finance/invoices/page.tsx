@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +13,7 @@ import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Plus, FileText, Check, Clock, AlertCircle, Search, Pencil, Trash2, X, Download, Info, ChevronLeft, ChevronRight } from 'lucide-react'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { toast } from 'sonner'
 import { InvoicePDFButton } from '@/components/invoices/InvoicePDFButton'
 
@@ -51,6 +52,7 @@ export default function InvoicesPage() {
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [viewAll, setViewAll] = useState(false)
   const [statusFilter, setStatusFilter] = useState('전체')
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const [searchQuery, setSearchQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState<any>(null)
@@ -362,12 +364,21 @@ export default function InvoicesPage() {
     fetchInvoices()
   }
 
+  const dateFiltered = useMemo(() => {
+    if (!dateRange.from || !dateRange.to) return invoices
+    return invoices.filter(inv => {
+      // Build a date string from year/month (use due_date if available, otherwise year-month-01)
+      const invDate = inv.due_date || `${inv.year}-${String(inv.month).padStart(2,'0')}-01`
+      return invDate >= dateRange.from && invDate <= dateRange.to
+    })
+  }, [invoices, dateRange])
+
   const filtered = searchQuery
-    ? invoices.filter(inv =>
+    ? dateFiltered.filter(inv =>
         inv.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inv.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : invoices
+    : dateFiltered
 
   const totalAmount = invoices.reduce((s, i) => s + Number(i.total || 0), 0)
   const paidAmount = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total || 0), 0)
@@ -463,6 +474,8 @@ export default function InvoicesPage() {
         >
           연간 전체
         </button>
+
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
 
         <div className="flex-1" />
 

@@ -125,9 +125,9 @@ export default function QuotationForm({ editId }: QuotationFormProps) {
   const { user } = useAuth()
   const supabase = createClient()
 
-  const copyFromId = searchParams.get('copy_from')
-  const newVersionOfId = searchParams.get('new_version_of')
-  const leadIdParam = searchParams.get('lead_id')
+  const copyFromId = searchParams?.get('copy_from') ?? null
+  const newVersionOfId = searchParams?.get('new_version_of') ?? null
+  const leadIdParam = searchParams?.get('lead_id') ?? null
 
   const isEdit = !!editId
   const isCopy = !!copyFromId

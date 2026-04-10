@@ -64,7 +64,7 @@ export default function QuotationDetailPage() {
   const router = useRouter()
   const { user } = useAuth()
   const supabase = createClient()
-  const quotationId = params.id as string
+  const quotationId = params?.id as string
 
   const [quotation, setQuotation] = useState<Quotation | null>(null)
   const [items, setItems] = useState<QuotationItem[]>([])

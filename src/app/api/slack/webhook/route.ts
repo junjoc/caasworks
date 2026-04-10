@@ -75,8 +75,10 @@ function parseProjectMessage(text: string): {
 function cleanSlackMarkup(text: string | null): string | null {
   if (!text) return null
   return text
-    .replace(/<mailto:([^|>]+)\|[^>]*>/g, '$1')  // <mailto:x|x> → x
-    .replace(/<mailto:([^>]+)>/g, '$1')            // <mailto:x> → x
+    .replace(/<tel:([^|>]+)\|[^>]*>/g, '$1')      // <tel:x|x> → x
+    .replace(/<tel:([^>]+)>/g, '$1')               // <tel:x> → x
+    .replace(/<mailto:([^|>]+)\|[^>]*>/g, '$1')    // <mailto:x|x> → x
+    .replace(/<mailto:([^>]+)>/g, '$1')             // <mailto:x> → x
     .replace(/<(https?:\/\/[^|>]+)\|[^>]*>/g, '$1') // <url|label> → url
     .replace(/<(https?:\/\/[^>]+)>/g, '$1')        // <url> → url
     .replace(/&amp;/g, '&')                         // &amp; → &
@@ -287,6 +289,7 @@ export async function POST(request: NextRequest) {
           ].filter(Boolean).join('\n') || null,
           stage: '신규리드',
           priority: '중간',
+          inquiry_hour: (new Date().getUTCHours() + 9) % 24, // KST
           notes: '[Slack 문의알림] 자동등록',
         })
 

@@ -10,11 +10,16 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 
 export async function POST(request: NextRequest) {
   try {
-    const { startDate, endDate } = await request.json()
+    const body = await request.json()
 
-    if (!startDate || !endDate) {
-      return NextResponse.json({ error: 'startDate, endDate 필수' }, { status: 400 })
-    }
+    // 날짜 미지정 시 최근 90일 기본값
+    const today = new Date()
+    const ago90 = new Date(today)
+    ago90.setDate(ago90.getDate() - 90)
+    const toYMD = (d: Date) => d.toISOString().split('T')[0]
+
+    const startDate = body.startDate || toYMD(ago90)
+    const endDate = body.endDate || toYMD(today)
 
     const serviceAccountKeyBase64 = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
     const propertyId = process.env.GA4_PROPERTY_ID || '455467446'

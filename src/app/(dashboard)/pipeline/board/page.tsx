@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -52,7 +53,7 @@ export default function PipelineBoardPage() {
   const [users, setUsers] = useState<{ id: string; name: string }[]>([])
   const [bulkLoading, setBulkLoading] = useState(false)
   const [assigneeFilter, setAssigneeFilter] = useState('전체')
-  const [dateFilter, setDateFilter] = useState('전체')
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const { user } = useAuth()
   const supabase = createClient()
 
@@ -112,19 +113,12 @@ export default function PipelineBoardPage() {
       if (assigneeFilter === '미배정') filtered = filtered.filter(l => !l.assigned_to)
       else filtered = filtered.filter(l => l.assigned_to === assigneeFilter)
     }
-    // Date filter
-    if (dateFilter !== '전체') {
+    // DateRangePicker 필터
+    if (dateRange.from && dateRange.to) {
       filtered = filtered.filter(l => {
         const ld = l.inquiry_date || l.created_at?.substring(0, 10)
         if (!ld) return false
-        if (dateFilter === '오늘') return ld === new Date().toISOString().substring(0, 10)
-        if (dateFilter === '이번주') {
-          const now = new Date(); const day = now.getDay() || 7
-          const mon = new Date(now); mon.setDate(now.getDate() - day + 1); mon.setHours(0,0,0,0)
-          return ld >= mon.toISOString().substring(0, 10) && ld <= now.toISOString().substring(0, 10)
-        }
-        if (dateFilter === '이번달') return ld.startsWith(new Date().toISOString().substring(0, 7))
-        return true
+        return ld >= dateRange.from && ld <= dateRange.to
       })
     }
     // 정렬: 액션일 기한초과 → 액션일 오늘/미래(날짜 순) → 액션일 없는 카드(생성일 역순)
@@ -374,16 +368,7 @@ export default function PipelineBoardPage() {
             {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             <option value="미배정">미배정</option>
           </select>
-          <select
-            value={dateFilter}
-            onChange={e => setDateFilter(e.target.value)}
-            className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-200 bg-white"
-          >
-            <option value="전체">기간 전체</option>
-            <option value="오늘">오늘</option>
-            <option value="이번주">이번주</option>
-            <option value="이번달">이번달</option>
-          </select>
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
           <button
             onClick={() => {
               if (selectionMode) {

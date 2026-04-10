@@ -25,7 +25,8 @@ import { ArrowLeft, Send, Clock, User as UserIcon } from 'lucide-react'
 const STATUS_OPTIONS = Object.entries(VOC_STATUS_LABELS).map(([v, l]) => ({ value: v, label: l }))
 
 export default function VocDetailPage() {
-  const { id } = useParams<{ id: string }>()
+  const params = useParams<{ id: string }>()
+  const id = params?.id as string
   const { user } = useAuth()
   const supabase = createClient()
 

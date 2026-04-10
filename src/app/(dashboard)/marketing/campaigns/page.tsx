@@ -140,15 +140,7 @@ export default function CampaignsPage() {
   })
   const [savingMonthlyCost, setSavingMonthlyCost] = useState(false)
   // 기간 필터 (기본: 이번 달)
-  const [dateRange, setDateRange] = useState<DateRange>(() => {
-    const now = new Date()
-    const y = now.getFullYear()
-    const m = now.getMonth() + 1
-    return {
-      from: `${y}-${String(m).padStart(2, '0')}-01`,
-      to: `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`,
-    }
-  })
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const supabase = createClient()
 
   useEffect(() => { fetchData() }, [])
@@ -227,14 +219,16 @@ export default function CampaignsPage() {
     }
 
     // 날짜 범위 필터: 선택 기간에 활동하지 않은 캠페인 제외
-    items = items.filter(d => {
-      if (!d.start_date) return true
-      const campStart = d.start_date
-      // 종료/중단 캠페인: end_date 없으면 start_date를 종료일로 간주
-      const campEnd = d.end_date
-        || (d.status === '종료' || d.status === '중단' ? d.start_date : '9999-12-31')
-      return campStart <= dateRange.to && campEnd >= dateRange.from
-    })
+    if (dateRange.from && dateRange.to) {
+      items = items.filter(d => {
+        if (!d.start_date) return true
+        const campStart = d.start_date
+        // 종료/중단 캠페인: end_date 없으면 start_date를 종료일로 간주
+        const campEnd = d.end_date
+          || (d.status === '종료' || d.status === '중단' ? d.start_date : '9999-12-31')
+        return campStart <= dateRange.to && campEnd >= dateRange.from
+      })
+    }
 
     return items
   }, [data, statusFilter, dateRange])

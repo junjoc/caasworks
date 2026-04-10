@@ -64,6 +64,7 @@ const navItems: NavItem[] = [
       { label: '캠페인 관리', href: '/marketing/campaigns' },
       { label: '광고 성과', href: '/marketing/ads' },
       { label: '콘텐츠 성과', href: '/marketing/content' },
+      { label: '방문자 여정', href: '/marketing/journey' },
       { label: '마케팅 분석', href: '/marketing/analytics' },
     ],
   },
@@ -156,7 +157,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
   // Auto-expand active parent on mount
   useEffect(() => {
     const activeParent = navItems.find(
-      item => item.children?.some(c => pathname.startsWith(c.href))
+      item => item.children?.some(c => pathname?.startsWith(c.href))
     )
     if (activeParent && !expandedItems.includes(activeParent.label)) {
       setExpandedItems(prev => [...prev, activeParent.label])

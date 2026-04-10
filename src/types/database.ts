@@ -75,6 +75,7 @@ export interface PipelineLead {
   next_action_date: string | null
   inquiry_date: string | null
   inquiry_channel: string | null
+  inquiry_hour: number | null
   industry: string | null
   contact_position: string | null
   // joined

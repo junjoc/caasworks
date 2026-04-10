@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -59,6 +60,9 @@ export default function QuotationsPage() {
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(0)
+
+  // Date range
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('')
@@ -150,6 +154,16 @@ export default function QuotationsPage() {
     setActiveMenu(null)
   }
 
+  // Client-side date range filter
+  const filteredQuotations = useMemo(() => {
+    if (!dateRange.from || !dateRange.to) return quotations
+    return quotations.filter(q => {
+      const d = q.created_at?.substring(0, 10)
+      if (!d) return false
+      return d >= dateRange.from && d <= dateRange.to
+    })
+  }, [quotations, dateRange])
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
   const statusOptions = [
@@ -176,6 +190,7 @@ export default function QuotationsPage() {
 
       {/* Filters */}
       <div className="mb-4 flex flex-wrap gap-3 items-end">
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
         <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -211,7 +226,7 @@ export default function QuotationsPage() {
       {/* Table */}
       {loading ? (
         <Loading />
-      ) : quotations.length === 0 ? (
+      ) : filteredQuotations.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="견적서가 없습니다"
@@ -244,7 +259,7 @@ export default function QuotationsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {quotations.map((q) => (
+                  {filteredQuotations.map((q) => (
                     <tr
                       key={q.id}
                       className="border-b hover:bg-surface-tertiary cursor-pointer"

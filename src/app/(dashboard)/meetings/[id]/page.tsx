@@ -11,7 +11,8 @@ import type { Meeting } from '@/types/database'
 import { ArrowLeft } from 'lucide-react'
 
 export default function MeetingDetailPage() {
-  const { id } = useParams<{ id: string }>()
+  const params = useParams<{ id: string }>()
+  const id = params?.id as string
   const [meeting, setMeeting] = useState<Meeting | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()

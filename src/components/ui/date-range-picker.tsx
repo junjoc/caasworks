@@ -5,9 +5,11 @@ import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 
 /* ─── Types ─── */
 export interface DateRange {
-  from: string  // YYYY-MM-DD
-  to: string    // YYYY-MM-DD
+  from: string  // YYYY-MM-DD  ('' means "all")
+  to: string    // YYYY-MM-DD  ('' means "all")
 }
+
+export const ALL_DATE_RANGE: DateRange = { from: '', to: '' }
 
 interface DateRangePickerProps {
   value: DateRange
@@ -17,6 +19,7 @@ interface DateRangePickerProps {
 
 /* ─── Presets ─── */
 const PRESETS = [
+  { key: 'all', label: '전체' },
   { key: 'today', label: '오늘' },
   { key: 'yesterday', label: '어제' },
   { key: 'last7', label: '최근 7일' },
@@ -40,6 +43,8 @@ function getPresetRange(key: PresetKey): DateRange | null {
   today.setHours(0, 0, 0, 0)
 
   switch (key) {
+    case 'all':
+      return { from: '', to: '' }
     case 'today':
       return { from: toYMD(today), to: toYMD(today) }
     case 'yesterday': {
@@ -87,8 +92,9 @@ function getPresetRange(key: PresetKey): DateRange | null {
 }
 
 function detectPreset(range: DateRange): PresetKey {
+  if (range.from === '' && range.to === '') return 'all'
   for (const p of PRESETS) {
-    if (p.key === 'custom') continue
+    if (p.key === 'custom' || p.key === 'all') continue
     const pr = getPresetRange(p.key)
     if (pr && pr.from === range.from && pr.to === range.to) return p.key
   }
@@ -96,6 +102,7 @@ function detectPreset(range: DateRange): PresetKey {
 }
 
 function formatDisplayRange(range: DateRange): string {
+  if (range.from === '' && range.to === '') return '전체 기간'
   const from = new Date(range.from)
   const to = new Date(range.to)
   const fmtDate = (d: Date) => `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`
@@ -213,27 +220,55 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
 
   // Calendar navigation: show two consecutive months
   const [viewYear, setViewYear] = useState(() => {
-    const d = new Date(value.to || value.from)
+    const d = (value.to || value.from) ? new Date(value.to || value.from) : new Date()
     return d.getFullYear()
   })
   const [viewMonth, setViewMonth] = useState(() => {
-    const d = new Date(value.to || value.from)
+    const d = (value.to || value.from) ? new Date(value.to || value.from) : new Date()
     // Show the month before the end date as left calendar
     return d.getMonth() === 0 ? 11 : d.getMonth() - 1
   })
 
   const ref = useRef<HTMLDivElement>(null)
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
 
   // Close on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
+        // Also check if click is inside the fixed panel
+        const panel = document.getElementById('drp-panel')
+        if (panel && panel.contains(e.target as Node)) return
         setIsOpen(false)
       }
     }
     if (isOpen) {
       document.addEventListener('mousedown', handleClick)
       return () => document.removeEventListener('mousedown', handleClick)
+    }
+  }, [isOpen])
+
+  // Calculate fixed position for dropdown
+  useEffect(() => {
+    if (isOpen && ref.current) {
+      const rect = ref.current.getBoundingClientRect()
+      const panelWidth = 620
+      const panelHeight = 420
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+
+      // Prefer right-aligned with button
+      let left = rect.right - panelWidth
+      // If it goes off the left edge, push right
+      if (left < 8) left = 8
+      // If it goes off the right edge, push left
+      if (left + panelWidth > vw - 8) left = vw - panelWidth - 8
+
+      let top = rect.bottom + 4
+      // If not enough space below, show above
+      if (top + panelHeight > vh) top = rect.top - panelHeight - 4
+
+      setPanelPos({ top, left })
     }
   }, [isOpen])
 
@@ -244,7 +279,7 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
       setTempTo(value.to)
       setSelectedPreset(detectPreset(value))
       setPickingStart(true)
-      const d = new Date(value.to || value.from)
+      const d = (value.to || value.from) ? new Date(value.to || value.from) : new Date()
       const m = d.getMonth() === 0 ? 11 : d.getMonth() - 1
       setViewMonth(m)
       setViewYear(m === 11 && d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear())
@@ -268,6 +303,11 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
 
   function handlePresetClick(key: PresetKey) {
     setSelectedPreset(key)
+    if (key === 'all') {
+      setTempFrom('')
+      setTempTo('')
+      return
+    }
     if (key === 'custom') {
       setPickingStart(true)
       setTempFrom(null)
@@ -302,7 +342,10 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
   }
 
   function handleApply() {
-    if (tempFrom && tempTo) {
+    if (selectedPreset === 'all' || (tempFrom === '' && tempTo === '')) {
+      onChange({ from: '', to: '' })
+      setIsOpen(false)
+    } else if (tempFrom && tempTo) {
       const from = tempFrom < tempTo ? tempFrom : tempTo
       const to = tempFrom < tempTo ? tempTo : tempFrom
       onChange({ from, to })
@@ -337,8 +380,8 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute top-full right-0 mt-1 z-50 bg-surface rounded-xl border border-border-light shadow-lg
-                        flex overflow-hidden" style={{ minWidth: 620 }}>
+        <div id="drp-panel" className="fixed z-[9999] bg-surface rounded-xl border border-border-light shadow-lg flex overflow-hidden"
+             style={{ minWidth: 620, top: panelPos.top, left: panelPos.left }}>
           {/* Left: Presets */}
           <div className="w-36 border-r border-border-light py-2 bg-surface-tertiary/50 flex-shrink-0">
             {PRESETS.map(p => (
@@ -359,11 +402,11 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
             {/* Display selected range */}
             <div className="flex items-center gap-2 mb-3 text-xs">
               <div className="flex-1 px-3 py-1.5 rounded-md border border-border bg-white text-center font-medium">
-                {tempFrom || '시작일'}
+                {selectedPreset === 'all' ? '전체' : (tempFrom || '시작일')}
               </div>
               <span className="text-text-tertiary">~</span>
               <div className="flex-1 px-3 py-1.5 rounded-md border border-border bg-white text-center font-medium">
-                {tempTo || '종료일'}
+                {selectedPreset === 'all' ? '전체' : (tempTo || '종료일')}
               </div>
             </div>
 
@@ -414,7 +457,7 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
               <button onClick={handleApply}
                 className="px-4 py-1.5 text-xs font-semibold text-white bg-primary-500 rounded-md
                            hover:bg-primary-600 transition-colors disabled:opacity-50"
-                disabled={!tempFrom}>
+                disabled={selectedPreset === 'all' ? false : !tempFrom}>
                 적용
               </button>
             </div>
