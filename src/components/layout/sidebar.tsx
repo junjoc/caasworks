@@ -59,7 +59,6 @@ const navItems: NavItem[] = [
   {
     label: '마케팅',
     icon: <Megaphone className="w-[16px] h-[16px]" />,
-    roles: ['admin'],
     children: [
       { label: '캠페인 관리', href: '/marketing/campaigns' },
       { label: '광고 성과', href: '/marketing/ads' },
@@ -92,7 +91,6 @@ const navItems: NavItem[] = [
   {
     label: '재무관리',
     icon: <Wallet className="w-[16px] h-[16px]" />,
-    roles: ['admin', 'accountant'],
     children: [
       { label: '청구/계산서', href: '/finance/invoices' },
       { label: '미납 현황', href: '/finance/unpaid' },
@@ -116,7 +114,7 @@ const navItems: NavItem[] = [
     icon: <MessageSquare className="w-[16px] h-[16px]" />,
     children: [
       { label: '티켓 목록', href: '/voc' },
-      { label: 'SLA 현황', href: '/voc/sla', roles: ['admin'] },
+      { label: 'SLA 현황', href: '/voc/sla' },
     ],
   },
   {
@@ -133,7 +131,6 @@ const navItems: NavItem[] = [
   {
     label: '설정',
     icon: <Settings className="w-[16px] h-[16px]" />,
-    roles: ['admin'],
     children: [
       { label: '팀원 관리', href: '/settings/users' },
       { label: '제품/서비스', href: '/settings/products' },
