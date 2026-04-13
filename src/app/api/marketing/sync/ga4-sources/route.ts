@@ -257,10 +257,11 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // 기존 오가닉 채널 데이터 삭제 (수동 입력은 위에서 보존)
+    // 기존 동기화 데이터만 삭제 (수동 입력 data_source='manual'은 보존)
     await supabase.from('ad_performance')
       .delete()
       .in('channel', organicChannels)
+      .neq('data_source', 'manual')
       .gte('date', startDate)
       .lte('date', endDate)
 

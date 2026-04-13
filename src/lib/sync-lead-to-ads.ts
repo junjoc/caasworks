@@ -96,7 +96,7 @@ export async function syncLeadToAdPerformance(
       })
       .eq('id', row.id)
   } else {
-    // 해당 날짜/채널에 행이 없으면 새로 생성
+    // 해당 날짜/채널에 행이 없으면 새로 생성 (수동/리드연동이므로 data_source='manual')
     await supabase
       .from('ad_performance')
       .insert({
@@ -113,6 +113,7 @@ export async function syncLeadToAdPerformance(
         inquiries: 1,
         adoptions: 0,
         inquiry_companies: lead.company_name,
+        data_source: 'manual',
       })
   }
 
@@ -220,6 +221,7 @@ export async function recalcAdPerformanceFromLeads(
           adoptions: g.adoptions.length,
           inquiry_companies: g.inquiries.join(', '),
           adoption_companies: g.adoptions.length > 0 ? g.adoptions.join(', ') : null,
+          data_source: 'manual',
         })
     }
   }

@@ -295,9 +295,9 @@ export async function POST(request: NextRequest) {
       return row
     })
 
-    // 기존 네이버 데이터 삭제 후 삽입 (수동 입력값은 위에서 보존됨)
+    // 기존 동기화 데이터만 삭제 (수동 입력 data_source='manual'은 보존)
     await supabase.from('ad_performance').delete()
-      .eq('channel', '네이버').gte('date', startDate).lte('date', endDate)
+      .eq('channel', '네이버').neq('data_source', 'manual').gte('date', startDate).lte('date', endDate)
 
     const { error: insertErr } = await supabase.from('ad_performance').insert(upsertRows)
     if (insertErr) {

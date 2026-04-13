@@ -819,6 +819,7 @@ export default function AdsPage() {
       if (error) toast.error('수정 실패: ' + error.message)
       else { toast.success('수정 완료'); saveOk = true }
     } else {
+      payload.data_source = 'manual'
       const { error } = await supabase.from('ad_performance').insert(payload)
       if (error) toast.error('저장 실패: ' + error.message)
       else { toast.success('저장 완료'); saveOk = true }

@@ -233,11 +233,12 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // 기존 데이터 삭제 후 삽입 (수동 입력값은 위에서 보존됨)
+    // 기존 동기화 데이터만 삭제 (수동 입력 data_source='manual'은 보존)
     await supabase
       .from('ad_performance')
       .delete()
       .eq('channel', '구글')
+      .neq('data_source', 'manual')
       .gte('date', startDate)
       .lte('date', endDate)
 
