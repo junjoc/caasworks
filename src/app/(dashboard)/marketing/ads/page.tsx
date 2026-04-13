@@ -14,10 +14,10 @@ import { formatCurrency, formatNumber } from '@/lib/utils'
 import { toast } from 'sonner'
 import { CompanyTagInput } from '@/components/ui/company-tag-input'
 import {
-  Plus, BarChart3, TrendingUp, MousePointerClick, Target,
+  Plus, BarChart3, TrendingUp, TrendingDown, MousePointerClick, Target,
   DollarSign, Trash2, Pencil, ChevronUp, ChevronDown,
   Users, MessageSquare, Building2, Wallet, Gauge, CalendarDays,
-  RefreshCw, Link2
+  RefreshCw, Link2, Lightbulb, AlertTriangle, CheckCircle2, Info
 } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────
@@ -508,6 +508,158 @@ export default function AdsPage() {
     return groups
   }, [data, tab])
 
+  // ─── Auto Insights ─────────────────────────────────────
+
+  interface Insight {
+    type: 'danger' | 'warning' | 'success' | 'info'
+    icon: React.ReactNode
+    title: string
+    description: string
+  }
+
+  const insights = useMemo<Insight[]>(() => {
+    if (data.length === 0) return []
+    const result: Insight[] = []
+    const items = tab === '전체' ? data : data.filter(d => channelToTab(d.channel) === tab)
+    if (items.length === 0) return []
+
+    // 1. 예산 소진율 vs 기간 경과율 비교
+    if (budgetSummary.totalBudget > 0) {
+      const gap = budgetSummary.burnRate - budgetSummary.timeRate
+      if (gap > 20) {
+        result.push({
+          type: 'danger',
+          icon: <AlertTriangle className="w-4 h-4" />,
+          title: '예산 초과 소진 경고',
+          description: `소진율 ${budgetSummary.burnRate.toFixed(0)}%이지만 기간 경과는 ${budgetSummary.timeRate.toFixed(0)}%입니다. 현재 속도면 예산이 조기 소진됩니다.`,
+        })
+      } else if (gap < -30 && budgetSummary.timeRate > 50) {
+        result.push({
+          type: 'info',
+          icon: <Info className="w-4 h-4" />,
+          title: '예산 집행 부족',
+          description: `기간 ${budgetSummary.timeRate.toFixed(0)}% 경과했으나 소진율은 ${budgetSummary.burnRate.toFixed(0)}%입니다. 남은 예산 활용 전략이 필요합니다.`,
+        })
+      }
+    }
+
+    // 2. 채널별 CPC 비교 — 가장 비싼 vs 가장 저렴한
+    const channelCpcs = Object.entries(channelSubtotals)
+      .filter(([_, t]) => t.clicks > 10 && t.cost > 0)
+      .map(([ch, t]) => ({ channel: ch, cpc: Math.round(t.cost / t.clicks), clicks: t.clicks, cost: t.cost }))
+      .sort((a, b) => a.cpc - b.cpc)
+
+    if (channelCpcs.length >= 2) {
+      const cheapest = channelCpcs[0]
+      const expensive = channelCpcs[channelCpcs.length - 1]
+      if (expensive.cpc > cheapest.cpc * 2.5) {
+        result.push({
+          type: 'warning',
+          icon: <TrendingUp className="w-4 h-4" />,
+          title: `${expensive.channel} CPC가 ${cheapest.channel}의 ${(expensive.cpc / cheapest.cpc).toFixed(1)}배`,
+          description: `${expensive.channel} CPC ${formatCurrency(expensive.cpc)} vs ${cheapest.channel} ${formatCurrency(cheapest.cpc)}. 예산 재배분을 검토하세요.`,
+        })
+      }
+    }
+
+    // 3. CTR 낮은 채널 경고
+    Object.entries(channelSubtotals).forEach(([ch, t]) => {
+      if (t.impressions > 500 && t.clicks > 0) {
+        const ctr = t.clicks / t.impressions * 100
+        if (ctr < 0.5 && !isOrganicChannel(ch)) {
+          result.push({
+            type: 'warning',
+            icon: <MousePointerClick className="w-4 h-4" />,
+            title: `${ch} CTR ${ctr.toFixed(2)}% — 소재 점검 필요`,
+            description: `노출 ${formatNumber(t.impressions)}회 대비 클릭이 매우 낮습니다. 광고 소재/키워드 변경을 검토하세요.`,
+          })
+        }
+      }
+    })
+
+    // 4. 전환(가입+문의+도입) 없는 채널 중 비용 높은 것
+    Object.entries(channelSubtotals).forEach(([ch, t]) => {
+      const conversions = t.signups + t.inquiries + t.adoptions
+      if (t.cost > 500000 && conversions === 0) {
+        result.push({
+          type: 'danger',
+          icon: <AlertTriangle className="w-4 h-4" />,
+          title: `${ch} ${formatCurrency(t.cost)} 집행, 전환 0건`,
+          description: `비용 대비 전환이 없습니다. 캠페인 목표/타겟 재검토가 필요합니다.`,
+        })
+      }
+    })
+
+    // 5. 가장 효율적인 채널 (CPA 최저)
+    const channelCpas = Object.entries(channelSubtotals)
+      .filter(([_, t]) => (t.signups + t.inquiries + t.adoptions) > 0 && t.cost > 0)
+      .map(([ch, t]) => ({
+        channel: ch,
+        cpa: Math.round(t.cost / (t.signups + t.inquiries + t.adoptions)),
+        conversions: t.signups + t.inquiries + t.adoptions,
+      }))
+      .sort((a, b) => a.cpa - b.cpa)
+
+    if (channelCpas.length > 0) {
+      const best = channelCpas[0]
+      result.push({
+        type: 'success',
+        icon: <CheckCircle2 className="w-4 h-4" />,
+        title: `${best.channel} CPA ${formatCurrency(best.cpa)} — 가장 효율적`,
+        description: `${best.conversions}건 전환, 결과당 비용이 가장 낮습니다. 이 채널에 예산 확대를 고려하세요.`,
+      })
+    }
+
+    // 6. GA유입 대비 문의클릭 전환율
+    if (kpi.totalGaVisits > 50) {
+      const gaToInquiry = kpi.totalInquiryClicks / kpi.totalGaVisits * 100
+      if (gaToInquiry < 1) {
+        result.push({
+          type: 'info',
+          icon: <TrendingDown className="w-4 h-4" />,
+          title: `사이트 유입 → 문의 전환율 ${gaToInquiry.toFixed(1)}%`,
+          description: `GA유입 ${formatNumber(kpi.totalGaVisits)}건 중 문의클릭 ${formatNumber(kpi.totalInquiryClicks)}건. 랜딩페이지/CTA 개선으로 전환율을 높일 수 있습니다.`,
+        })
+      } else if (gaToInquiry > 5) {
+        result.push({
+          type: 'success',
+          icon: <CheckCircle2 className="w-4 h-4" />,
+          title: `사이트 문의 전환율 ${gaToInquiry.toFixed(1)}% — 우수`,
+          description: `GA유입 대비 문의클릭 비율이 높습니다. 현재 랜딩페이지/CTA가 효과적입니다.`,
+        })
+      }
+    }
+
+    // 7. 오가닉 vs 유료 비중
+    const organicVisits = Object.entries(channelSubtotals)
+      .filter(([ch]) => isOrganicChannel(ch))
+      .reduce((s, [_, t]) => s + t.ga_visits, 0)
+    const paidVisits = Object.entries(channelSubtotals)
+      .filter(([ch]) => !isOrganicChannel(ch))
+      .reduce((s, [_, t]) => s + t.ga_visits, 0)
+    const totalVisits = organicVisits + paidVisits
+    if (totalVisits > 50 && organicVisits > 0) {
+      const organicPct = organicVisits / totalVisits * 100
+      if (organicPct > 60) {
+        result.push({
+          type: 'success',
+          icon: <CheckCircle2 className="w-4 h-4" />,
+          title: `오가닉 유입 ${organicPct.toFixed(0)}% — 건강한 비중`,
+          description: `유료 광고 의존도가 낮고 자연 유입이 높습니다. 콘텐츠 전략이 효과적입니다.`,
+        })
+      } else if (organicPct < 20 && paidVisits > 100) {
+        result.push({
+          type: 'info',
+          icon: <Info className="w-4 h-4" />,
+          title: `유료 광고 의존도 ${(100 - organicPct).toFixed(0)}%`,
+          description: `오가닉 유입이 ${organicPct.toFixed(0)}%로 낮습니다. SEO/콘텐츠 마케팅으로 자연 유입을 늘리면 장기적으로 비용 절감됩니다.`,
+        })
+      }
+    }
+
+    return result
+  }, [data, tab, kpi, channelSubtotals, budgetSummary])
+
   // ─── Actions ────────────────────────────────────────────
 
   function openAdd() {
@@ -971,6 +1123,56 @@ export default function AdsPage() {
               </tr>
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Auto Insights */}
+      {!loading && insights.length > 0 && (
+        <div className="card mt-6">
+          <div className="card-header">
+            <span className="card-header-title flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-amber-500" />
+              자동 인사이트
+            </span>
+            <span className="text-[10px] text-text-tertiary">{insights.length}건</span>
+          </div>
+          <div className="card-body space-y-2">
+            {insights.map((insight, i) => {
+              const styles = {
+                danger: 'bg-red-50 border-red-200',
+                warning: 'bg-yellow-50 border-yellow-200',
+                success: 'bg-green-50 border-green-200',
+                info: 'bg-blue-50 border-blue-200',
+              }
+              const iconColors = {
+                danger: 'text-red-500',
+                warning: 'text-yellow-600',
+                success: 'text-green-500',
+                info: 'text-blue-500',
+              }
+              const titleColors = {
+                danger: 'text-red-700',
+                warning: 'text-yellow-700',
+                success: 'text-green-700',
+                info: 'text-blue-700',
+              }
+              const descColors = {
+                danger: 'text-red-600',
+                warning: 'text-yellow-600',
+                success: 'text-green-600',
+                info: 'text-blue-600',
+              }
+              return (
+                <div key={i} className={`flex items-start gap-2.5 p-3 rounded-lg border ${styles[insight.type]}`}>
+                  <span className={`mt-0.5 flex-shrink-0 ${iconColors[insight.type]}`}>{insight.icon}</span>
+                  <div className="min-w-0">
+                    <p className={`text-xs font-bold ${titleColors[insight.type]}`}>{insight.title}</p>
+                    <p className={`text-[11px] mt-0.5 ${descColors[insight.type]}`}>{insight.description}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
