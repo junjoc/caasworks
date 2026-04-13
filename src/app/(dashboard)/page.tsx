@@ -70,7 +70,8 @@ export default function DashboardPage() {
     const month = now.getMonth() + 1
     const prevMonth = month === 1 ? 12 : month - 1
     const prevYear = month === 1 ? year - 1 : year
-    const today = now.toISOString().split('T')[0]
+    // 로컬 시간 기준 오늘 날짜 (toISOString은 UTC 반환하므로 사용 안 함)
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
     const withTimeout = <T,>(promise: Promise<T>, ms = 8000): Promise<T> =>
       Promise.race([
@@ -127,7 +128,7 @@ export default function DashboardPage() {
       supabase.from('pipeline_leads')
         .select('id, company_name, next_action, next_action_date, stage, assigned_to, assigned_user:users!pipeline_leads_assigned_to_fkey(name)')
         .not('next_action_date', 'is', null)
-        .lte('next_action_date', new Date().toISOString().split('T')[0])
+        .lte('next_action_date', today)
         .not('stage', 'in', '("도입완료","이탈")')
         .order('next_action_date', { ascending: true })
         .limit(30),
@@ -636,7 +637,9 @@ export default function DashboardPage() {
           <div className="divide-y divide-border-light">
             {displayLeads.map((lead) => {
               const isOverdue = new Date(lead.next_action_date) < new Date(new Date().toDateString())
-              const isToday = lead.next_action_date === new Date().toISOString().split('T')[0]
+              const nowLocal = new Date()
+              const todayLocal = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`
+              const isToday = lead.next_action_date === todayLocal
               return (
                 <Link key={lead.id} href={`/pipeline/${lead.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50/30 transition-colors">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${isOverdue ? 'bg-status-red' : 'bg-status-yellow'}`} />

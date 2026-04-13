@@ -241,7 +241,10 @@ export async function POST(request: NextRequest) {
         const { channel: inquiryChannel, source: inquirySource } = inferInquirySource(inquiry.referrer)
 
         // 중복 체크 (같은 이메일 또는 전화번호 + 같은 날짜)
-        const today = new Date().toISOString().substring(0, 10)
+        // KST(한국시간) 기준으로 오늘 날짜 계산 (Vercel 서버는 UTC)
+        const now = new Date()
+        const kstOffset = 9 * 60 * 60 * 1000
+        const today = new Date(now.getTime() + kstOffset).toISOString().substring(0, 10)
         let isDuplicate = false
 
         if (inquiry.email) {
