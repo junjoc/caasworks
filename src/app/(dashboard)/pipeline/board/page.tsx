@@ -57,6 +57,15 @@ export default function PipelineBoardPage() {
   const { user } = useAuth()
   const supabase = createClient()
 
+  const callApi = async (body: Record<string, unknown>) => {
+    const res = await fetch('/api/pipeline/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return res.json()
+  }
+
   useEffect(() => {
     fetchLeads()
     fetchUsers()
@@ -190,33 +199,26 @@ export default function PipelineBoardPage() {
       prev.map(l => ids.includes(l.id) ? { ...l, stage: newStage as PipelineLead['stage'] } : l)
     )
 
-    // Record history for each lead
-    if (user) {
-      const historyRecords = selectedLeads
-        .filter(l => l.stage !== newStage)
-        .map(l => ({
-          lead_id: l.id,
-          field_changed: 'stage',
-          old_value: l.stage,
-          new_value: newStage,
-          changed_by: user.id,
-        }))
-      if (historyRecords.length > 0) {
-        await supabase.from('pipeline_history').insert(historyRecords)
-      }
-    }
+    // Build history records
+    const historyRecords = user ? selectedLeads
+      .filter(l => l.stage !== newStage)
+      .map(l => ({
+        lead_id: l.id,
+        field_changed: 'stage',
+        old_value: l.stage,
+        new_value: newStage,
+        changed_by: user.id,
+      })) : []
 
-    const updates: Record<string, unknown> = { stage: newStage }
-    if (newStage === '도입직전' || newStage === '도입완료') {
-      updates.converted_at = new Date().toISOString()
-    }
+    const res = await callApi({
+      action: 'bulk_move_stage',
+      lead_id: ids[0], // required by API
+      lead_ids: ids,
+      new_stage: newStage,
+      history_records: historyRecords,
+    })
 
-    const { error } = await supabase
-      .from('pipeline_leads')
-      .update(updates)
-      .in('id', ids)
-
-    if (error) {
+    if (res.error) {
       toast.error('일괄 단계 변경에 실패했습니다.')
       fetchLeads()
     } else {
@@ -239,12 +241,14 @@ export default function PipelineBoardPage() {
       prev.map(l => ids.includes(l.id) ? { ...l, assigned_to: userId, assigned_user: { ...l.assigned_user, id: userId, name: userName } as any } : l)
     )
 
-    const { error } = await supabase
-      .from('pipeline_leads')
-      .update({ assigned_to: userId })
-      .in('id', ids)
+    const res = await callApi({
+      action: 'bulk_assign',
+      lead_id: ids[0], // required by API
+      lead_ids: ids,
+      user_id: userId,
+    })
 
-    if (error) {
+    if (res.error) {
       toast.error('일괄 담당자 변경에 실패했습니다.')
       fetchLeads()
     } else {
@@ -279,32 +283,21 @@ export default function PipelineBoardPage() {
       return
     }
 
+    // Optimistic update
     setLeads((prev) =>
       prev.map((l) => (l.id === leadId ? { ...l, stage: newStage as PipelineLead['stage'] } : l))
     )
     setDraggingId(null)
 
-    if (user) {
-      await supabase.from('pipeline_history').insert({
-        lead_id: leadId,
-        field_changed: 'stage',
-        old_value: lead.stage,
-        new_value: newStage,
-        changed_by: user.id,
-      })
-    }
+    const res = await callApi({
+      action: 'change_stage',
+      lead_id: leadId,
+      new_stage: newStage,
+      old_stage: lead.stage,
+      changed_by: user?.id,
+    })
 
-    const updates: Record<string, unknown> = { stage: newStage }
-    if (newStage === '도입직전' || newStage === '도입완료') {
-      updates.converted_at = new Date().toISOString()
-    }
-
-    const { error } = await supabase
-      .from('pipeline_leads')
-      .update(updates)
-      .eq('id', leadId)
-
-    if (error) {
+    if (res.error) {
       toast.error('단계 변경에 실패했습니다.')
       fetchLeads()
     } else {

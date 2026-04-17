@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   STAGE_COLORS, PRIORITY_COLORS, INDUSTRY_OPTIONS, CHANNEL_OPTIONS,
   ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ICONS, ACTIVITY_TYPE_COLORS, ACTIVITY_TYPE_OPTIONS,
+  ACTIVITY_STAGE_MAP,
   VOC_CATEGORY_LABELS, VOC_PRIORITY_LABELS,
   formatDate, formatDateTime
 } from '@/lib/utils'
@@ -228,21 +229,30 @@ export default function LeadDetailPage() {
 
   const saveEdit = async () => {
     setSaving(true)
-    const { error } = await supabase.from('pipeline_leads').update(editForm).eq('id', id)
-    if (error) toast.error('수정에 실패했습니다.')
+    const res = await callApi({ action: 'edit_lead', lead_id: id, form: editForm })
+    if (res.error) toast.error('수정에 실패했습니다.')
     else { toast.success('수정되었습니다.'); setEditing(false); fetchAll() }
     setSaving(false)
   }
 
+  const callApi = async (body: Record<string, unknown>) => {
+    const res = await fetch('/api/pipeline/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return res.json()
+  }
+
   const changeStage = async (newStage: string) => {
     if (!lead || !user) return
-    await supabase.from('pipeline_history').insert({
-      lead_id: id, field_changed: 'stage',
-      old_value: lead.stage, new_value: newStage, changed_by: user.id,
+    await callApi({
+      action: 'change_stage',
+      lead_id: id,
+      new_stage: newStage,
+      old_stage: lead.stage,
+      changed_by: user.id,
     })
-    const updates: Record<string, unknown> = { stage: newStage }
-    if (newStage === '도입직전' || newStage === '도입완료') updates.converted_at = new Date().toISOString()
-    await supabase.from('pipeline_leads').update(updates).eq('id', id)
 
     // 도입완료 시 광고성과에 도입 데이터 반영
     if (newStage === '도입완료' && lead) {
@@ -263,22 +273,27 @@ export default function LeadDetailPage() {
     if (!lead || !user) return
     const oldName = users.find(u => u.id === lead.assigned_to)?.name || '(없음)'
     const newName = users.find(u => u.id === userId)?.name || '(없음)'
-    await supabase.from('pipeline_history').insert({
-      lead_id: id, field_changed: 'assigned_to',
-      old_value: oldName, new_value: newName, changed_by: user.id,
+    await callApi({
+      action: 'change_assigned',
+      lead_id: id,
+      user_id: userId,
+      old_name: oldName,
+      new_name: newName,
+      changed_by: user.id,
     })
-    await supabase.from('pipeline_leads').update({ assigned_to: userId || null }).eq('id', id)
     toast.success('담당자가 변경되었습니다.')
     fetchAll()
   }
 
   const saveNextAction = async () => {
     setSavingNextAction(true)
-    const { error } = await supabase.from('pipeline_leads').update({
+    const res = await callApi({
+      action: 'update_next_action',
+      lead_id: id,
       next_action: nextActionForm.next_action || null,
       next_action_date: nextActionForm.next_action_date || null,
-    }).eq('id', id)
-    if (error) {
+    })
+    if (res.error) {
       toast.error('다음 액션 저장에 실패했습니다.')
     } else {
       toast.success('다음 액션이 저장되었습니다.')
@@ -299,10 +314,12 @@ export default function LeadDetailPage() {
 
   const clearNextAction = async () => {
     setSavingNextAction(true)
-    await supabase.from('pipeline_leads').update({
+    await callApi({
+      action: 'update_next_action',
+      lead_id: id,
       next_action: null,
       next_action_date: null,
-    }).eq('id', id)
+    })
     toast.success('다음 액션이 초기화되었습니다.')
     setEditingNextAction(false)
     fetchAll()
@@ -310,11 +327,8 @@ export default function LeadDetailPage() {
   }
 
   const linkCustomer = async (customerId: string | null) => {
-    const { error } = await supabase
-      .from('pipeline_leads')
-      .update({ customer_id: customerId })
-      .eq('id', id)
-    if (error) {
+    const res = await callApi({ action: 'link_customer', lead_id: id, customer_id: customerId })
+    if (res.error) {
       toast.error('고객사 연결에 실패했습니다.')
     } else {
       toast.success(customerId ? '고객사가 연결되었습니다.' : '고객사 연결이 해제되었습니다.')
@@ -333,18 +347,30 @@ export default function LeadDetailPage() {
       return
     }
     setSubmittingActivity(true)
-    const { error } = await supabase.from('activity_logs').insert({
+
+    // 활동유형에 따른 자동 단계 변경 결정
+    const autoStage = ACTIVITY_STAGE_MAP[activityForm.activity_type]
+    const shouldAutoChange = autoStage && lead && lead.stage !== autoStage
+      && lead.stage !== '도입완료' && lead.stage !== '이탈' // 이미 종료된 건은 변경 안함
+
+    const res = await callApi({
+      action: 'add_activity',
       lead_id: id,
-      customer_id: lead?.customer_id || null,
       activity_type: activityForm.activity_type,
       title: activityForm.title,
       description: activityForm.description || null,
       performed_by: user.id,
+      auto_stage: shouldAutoChange ? autoStage : undefined,
+      current_stage: lead?.stage,
     })
-    if (error) {
+
+    if (res.error) {
       toast.error('활동 기록에 실패했습니다.')
     } else {
-      toast.success('활동이 기록되었습니다.')
+      const msg = shouldAutoChange
+        ? `활동이 기록되었습니다. 단계가 "${autoStage}"로 자동 변경되었습니다.`
+        : '활동이 기록되었습니다.'
+      toast.success(msg)
       setActivityForm({ activity_type: 'NOTE', title: '', description: '' })
       setShowActivityForm(false)
       fetchAll()
@@ -368,16 +394,16 @@ export default function LeadDetailPage() {
       return
     }
     setSavingActivity(true)
-    const { error } = await supabase
-      .from('activity_logs')
-      .update({
-        activity_type: editActivityForm.activity_type,
-        title: editActivityForm.title,
-        description: editActivityForm.description || null,
-      })
-      .eq('id', editingActivityId)
+    const res = await callApi({
+      action: 'edit_activity',
+      lead_id: id,
+      activity_id: editingActivityId,
+      activity_type: editActivityForm.activity_type,
+      title: editActivityForm.title,
+      description: editActivityForm.description || null,
+    })
 
-    if (error) {
+    if (res.error) {
       toast.error('활동 수정에 실패했습니다.')
     } else {
       toast.success('활동이 수정되었습니다.')
@@ -391,12 +417,13 @@ export default function LeadDetailPage() {
     const confirmed = window.confirm('이 활동 기록을 삭제하시겠습니까?')
     if (!confirmed) return
 
-    const { error } = await supabase
-      .from('activity_logs')
-      .delete()
-      .eq('id', activityId)
+    const res = await callApi({
+      action: 'delete_activity',
+      lead_id: id,
+      activity_id: activityId,
+    })
 
-    if (error) {
+    if (res.error) {
       toast.error('활동 삭제에 실패했습니다.')
     } else {
       toast.success('활동이 삭제되었습니다.')
@@ -414,34 +441,24 @@ export default function LeadDetailPage() {
       return
     }
     setSubmittingVoc(true)
-    const { data: vocData, error } = await supabase
-      .from('voc_tickets')
-      .insert({
-        customer_id: lead.customer_id,
-        category: vocForm.category,
-        channel: vocForm.channel,
-        priority: vocForm.priority,
-        title: vocForm.title,
-        description: vocForm.description || null,
-        reported_by: lead.contact_person || '',
-        created_by: user.id,
-        assigned_to: lead.assigned_to || null,
-      })
-      .select()
-      .single()
+    const res = await callApi({
+      action: 'create_voc_ticket',
+      lead_id: id,
+      customer_id: lead.customer_id,
+      category: vocForm.category,
+      channel: vocForm.channel,
+      priority: vocForm.priority,
+      title: vocForm.title,
+      description: vocForm.description || null,
+      reported_by: lead.contact_person || '',
+      created_by: user.id,
+      assigned_to: lead.assigned_to || null,
+      category_label: VOC_CATEGORY_LABELS[vocForm.category],
+    })
 
-    if (error) {
+    if (res.error) {
       toast.error('VoC 티켓 생성에 실패했습니다.')
     } else {
-      // Also log this as an activity
-      await supabase.from('activity_logs').insert({
-        lead_id: id,
-        customer_id: lead.customer_id,
-        activity_type: 'NOTE',
-        title: `VoC 티켓 생성: ${vocForm.title}`,
-        description: `티켓 #${vocData.ticket_number} (${VOC_CATEGORY_LABELS[vocForm.category]})`,
-        performed_by: user.id,
-      })
       toast.success('VoC 티켓이 생성되었습니다.')
       setVocForm({ category: 'inquiry', channel: 'phone', priority: 'normal', title: '', description: '' })
       setShowVocForm(false)
@@ -520,8 +537,10 @@ export default function LeadDetailPage() {
               </div>
               <div className="flex-1">
                 <label className="text-[11px] font-medium text-text-tertiary uppercase">우선순위</label>
-                <Select value={lead.priority || '중간'} onChange={(e) => {
-                  supabase.from('pipeline_leads').update({ priority: e.target.value }).eq('id', id).then(() => fetchAll())
+                <Select value={lead.priority || '중간'} onChange={async (e) => {
+                  await callApi({ action: 'update_lead', lead_id: id, updates: { priority: e.target.value } })
+                  toast.success('우선순위가 변경되었습니다.')
+                  fetchAll()
                 }}
                   options={PRIORITY_OPTIONS} className="mt-1" />
               </div>
@@ -707,26 +726,6 @@ export default function LeadDetailPage() {
 
         {/* ── 중앙: 활동 타임라인 (5칸) ── */}
         <div className="xl:col-span-5 space-y-4">
-          {/* 빠른 메모 입력 */}
-          <div className="card p-4">
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Textarea
-                  placeholder="빠른 메모를 입력하세요..."
-                  value={activityForm.activity_type === 'NOTE' ? activityForm.title : ''}
-                  onChange={(e) => setActivityForm({ activity_type: 'NOTE', title: e.target.value, description: '' })}
-                  className="text-sm !min-h-[60px]"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 shrink-0">
-                <Button size="sm" className="h-full"
-                  onClick={() => { if (activityForm.title.trim()) submitActivity() }}>
-                  <Send className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
           {/* 활동 타임라인 */}
           <div className="card p-4">
             <div className="flex items-center justify-between mb-3">
@@ -826,6 +825,26 @@ export default function LeadDetailPage() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* 빠른 메모 입력 */}
+          <div className="card p-4">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Textarea
+                  placeholder="빠른 메모를 입력하세요..."
+                  value={activityForm.activity_type === 'NOTE' ? activityForm.title : ''}
+                  onChange={(e) => setActivityForm({ activity_type: 'NOTE', title: e.target.value, description: '' })}
+                  className="text-sm !min-h-[60px]"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 shrink-0">
+                <Button size="sm" className="h-full"
+                  onClick={() => { if (activityForm.title.trim()) submitActivity() }}>
+                  <Send className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 

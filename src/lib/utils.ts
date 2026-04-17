@@ -104,10 +104,23 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   MEETING: '미팅',
   DEMO: '데모/시연',
   PROPOSAL: '제안서 발송',
+  QUOTATION: '견적서 발송',
   CONTRACT: '계약 체결',
   ONBOARDING: '온보딩',
   FOLLOWUP: '후속 조치',
   NOTE: '메모',
+}
+
+// 활동유형 → 자동 단계 변경 매핑
+export const ACTIVITY_STAGE_MAP: Record<string, string> = {
+  CALL_OUT: '컨텍',
+  EMAIL_SENT: '컨텍',
+  PROPOSAL: '제안',
+  QUOTATION: '제안',
+  MEETING: '미팅',
+  DEMO: '미팅',
+  ONBOARDING: '도입직전',
+  CONTRACT: '도입완료',
 }
 
 export const ACTIVITY_TYPE_ICONS: Record<string, string> = {
@@ -118,6 +131,7 @@ export const ACTIVITY_TYPE_ICONS: Record<string, string> = {
   MEETING: '🤝',
   DEMO: '🖥️',
   PROPOSAL: '📋',
+  QUOTATION: '💰',
   CONTRACT: '📝',
   ONBOARDING: '🚀',
   FOLLOWUP: '🔄',
@@ -132,6 +146,7 @@ export const ACTIVITY_TYPE_COLORS: Record<string, string> = {
   MEETING: 'bg-purple-50 border-purple-200 text-purple-700',
   DEMO: 'bg-orange-50 border-orange-200 text-orange-700',
   PROPOSAL: 'bg-yellow-50 border-yellow-200 text-yellow-700',
+  QUOTATION: 'bg-amber-50 border-amber-200 text-amber-700',
   CONTRACT: 'bg-emerald-50 border-emerald-200 text-emerald-700',
   ONBOARDING: 'bg-indigo-50 border-indigo-200 text-indigo-700',
   FOLLOWUP: 'bg-gray-50 border-gray-200 text-gray-600',
@@ -140,14 +155,15 @@ export const ACTIVITY_TYPE_COLORS: Record<string, string> = {
 
 export const ACTIVITY_TYPE_OPTIONS = [
   { value: 'NOTE', label: '💬 메모' },
-  { value: 'CALL_OUT', label: '📞 전화 (아웃)' },
+  { value: 'CALL_OUT', label: '📞 전화 (아웃) → 컨텍' },
   { value: 'CALL_IN', label: '📲 전화 (인)' },
-  { value: 'EMAIL_SENT', label: '✉️ 이메일 발송' },
+  { value: 'EMAIL_SENT', label: '✉️ 이메일 발송 → 컨텍' },
   { value: 'EMAIL_RECV', label: '📩 이메일 수신' },
-  { value: 'MEETING', label: '🤝 미팅' },
-  { value: 'DEMO', label: '🖥️ 데모/시연' },
-  { value: 'PROPOSAL', label: '📋 제안서' },
-  { value: 'CONTRACT', label: '📝 계약' },
-  { value: 'ONBOARDING', label: '🚀 온보딩' },
+  { value: 'MEETING', label: '🤝 미팅 → 미팅' },
+  { value: 'DEMO', label: '🖥️ 데모/시연 → 미팅' },
+  { value: 'PROPOSAL', label: '📋 제안서 발송 → 제안' },
+  { value: 'QUOTATION', label: '💰 견적서 발송 → 제안' },
+  { value: 'CONTRACT', label: '📝 계약 체결 → 도입완료' },
+  { value: 'ONBOARDING', label: '🚀 온보딩 → 도입직전' },
   { value: 'FOLLOWUP', label: '🔄 후속 조치' },
 ]

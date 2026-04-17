@@ -73,6 +73,7 @@ const navItems: NavItem[] = [
     children: [
       { label: '보드뷰', href: '/pipeline/board' },
       { label: '리스트', href: '/pipeline/list' },
+      { label: '파이프라인 분석', href: '/pipeline/analytics' },
       { label: '견적서', href: '/quotations' },
       { label: '견적 모의계산', href: '/quotations/simulator' },
       { label: '단가표', href: '/quotations/price-list' },

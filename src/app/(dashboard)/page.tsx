@@ -30,7 +30,7 @@ interface DashboardData {
   unpaidInvoices: number
   unpaidAmount: number
   pipelineByStage: { stage: string; count: number }[]
-  recentLeads: { id: string; company_name: string; stage: string; created_at: string; quote_amount: number; assigned_name: string | null }[]
+  recentLeads: { id: string; company_name: string; stage: string; created_at: string; inquiry_date: string | null; quote_amount: number; assigned_name: string | null }[]
   recentConversions: { id: string; company_name: string; converted_at: string; quote_amount: number; deal_amount: number; assigned_name: string | null }[]
   salesByStage: { stage: string; count: number; amount: number }[]
   rawLeads: { id: string; stage: string; inquiry_date: string }[]
@@ -106,8 +106,8 @@ export default function DashboardPage() {
       supabase.from('invoices').select('total').in('status', ['sent', 'overdue']),
       supabase.from('pipeline_leads').select('id, stage, inquiry_date'),
       supabase.from('pipeline_leads')
-        .select('id, company_name, stage, created_at, assigned_user:users!pipeline_leads_assigned_to_fkey(name)')
-        .order('created_at', { ascending: false })
+        .select('id, company_name, stage, created_at, inquiry_date, assigned_user:users!pipeline_leads_assigned_to_fkey(name)')
+        .order('inquiry_date', { ascending: false })
         .limit(6),
       supabase.from('pipeline_leads').select('id', { count: 'exact' }).is('assigned_to', null),
       supabase.from('voc_tickets').select('id', { count: 'exact' })
@@ -569,7 +569,7 @@ export default function DashboardPage() {
                   {SHORT_STAGE[lead.stage] || lead.stage}
                 </span>
                 <span className="text-micro text-text-tertiary w-10 text-right">
-                  {new Date(lead.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}
+                  {(lead.inquiry_date || lead.created_at) ? new Date(lead.inquiry_date || lead.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) : ''}
                 </span>
               </Link>
             ))}

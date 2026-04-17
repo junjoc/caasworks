@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -27,6 +27,7 @@ export default function NewLeadPage() {
   const { user } = useAuth()
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
+  const isSubmitting = useRef(false)
   const [users, setUsers] = useState<User[]>([])
 
   const [form, setForm] = useState({
@@ -41,7 +42,7 @@ export default function NewLeadPage() {
     inquiry_channel: '',
     inquiry_source: '',
     inquiry_content: '',
-    inquiry_date: new Date().toISOString().split('T')[0],
+    inquiry_date: (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; })(),
     priority: '중간',
     next_action: '',
     next_action_date: '',
@@ -65,36 +66,47 @@ export default function NewLeadPage() {
       toast.error('회사명은 필수입니다.')
       return
     }
+    // 더블 서밋 방지
+    if (isSubmitting.current) return
+    isSubmitting.current = true
 
     setSaving(true)
-    const { data, error } = await supabase
-      .from('pipeline_leads')
-      .insert({
-        ...form,
-        assigned_to: form.assigned_to || null,
-        next_action_date: form.next_action_date || null,
-        inquiry_date: form.inquiry_date || null,
+    try {
+      const res = await fetch('/api/pipeline/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          assigned_to: form.assigned_to || null,
+          next_action_date: form.next_action_date || null,
+          inquiry_date: form.inquiry_date || null,
+        }),
       })
-      .select()
-      .single()
+      const result = await res.json()
 
-    if (error) {
+      if (result.error) {
+        toast.error('리드 등록에 실패했습니다.')
+        setSaving(false)
+        isSubmitting.current = false
+        return
+      }
+
+      // 광고성과에 문의 데이터 자동 반영
+      await syncLeadToAdPerformance(supabase, {
+        inquiry_date: form.inquiry_date || null,
+        inquiry_channel: form.inquiry_channel,
+        inquiry_source: form.inquiry_source,
+        company_name: form.company_name,
+        stage: '신규리드',
+      })
+
+      toast.success('리드가 등록되었습니다.')
+      router.push(`/pipeline/${result.data.id}`)
+    } catch {
       toast.error('리드 등록에 실패했습니다.')
       setSaving(false)
-      return
+      isSubmitting.current = false
     }
-
-    // 광고성과에 문의 데이터 자동 반영
-    await syncLeadToAdPerformance(supabase, {
-      inquiry_date: form.inquiry_date || null,
-      inquiry_channel: form.inquiry_channel,
-      inquiry_source: form.inquiry_source,
-      company_name: form.company_name,
-      stage: '신규리드',
-    })
-
-    toast.success('리드가 등록되었습니다.')
-    router.push(`/pipeline/${data.id}`)
   }
 
   return (
