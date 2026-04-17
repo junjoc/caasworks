@@ -13,9 +13,10 @@ import { PageLoading } from '@/components/ui/loading'
 import { useAuth } from '@/hooks/useAuth'
 import {
   STAGE_COLORS, PRIORITY_COLORS, INDUSTRY_OPTIONS, CHANNEL_OPTIONS,
-  ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ICONS, ACTIVITY_TYPE_COLORS, ACTIVITY_TYPE_OPTIONS,
+  ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ICONS, ACTIVITY_TYPE_COLORS, ACTIVITY_TYPE_OPTIONS, ACTIVITY_TYPE_GROUPS,
   ACTIVITY_STAGE_MAP,
   VOC_CATEGORY_LABELS, VOC_PRIORITY_LABELS,
+  CONVERSION_PROB_OPTIONS, CONVERSION_PROB_COLORS,
   formatDate, formatDateTime
 } from '@/lib/utils'
 import type { PipelineLead, PipelineHistory, User } from '@/types/database'
@@ -490,6 +491,11 @@ export default function LeadDetailPage() {
           <h1 className="text-lg font-bold text-text-primary">{lead.company_name}</h1>
           <Badge className={STAGE_COLORS[lead.stage]}>{lead.stage}</Badge>
           {lead.priority && lead.priority !== '중간' && <Badge className={`${PRIORITY_COLORS[lead.priority]} border`}>{lead.priority}</Badge>}
+          {(lead as any).conversion_probability && (lead as any).conversion_probability !== '중간' && (
+            <Badge className={`${CONVERSION_PROB_COLORS[(lead as any).conversion_probability] || ''} border`}>
+              도입 {(lead as any).conversion_probability}
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* 바로가기 버튼들 */}
@@ -543,6 +549,15 @@ export default function LeadDetailPage() {
                   fetchAll()
                 }}
                   options={PRIORITY_OPTIONS} className="mt-1" />
+              </div>
+              <div className="flex-1">
+                <label className="text-[11px] font-medium text-text-tertiary uppercase">도입가능성</label>
+                <Select value={(lead as any).conversion_probability || '중간'} onChange={async (e) => {
+                  await callApi({ action: 'update_lead', lead_id: id, updates: { conversion_probability: e.target.value } })
+                  toast.success('도입가능성이 변경되었습니다.')
+                  fetchAll()
+                }}
+                  options={CONVERSION_PROB_OPTIONS} className="mt-1" />
               </div>
             </div>
             {/* 다음 액션 + 액션일 */}
@@ -739,8 +754,12 @@ export default function LeadDetailPage() {
             {showActivityForm && (
               <div className="mb-4 p-3 bg-surface-tertiary rounded-lg border space-y-2.5">
                 <Select label="활동 유형" value={activityForm.activity_type}
-                  onChange={(e) => setActivityForm({ ...activityForm, activity_type: e.target.value })}
-                  options={ACTIVITY_TYPE_OPTIONS} />
+                  onChange={(e) => {
+                    const val = e.target.value
+                    const label = ACTIVITY_TYPE_LABELS[val] || val
+                    setActivityForm({ ...activityForm, activity_type: val, title: label })
+                  }}
+                  groups={ACTIVITY_TYPE_GROUPS} />
                 <Input label="제목" value={activityForm.title}
                   onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
                   placeholder="예: 견적서 발송 완료" required />
@@ -774,7 +793,7 @@ export default function LeadDetailPage() {
                         <div key={item.id} className="rounded-lg p-3 border bg-yellow-50 border-yellow-200 space-y-2.5">
                           <Select label="유형" value={editActivityForm.activity_type}
                             onChange={(e) => setEditActivityForm({ ...editActivityForm, activity_type: e.target.value })}
-                            options={ACTIVITY_TYPE_OPTIONS} />
+                            groups={ACTIVITY_TYPE_GROUPS} />
                           <Input label="제목" value={editActivityForm.title}
                             onChange={(e) => setEditActivityForm({ ...editActivityForm, title: e.target.value })} required />
                           <Textarea label="내용" value={editActivityForm.description}

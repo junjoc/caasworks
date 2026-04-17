@@ -114,13 +114,28 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
 // 활동유형 → 자동 단계 변경 매핑
 export const ACTIVITY_STAGE_MAP: Record<string, string> = {
   CALL_OUT: '컨텍',
+  CALL_IN: '컨텍',
   EMAIL_SENT: '컨텍',
+  EMAIL_RECV: '컨텍',
   PROPOSAL: '제안',
   QUOTATION: '제안',
   MEETING: '미팅',
   DEMO: '미팅',
   ONBOARDING: '도입직전',
   CONTRACT: '도입완료',
+}
+
+// 도입가능성 옵션
+export const CONVERSION_PROB_OPTIONS = [
+  { value: '높음', label: '높음' },
+  { value: '중간', label: '중간' },
+  { value: '낮음', label: '낮음' },
+]
+
+export const CONVERSION_PROB_COLORS: Record<string, string> = {
+  '높음': 'bg-green-100 text-green-700 border-green-200',
+  '중간': 'bg-yellow-100 text-yellow-700 border-yellow-200',
+  '낮음': 'bg-red-100 text-red-700 border-red-200',
 }
 
 export const ACTIVITY_TYPE_ICONS: Record<string, string> = {
@@ -155,15 +170,56 @@ export const ACTIVITY_TYPE_COLORS: Record<string, string> = {
 
 export const ACTIVITY_TYPE_OPTIONS = [
   { value: 'NOTE', label: '💬 메모' },
-  { value: 'CALL_OUT', label: '📞 전화 (아웃) → 컨텍' },
+  { value: 'CALL_OUT', label: '📞 전화 (아웃)' },
   { value: 'CALL_IN', label: '📲 전화 (인)' },
-  { value: 'EMAIL_SENT', label: '✉️ 이메일 발송 → 컨텍' },
+  { value: 'EMAIL_SENT', label: '✉️ 이메일 발송' },
   { value: 'EMAIL_RECV', label: '📩 이메일 수신' },
-  { value: 'MEETING', label: '🤝 미팅 → 미팅' },
-  { value: 'DEMO', label: '🖥️ 데모/시연 → 미팅' },
-  { value: 'PROPOSAL', label: '📋 제안서 발송 → 제안' },
-  { value: 'QUOTATION', label: '💰 견적서 발송 → 제안' },
-  { value: 'CONTRACT', label: '📝 계약 체결 → 도입완료' },
-  { value: 'ONBOARDING', label: '🚀 온보딩 → 도입직전' },
+  { value: 'MEETING', label: '🤝 미팅' },
+  { value: 'DEMO', label: '🖥️ 데모/시연' },
+  { value: 'PROPOSAL', label: '📋 제안서 발송' },
+  { value: 'QUOTATION', label: '💰 견적서 발송' },
+  { value: 'CONTRACT', label: '📝 계약 체결' },
+  { value: 'ONBOARDING', label: '🚀 온보딩' },
   { value: 'FOLLOWUP', label: '🔄 후속 조치' },
+]
+
+// 활동유형 그룹 (셀렉트 드롭다운용)
+export const ACTIVITY_TYPE_GROUPS = [
+  {
+    label: '── 컨텍',
+    options: [
+      { value: 'CALL_OUT', label: '📞 전화 (아웃)' },
+      { value: 'CALL_IN', label: '📲 전화 (인)' },
+      { value: 'EMAIL_SENT', label: '✉️ 이메일 발송' },
+      { value: 'EMAIL_RECV', label: '📩 이메일 수신' },
+    ],
+  },
+  {
+    label: '── 미팅',
+    options: [
+      { value: 'MEETING', label: '🤝 미팅' },
+      { value: 'DEMO', label: '🖥️ 데모/시연' },
+    ],
+  },
+  {
+    label: '── 제안',
+    options: [
+      { value: 'PROPOSAL', label: '📋 제안서 발송' },
+      { value: 'QUOTATION', label: '💰 견적서 발송' },
+    ],
+  },
+  {
+    label: '── 도입',
+    options: [
+      { value: 'ONBOARDING', label: '🚀 온보딩' },
+      { value: 'CONTRACT', label: '📝 계약 체결' },
+    ],
+  },
+  {
+    label: '── 기타',
+    options: [
+      { value: 'NOTE', label: '💬 메모' },
+      { value: 'FOLLOWUP', label: '🔄 후속 조치' },
+    ],
+  },
 ]
