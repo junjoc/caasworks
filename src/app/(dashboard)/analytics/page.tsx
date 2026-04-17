@@ -48,7 +48,7 @@ const WIDGET_REGISTRY: WidgetConfig[] = [
   { id: 'lead_monthly', name: '월별 신규 리드', description: '월별 리드 유입 추이', category: 'sales', defaultW: 6, defaultH: 4, minW: 4, minH: 3, icon: <Calendar className="w-4 h-4" /> },
   { id: 'conversion_time', name: '전환 소요일', description: '리드→도입 평균 소요 기간', category: 'sales', defaultW: 4, defaultH: 5, minW: 3, minH: 4, icon: <Activity className="w-4 h-4" /> },
   // Customer
-  { id: 'customer_by_type', name: '공공/민간 고객 현황', description: '공공/민간별 고객 수 & 비율', category: 'customer', defaultW: 4, defaultH: 4, minW: 3, minH: 3, icon: <Building2 className="w-4 h-4" /> },
+  { id: 'customer_by_type', name: '공공/민간 현장 현황', description: '공공/민간 발주별 현장 수 & 비율', category: 'customer', defaultW: 4, defaultH: 4, minW: 3, minH: 3, icon: <Building2 className="w-4 h-4" /> },
   { id: 'site_category_trend', name: '공사타입별 도입 흐름', description: '공사타입별 1년간 도입 추이', category: 'customer', defaultW: 8, defaultH: 5, minW: 4, minH: 4, icon: <TrendingUp className="w-4 h-4" /> },
   { id: 'customer_status', name: '고객 상태 분포', description: '활성/중단/해지 고객 현황', category: 'customer', defaultW: 4, defaultH: 4, minW: 3, minH: 3, icon: <PieChartIcon className="w-4 h-4" /> },
   { id: 'churn_risk', name: '과금 만료 임박', description: '30일 내 과금 만료 고객', category: 'customer', defaultW: 6, defaultH: 5, minW: 3, minH: 3, icon: <Calendar className="w-4 h-4" /> },
@@ -241,7 +241,7 @@ export default function AnalyticsDashboardPage() {
     const { year, month } = globalFilter
     const { data: revenues } = await supabase
       .from('monthly_revenues')
-      .select('amount, customers(company_type)')
+      .select('amount, project_id, projects(site_category)')
       .eq('year', year)
       .eq('month', month)
       .limit(5000)
@@ -249,7 +249,7 @@ export default function AnalyticsDashboardPage() {
     if (revenues) {
       const byType: Record<string, number> = {}
       revenues.forEach((r: any) => {
-        const type = r.customers?.company_type || '미분류'
+        const type = r.projects?.site_category || '미분류'
         byType[type] = (byType[type] || 0) + (Number(r.amount) || 0)
       })
       data.revenue_by_type = Object.entries(byType).map(([name, value]) => ({ name, value }))
@@ -405,14 +405,14 @@ export default function AnalyticsDashboardPage() {
   }
 
   async function fetchCustomerByType(data: Record<string, any>) {
-    const { data: customers } = await supabase.from('customers').select('company_type, status')
-    if (customers) {
+    const { data: projects } = await supabase.from('projects').select('site_category, status')
+    if (projects) {
       const byType: Record<string, { total: number; active: number }> = {}
-      customers.forEach((c: any) => {
-        const type = c.company_type || '미분류'
+      projects.forEach((p: any) => {
+        const type = p.site_category || '미분류'
         if (!byType[type]) byType[type] = { total: 0, active: 0 }
         byType[type].total++
-        if (c.status === 'active') byType[type].active++
+        if (p.status === 'active') byType[type].active++
       })
       data.customer_by_type = Object.entries(byType).map(([name, v]) => ({ name, ...v }))
     }
@@ -765,10 +765,10 @@ export default function AnalyticsDashboardPage() {
               <div key={i} className="p-3 bg-surface-tertiary rounded-lg">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-medium">{item.name}</span>
-                  <span className="text-lg font-bold">{item.total}개사</span>
+                  <span className="text-lg font-bold">{item.total}건</span>
                 </div>
                 <div className="flex justify-between text-xs text-text-tertiary">
-                  <span>활성 {item.active}개사</span>
+                  <span>활성 {item.active}건</span>
                   <span>전체의 {custTotal > 0 ? Math.round(item.total / custTotal * 100) : 0}%</span>
                 </div>
               </div>

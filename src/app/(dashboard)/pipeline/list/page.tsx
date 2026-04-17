@@ -11,7 +11,7 @@ import { DateRangePicker, type DateRange } from '@/components/ui/date-range-pick
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
-import { STAGE_COLORS, PRIORITY_COLORS, CONVERSION_PROB_COLORS, formatDate } from '@/lib/utils'
+import { STAGE_COLORS, PRIORITY_COLORS, CONVERSION_PROB_COLORS, SITE_CATEGORY_COLORS, formatDate } from '@/lib/utils'
 import type { PipelineLead, User } from '@/types/database'
 import { toast } from 'sonner'
 import { Plus, Search, GitBranch, AlertCircle, Clock, ChevronDown, ChevronUp, CheckSquare, Trash2, ArrowRight, UserCheck } from 'lucide-react'
@@ -416,6 +416,7 @@ export default function PipelineListPage() {
                 <th>단계</th>
                 <th>우선순위</th>
                 <th>도입가능성</th>
+                <th>발주유형</th>
                 <th>회사명</th>
                 <th>사업분류</th>
                 <th>문의자</th>
@@ -465,6 +466,13 @@ export default function PipelineListPage() {
                     {(lead as any).conversion_probability && (
                       <Badge className={`${CONVERSION_PROB_COLORS[(lead as any).conversion_probability] || ''} text-xs border`}>
                         {(lead as any).conversion_probability}
+                      </Badge>
+                    )}
+                  </td>
+                  <td>
+                    {(lead as any).site_category && (
+                      <Badge className={`${SITE_CATEGORY_COLORS[(lead as any).site_category] || ''} text-xs border`}>
+                        {(lead as any).site_category}
                       </Badge>
                     )}
                   </td>

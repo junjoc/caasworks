@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
-import { INDUSTRY_OPTIONS, CHANNEL_OPTIONS } from '@/lib/utils'
+import { INDUSTRY_OPTIONS, CHANNEL_OPTIONS, SITE_CATEGORY_OPTIONS } from '@/lib/utils'
 import { syncLeadToAdPerformance } from '@/lib/sync-lead-to-ads'
 import type { User } from '@/types/database'
 import { toast } from 'sonner'
@@ -44,6 +44,7 @@ export default function NewLeadPage() {
     inquiry_content: '',
     inquiry_date: (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; })(),
     priority: '중간',
+    site_category: '',
     next_action: '',
     next_action_date: '',
     assigned_to: '',
@@ -78,6 +79,7 @@ export default function NewLeadPage() {
         body: JSON.stringify({
           ...form,
           assigned_to: form.assigned_to || null,
+          site_category: form.site_category || null,
           next_action_date: form.next_action_date || null,
           inquiry_date: form.inquiry_date || null,
         }),
@@ -124,13 +126,21 @@ export default function NewLeadPage() {
         {/* 관리 섹션 */}
         <div className="pb-4 border-b">
           <h3 className="text-sm font-semibold text-text-secondary mb-3">관리</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <Select
               id="priority"
               label="우선순위"
               value={form.priority}
               onChange={(e) => handleChange('priority', e.target.value)}
               options={PRIORITY_OPTIONS}
+            />
+            <Select
+              id="site_category"
+              label="발주유형"
+              value={form.site_category}
+              onChange={(e) => handleChange('site_category', e.target.value)}
+              options={SITE_CATEGORY_OPTIONS}
+              placeholder="공공/민간"
             />
             <Input
               id="next_action"

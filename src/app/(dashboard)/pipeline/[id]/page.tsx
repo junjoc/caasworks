@@ -18,6 +18,7 @@ import {
   ACTIVITY_STAGE_MAP,
   VOC_CATEGORY_LABELS, VOC_PRIORITY_LABELS,
   CONVERSION_PROB_OPTIONS, CONVERSION_PROB_COLORS,
+  SITE_CATEGORY_OPTIONS, SITE_CATEGORY_COLORS,
   formatDate, formatDateTime
 } from '@/lib/utils'
 import type { PipelineLead, PipelineHistory, User } from '@/types/database'
@@ -508,6 +509,11 @@ export default function LeadDetailPage() {
               도입 {(lead as any).conversion_probability}
             </Badge>
           )}
+          {(lead as any).site_category && (
+            <Badge className={`${SITE_CATEGORY_COLORS[(lead as any).site_category] || ''} border`}>
+              {(lead as any).site_category}
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* 바로가기 버튼들 */}
@@ -570,6 +576,15 @@ export default function LeadDetailPage() {
                   fetchAll()
                 }}
                   options={CONVERSION_PROB_OPTIONS} className="mt-1" />
+              </div>
+              <div className="flex-1">
+                <label className="text-[11px] font-medium text-text-tertiary uppercase">발주유형</label>
+                <Select value={(lead as any).site_category || ''} onChange={async (e) => {
+                  await callApi({ action: 'update_lead', lead_id: id, updates: { site_category: e.target.value || null } })
+                  toast.success('발주유형이 변경되었습니다.')
+                  fetchAll()
+                }}
+                  options={SITE_CATEGORY_OPTIONS} placeholder="선택" className="mt-1" />
               </div>
             </div>
             {/* 다음 액션 + 액션일 */}

@@ -61,6 +61,16 @@ export const INDUSTRY_OPTIONS = [
   '솔루션사', '대기업(메이저)', '기타',
 ]
 
+export const SITE_CATEGORY_OPTIONS = [
+  { value: '민간', label: '민간' },
+  { value: '공공', label: '공공' },
+]
+
+export const SITE_CATEGORY_COLORS: Record<string, string> = {
+  '공공': 'bg-blue-100 text-blue-700 border-blue-200',
+  '민간': 'bg-slate-100 text-slate-600 border-slate-200',
+}
+
 export const CHANNEL_OPTIONS = [
   '문의하기', '검색채널', '대표전화', '개인전화',
   '이용자 추천', '박람회', '공식홈페이지', '기타',

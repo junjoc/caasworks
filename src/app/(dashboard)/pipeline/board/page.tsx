@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
-import { STAGE_COLORS, PRIORITY_COLORS, CONVERSION_PROB_COLORS, ACTIVITY_TYPE_ICONS, formatDate } from '@/lib/utils'
+import { STAGE_COLORS, PRIORITY_COLORS, CONVERSION_PROB_COLORS, SITE_CATEGORY_COLORS, ACTIVITY_TYPE_ICONS, formatDate } from '@/lib/utils'
 import type { PipelineLead } from '@/types/database'
 import { toast } from 'sonner'
 import { Plus, Clock, AlertCircle, Search, CheckSquare, Square, X, ArrowRight, UserPlus } from 'lucide-react'
@@ -548,6 +548,11 @@ export default function PipelineBoardPage() {
                                 도입{(lead as any).conversion_probability}
                               </Badge>
                             )}
+                            {(lead as any).site_category && (
+                              <Badge className={`${SITE_CATEGORY_COLORS[(lead as any).site_category] || ''} text-[10px] px-1.5 py-0 border`}>
+                                {(lead as any).site_category}
+                              </Badge>
+                            )}
                             {lead.industry && (
                               <span className="text-[10px] text-text-tertiary">{lead.industry}</span>
                             )}
@@ -588,6 +593,11 @@ export default function PipelineBoardPage() {
                             {(lead as any).conversion_probability && (lead as any).conversion_probability !== '중간' && (
                               <Badge className={`${CONVERSION_PROB_COLORS[(lead as any).conversion_probability] || ''} text-[10px] px-1.5 py-0 border`}>
                                 도입{(lead as any).conversion_probability}
+                              </Badge>
+                            )}
+                            {(lead as any).site_category && (
+                              <Badge className={`${SITE_CATEGORY_COLORS[(lead as any).site_category] || ''} text-[10px] px-1.5 py-0 border`}>
+                                {(lead as any).site_category}
                               </Badge>
                             )}
                             {lead.industry && (
