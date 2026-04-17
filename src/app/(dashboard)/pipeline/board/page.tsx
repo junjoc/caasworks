@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
-import { STAGE_COLORS, PRIORITY_COLORS, ACTIVITY_TYPE_ICONS, formatDate } from '@/lib/utils'
+import { STAGE_COLORS, PRIORITY_COLORS, CONVERSION_PROB_COLORS, ACTIVITY_TYPE_ICONS, formatDate } from '@/lib/utils'
 import type { PipelineLead } from '@/types/database'
 import { toast } from 'sonner'
 import { Plus, Clock, AlertCircle, Search, CheckSquare, Square, X, ArrowRight, UserPlus } from 'lucide-react'
@@ -530,7 +530,7 @@ export default function PipelineBoardPage() {
                         // Selection mode: card content without Link
                         <div>
                           {/* Checkbox + top row */}
-                          <div className="flex items-center gap-1.5 mb-1.5">
+                          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                             <span className="shrink-0" onClick={(e) => { e.stopPropagation(); toggleSelect(lead.id, e) }}>
                               {isSelected ? (
                                 <CheckSquare className="w-4 h-4 text-primary-500" />
@@ -541,6 +541,11 @@ export default function PipelineBoardPage() {
                             {lead.priority && lead.priority !== '중간' && (
                               <Badge className={`${PRIORITY_COLORS[lead.priority]} text-[10px] px-1.5 py-0 border`}>
                                 {lead.priority}
+                              </Badge>
+                            )}
+                            {(lead as any).conversion_probability && (lead as any).conversion_probability !== '중간' && (
+                              <Badge className={`${CONVERSION_PROB_COLORS[(lead as any).conversion_probability] || ''} text-[10px] px-1.5 py-0 border`}>
+                                도입{(lead as any).conversion_probability}
                               </Badge>
                             )}
                             {lead.industry && (
@@ -573,11 +578,16 @@ export default function PipelineBoardPage() {
                       ) : (
                         // Normal mode: card with Link
                         <Link href={`/pipeline/${lead.id}`} className="block">
-                          {/* Top: priority + industry */}
-                          <div className="flex items-center gap-1.5 mb-1.5">
+                          {/* Top: priority + conversion + industry */}
+                          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                             {lead.priority && lead.priority !== '중간' && (
                               <Badge className={`${PRIORITY_COLORS[lead.priority]} text-[10px] px-1.5 py-0 border`}>
                                 {lead.priority}
+                              </Badge>
+                            )}
+                            {(lead as any).conversion_probability && (lead as any).conversion_probability !== '중간' && (
+                              <Badge className={`${CONVERSION_PROB_COLORS[(lead as any).conversion_probability] || ''} text-[10px] px-1.5 py-0 border`}>
+                                도입{(lead as any).conversion_probability}
                               </Badge>
                             )}
                             {lead.industry && (

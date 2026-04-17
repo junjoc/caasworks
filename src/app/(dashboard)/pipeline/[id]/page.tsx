@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select } from '@/components/ui/select'
+import { DropdownSelect } from '@/components/ui/dropdown-select'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { PageLoading } from '@/components/ui/loading'
@@ -237,12 +238,22 @@ export default function LeadDetailPage() {
   }
 
   const callApi = async (body: Record<string, unknown>) => {
-    const res = await fetch('/api/pipeline/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    return res.json()
+    try {
+      const res = await fetch('/api/pipeline/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        console.error('[callApi] HTTP error:', res.status, text)
+        return { error: `HTTP ${res.status}: ${text.substring(0, 100)}` }
+      }
+      return res.json()
+    } catch (err: any) {
+      console.error('[callApi] Network error:', err)
+      return { error: err.message || 'Network error' }
+    }
   }
 
   const changeStage = async (newStage: string) => {
@@ -366,7 +377,8 @@ export default function LeadDetailPage() {
     })
 
     if (res.error) {
-      toast.error('활동 기록에 실패했습니다.')
+      console.error('[submitActivity] Error:', res.error)
+      toast.error(`활동 기록 실패: ${typeof res.error === 'string' ? res.error : JSON.stringify(res.error)}`)
     } else {
       const msg = shouldAutoChange
         ? `활동이 기록되었습니다. 단계가 "${autoStage}"로 자동 변경되었습니다.`
@@ -753,9 +765,8 @@ export default function LeadDetailPage() {
             {/* 활동 추가 폼 */}
             {showActivityForm && (
               <div className="mb-4 p-3 bg-surface-tertiary rounded-lg border space-y-2.5">
-                <Select label="활동 유형" value={activityForm.activity_type}
-                  onChange={(e) => {
-                    const val = e.target.value
+                <DropdownSelect label="활동 유형" value={activityForm.activity_type}
+                  onChange={(val) => {
                     const label = ACTIVITY_TYPE_LABELS[val] || val
                     setActivityForm({ ...activityForm, activity_type: val, title: label })
                   }}
@@ -791,8 +802,8 @@ export default function LeadDetailPage() {
                     if (isEditingItem) {
                       return (
                         <div key={item.id} className="rounded-lg p-3 border bg-yellow-50 border-yellow-200 space-y-2.5">
-                          <Select label="유형" value={editActivityForm.activity_type}
-                            onChange={(e) => setEditActivityForm({ ...editActivityForm, activity_type: e.target.value })}
+                          <DropdownSelect label="유형" value={editActivityForm.activity_type}
+                            onChange={(val) => setEditActivityForm({ ...editActivityForm, activity_type: val })}
                             groups={ACTIVITY_TYPE_GROUPS} />
                           <Input label="제목" value={editActivityForm.title}
                             onChange={(e) => setEditActivityForm({ ...editActivityForm, title: e.target.value })} required />

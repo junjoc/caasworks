@@ -195,17 +195,17 @@ export const ACTIVITY_TYPE_GROUPS = [
     ],
   },
   {
-    label: '── 미팅',
-    options: [
-      { value: 'MEETING', label: '🤝 미팅' },
-      { value: 'DEMO', label: '🖥️ 데모/시연' },
-    ],
-  },
-  {
     label: '── 제안',
     options: [
       { value: 'PROPOSAL', label: '📋 제안서 발송' },
       { value: 'QUOTATION', label: '💰 견적서 발송' },
+    ],
+  },
+  {
+    label: '── 미팅',
+    options: [
+      { value: 'MEETING', label: '🤝 미팅' },
+      { value: 'DEMO', label: '🖥️ 데모/시연' },
     ],
   },
   {

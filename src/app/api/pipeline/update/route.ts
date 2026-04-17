@@ -207,6 +207,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
+    // 13. Bulk delete
+    if (action === 'bulk_delete') {
+      const { lead_ids } = payload
+      // Delete related records first
+      await supabase.from('activity_logs').delete().in('lead_id', lead_ids)
+      await supabase.from('pipeline_history').delete().in('lead_id', lead_ids)
+      const { error } = await supabase.from('pipeline_leads').delete().in('id', lead_ids)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ success: true })
+    }
+
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   } catch (error: any) {
     console.error('[Pipeline Update Error]', error)

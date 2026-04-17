@@ -11,7 +11,7 @@ import { DateRangePicker, type DateRange } from '@/components/ui/date-range-pick
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
-import { STAGE_COLORS, PRIORITY_COLORS, formatDate } from '@/lib/utils'
+import { STAGE_COLORS, PRIORITY_COLORS, CONVERSION_PROB_COLORS, formatDate } from '@/lib/utils'
 import type { PipelineLead, User } from '@/types/database'
 import { toast } from 'sonner'
 import { Plus, Search, GitBranch, AlertCircle, Clock, ChevronDown, ChevronUp, CheckSquare, Trash2, ArrowRight, UserCheck } from 'lucide-react'
@@ -163,7 +163,26 @@ export default function PipelineListPage() {
     setBulkAssignee('')
   }
 
-  // Bulk operations
+  const callApi = async (body: Record<string, unknown>) => {
+    try {
+      const res = await fetch('/api/pipeline/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        console.error('[callApi] HTTP error:', res.status, text)
+        return { error: `HTTP ${res.status}: ${text.substring(0, 100)}` }
+      }
+      return res.json()
+    } catch (err: any) {
+      console.error('[callApi] Network error:', err)
+      return { error: err.message || 'Network error' }
+    }
+  }
+
+  // Bulk operations via API route
   const executeBulkStageChange = async () => {
     if (!bulkStage || selectedIds.size === 0 || !user) return
     const ids = Array.from(selectedIds)
@@ -179,21 +198,15 @@ export default function PipelineListPage() {
       }
     }).filter(h => h.old_value !== bulkStage)
 
-    if (historyRecords.length > 0) {
-      await supabase.from('pipeline_history').insert(historyRecords)
-    }
+    const res = await callApi({
+      action: 'bulk_move_stage',
+      lead_id: ids[0],
+      lead_ids: ids,
+      new_stage: bulkStage,
+      history_records: historyRecords,
+    })
 
-    const updates: Record<string, unknown> = { stage: bulkStage }
-    if (bulkStage === '도입직전' || bulkStage === '도입완료') {
-      updates.converted_at = new Date().toISOString()
-    }
-
-    const { error } = await supabase
-      .from('pipeline_leads')
-      .update(updates)
-      .in('id', ids)
-
-    if (error) {
+    if (res.error) {
       toast.error('일괄 단계 변경에 실패했습니다.')
     } else {
       toast.success(`${ids.length}건의 단계를 "${bulkStage}"로 변경했습니다.`)
@@ -204,26 +217,14 @@ export default function PipelineListPage() {
     if (!bulkAssignee || selectedIds.size === 0 || !user) return
     const ids = Array.from(selectedIds)
 
-    const newAssigneeName = users.find(u => u.id === bulkAssignee)?.name || '(없음)'
-    const historyRecords = ids.map(leadId => {
-      const lead = leads.find(l => l.id === leadId)
-      const oldName = users.find(u => u.id === lead?.assigned_to)?.name || '(없음)'
-      return {
-        lead_id: leadId,
-        field_changed: 'assigned_to',
-        old_value: oldName,
-        new_value: newAssigneeName,
-        changed_by: user.id,
-      }
+    const res = await callApi({
+      action: 'bulk_assign',
+      lead_id: ids[0],
+      lead_ids: ids,
+      user_id: bulkAssignee,
     })
-    await supabase.from('pipeline_history').insert(historyRecords)
 
-    const { error } = await supabase
-      .from('pipeline_leads')
-      .update({ assigned_to: bulkAssignee || null })
-      .in('id', ids)
-
-    if (error) {
+    if (res.error) {
       toast.error('일괄 담당자 변경에 실패했습니다.')
     } else {
       const assigneeName = users.find(u => u.id === bulkAssignee)?.name || '없음'
@@ -239,16 +240,13 @@ export default function PipelineListPage() {
     setBulkProcessing(true)
     const ids = Array.from(selectedIds)
 
-    // Delete related records first
-    await supabase.from('activity_logs').delete().in('lead_id', ids)
-    await supabase.from('pipeline_history').delete().in('lead_id', ids)
+    const res = await callApi({
+      action: 'bulk_delete',
+      lead_id: ids[0],
+      lead_ids: ids,
+    })
 
-    const { error } = await supabase
-      .from('pipeline_leads')
-      .delete()
-      .in('id', ids)
-
-    if (error) {
+    if (res.error) {
       toast.error('일괄 삭제에 실패했습니다.')
     } else {
       toast.success(`${ids.length}건의 리드가 삭제되었습니다.`)
@@ -417,6 +415,7 @@ export default function PipelineListPage() {
                 <th className="w-12">No.</th>
                 <th>단계</th>
                 <th>우선순위</th>
+                <th>도입가능성</th>
                 <th>회사명</th>
                 <th>사업분류</th>
                 <th>문의자</th>
@@ -459,6 +458,13 @@ export default function PipelineListPage() {
                     {lead.priority && (
                       <Badge className={`${PRIORITY_COLORS[lead.priority] || ''} text-xs border`}>
                         {lead.priority}
+                      </Badge>
+                    )}
+                  </td>
+                  <td>
+                    {(lead as any).conversion_probability && (
+                      <Badge className={`${CONVERSION_PROB_COLORS[(lead as any).conversion_probability] || ''} text-xs border`}>
+                        {(lead as any).conversion_probability}
                       </Badge>
                     )}
                   </td>
