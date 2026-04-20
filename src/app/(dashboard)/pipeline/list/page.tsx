@@ -100,6 +100,7 @@ export default function PipelineListPage() {
       const q = search.toLowerCase().replace(/-/g, '')
       const matchSearch = !q ||
         lead.company_name.toLowerCase().includes(q) ||
+        (lead.customer_code || '').toLowerCase().includes(q) ||
         (lead.contact_person || '').toLowerCase().includes(q) ||
         (lead.contact_phone || '').replace(/-/g, '').includes(q) ||
         (lead.contact_email || '').toLowerCase().includes(q) ||
@@ -352,7 +353,7 @@ export default function PipelineListPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
           <Input
-            placeholder="회사명, 문의자, 사업분류 검색..."
+            placeholder="코드, 회사명, 문의자, 사업분류 검색..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -413,6 +414,7 @@ export default function PipelineListPage() {
                   />
                 </th>
                 <th className="w-12">No.</th>
+                <th>코드</th>
                 <th>단계</th>
                 <th>우선순위</th>
                 <th>도입가능성</th>
@@ -452,6 +454,7 @@ export default function PipelineListPage() {
                     />
                   </td>
                   <td className="text-text-tertiary text-xs">{lead.lead_number}</td>
+                  <td className="text-text-tertiary text-[11px] font-mono">{lead.customer_code || '-'}</td>
                   <td>
                     <Badge className={`${STAGE_COLORS[lead.stage]} text-xs`}>{lead.stage}</Badge>
                   </td>

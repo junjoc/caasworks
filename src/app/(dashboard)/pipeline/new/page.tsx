@@ -31,6 +31,7 @@ export default function NewLeadPage() {
   const [users, setUsers] = useState<User[]>([])
 
   const [form, setForm] = useState({
+    customer_code: '',
     company_name: '',
     contact_person: '',
     contact_phone: '',
@@ -78,6 +79,7 @@ export default function NewLeadPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          customer_code: form.customer_code.trim() || null,
           assigned_to: form.assigned_to || null,
           site_category: form.site_category || null,
           next_action_date: form.next_action_date || null,
@@ -126,7 +128,15 @@ export default function NewLeadPage() {
         {/* 관리 섹션 */}
         <div className="pb-4 border-b">
           <h3 className="text-sm font-semibold text-text-secondary mb-3">관리</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+            <Input
+              id="customer_code"
+              label="고객사 코드"
+              value={form.customer_code}
+              onChange={(e) => handleChange('customer_code', e.target.value)}
+              placeholder="예: 2604171030"
+              className="font-mono"
+            />
             <Select
               id="priority"
               label="우선순위"

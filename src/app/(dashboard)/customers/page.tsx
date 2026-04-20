@@ -12,7 +12,7 @@ import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { formatDate } from '@/lib/utils'
 import type { Customer } from '@/types/database'
-import { Search, Users, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Search, Users, Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -32,6 +32,8 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [editingCodeId, setEditingCodeId] = useState<string | null>(null)
+  const [editingCodeValue, setEditingCodeValue] = useState('')
   const supabase = createClient()
   const router = useRouter()
 
@@ -47,6 +49,23 @@ export default function CustomersPage() {
 
     setCustomers(data || [])
     setLoading(false)
+  }
+
+  function startEditCode(customer: Customer) {
+    setEditingCodeId(customer.id)
+    setEditingCodeValue(customer.customer_code || '')
+  }
+
+  async function saveCode(customerId: string) {
+    const val = editingCodeValue.trim() || null
+    const { error } = await supabase.from('customers').update({ customer_code: val }).eq('id', customerId)
+    if (error) {
+      toast.error('코드 저장에 실패했습니다.')
+    } else {
+      toast.success('고객사 코드가 업데이트되었습니다.')
+      setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, customer_code: val } : c))
+    }
+    setEditingCodeId(null)
   }
 
   async function handleDelete() {
@@ -90,7 +109,7 @@ export default function CustomersPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-placeholder" />
           <Input
-            placeholder="회사명, 담당자, 전화번호, 이메일 검색..."
+            placeholder="코드, 회사명, 담당자, 전화번호, 이메일 검색..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -107,10 +126,11 @@ export default function CustomersPage() {
           <table className="data-table" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
-                <th style={{ width: '28%' }}>회사명</th>
-                <th style={{ width: '12%' }}>타입</th>
-                <th style={{ width: '14%' }}>담당자</th>
-                <th style={{ width: '12%' }}>영업담당</th>
+                <th style={{ width: '12%' }}>코드</th>
+                <th style={{ width: '22%' }}>회사명</th>
+                <th style={{ width: '10%' }}>타입</th>
+                <th style={{ width: '12%' }}>담당자</th>
+                <th style={{ width: '10%' }}>영업담당</th>
                 <th style={{ width: '10%' }}>상태</th>
                 <th style={{ width: '12%' }}>과금시작</th>
                 <th style={{ width: '12%' }}>관리</th>
@@ -119,6 +139,38 @@ export default function CustomersPage() {
             <tbody>
               {filtered.map((c) => (
                 <tr key={c.id}>
+                  <td>
+                    {editingCodeId === c.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={editingCodeValue}
+                          onChange={(e) => setEditingCodeValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveCode(c.id)
+                            if (e.key === 'Escape') setEditingCodeId(null)
+                          }}
+                          className="w-full px-1.5 py-0.5 text-[11px] font-mono border border-primary-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          autoFocus
+                          placeholder="코드 입력"
+                        />
+                        <button onClick={() => saveCode(c.id)} className="text-green-600 hover:text-green-700 flex-shrink-0">
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setEditingCodeId(null)} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startEditCode(c)}
+                        className="text-[11px] font-mono text-text-tertiary hover:text-primary-600 hover:bg-primary-50 px-1.5 py-0.5 rounded transition-colors w-full text-left truncate"
+                        title="클릭하여 수정"
+                      >
+                        {c.customer_code || '-'}
+                      </button>
+                    )}
+                  </td>
                   <td>
                     <Link href={`/customers/${c.id}`} className="font-medium text-primary-500 hover:text-primary-500 hover:underline block truncate">
                       {c.company_name}

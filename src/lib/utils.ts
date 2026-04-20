@@ -71,10 +71,24 @@ export const SITE_CATEGORY_COLORS: Record<string, string> = {
   '민간': 'bg-slate-100 text-slate-600 border-slate-200',
 }
 
+// 광고성과(ad_performance)와 통일된 채널 분류
+// 기존 파이프라인 전용 값과의 매핑:
+//   문의하기/공식홈페이지 → 자사채널 | 검색채널 → 검색유입 | 박람회 → 이벤트/행사
+//   대표전화/개인전화/이용자 추천 → 세일즈 전용 (유지)
 export const CHANNEL_OPTIONS = [
-  '문의하기', '검색채널', '대표전화', '개인전화',
-  '이용자 추천', '박람회', '공식홈페이지', '기타',
+  '네이버', '구글', '메타', '유튜브',
+  '검색유입', '자사채널', '블로그', '언론',
+  '대표전화', '개인전화', '추천', '이벤트/행사', '기타',
 ]
+
+// 기존 파이프라인 채널값 → 통합 채널값 변환맵 (데이터 마이그레이션용)
+export const LEGACY_CHANNEL_MAP: Record<string, string> = {
+  '문의하기': '자사채널',
+  '공식홈페이지': '자사채널',
+  '검색채널': '검색유입',
+  '이용자 추천': '추천',
+  '박람회': '이벤트/행사',
+}
 
 export const VOC_CATEGORY_LABELS: Record<string, string> = {
   dev_request: '개발 요청',

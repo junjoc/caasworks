@@ -139,25 +139,25 @@ function parseInquiryMessage(text: string): {
  * 레퍼러 URL에서 유입경로 추정
  */
 function inferInquirySource(referrer: string | null): { channel: string; source: string } {
-  if (!referrer) return { channel: '문의하기', source: '알수없음' }
+  if (!referrer) return { channel: '자사채널', source: '홈페이지' }
 
   const url = referrer.toLowerCase()
   if (url.includes('blog.naver.com') || url.includes('m.blog.naver.com'))
     return { channel: '블로그', source: '네이버' }
   if (url.includes('search.naver.com') || url.includes('m.search.naver.com'))
-    return { channel: '검색채널', source: '네이버' }
+    return { channel: '검색유입', source: '네이버' }
   if (url.includes('google.com/search') || url.includes('google.co.kr'))
-    return { channel: '검색채널', source: '구글' }
+    return { channel: '검색유입', source: '구글' }
   if (url.includes('youtube.com'))
-    return { channel: '검색채널', source: '유튜브' }
+    return { channel: '유튜브', source: '유튜브' }
   if (url.includes('instagram.com') || url.includes('facebook.com'))
-    return { channel: '검색채널', source: '메타' }
+    return { channel: '메타', source: '메타' }
   if (url.includes('caas.co.kr') || url.includes('caasworks'))
-    return { channel: '공식홈페이지', source: '자사' }
+    return { channel: '자사채널', source: '홈페이지' }
   if (url.includes('tistory.com'))
     return { channel: '블로그', source: '티스토리' }
 
-  return { channel: '문의하기', source: '기타' }
+  return { channel: '자사채널', source: '기타' }
 }
 
 export async function POST(request: NextRequest) {

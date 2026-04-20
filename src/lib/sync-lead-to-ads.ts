@@ -1,7 +1,8 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 
 // 파이프라인 리드 유입채널 → 광고성과 채널/서브소스 매핑
-// pipeline_leads.inquiry_channel → ad_performance.channel + campaign_name
+// 채널 체계 통일 후: pipeline과 ad_performance가 같은 채널명 사용
+// 레거시 채널명(문의하기, 검색채널 등)도 하위 호환 지원
 function mapLeadChannelToAds(inquiryChannel: string, inquirySource: string): {
   channel: string
   campaign_name: string
@@ -9,9 +10,41 @@ function mapLeadChannelToAds(inquiryChannel: string, inquirySource: string): {
   const ch = (inquiryChannel || '').trim()
   const src = (inquirySource || '').trim()
 
+  // 광고성과와 동일한 채널명인 경우 (통합 후)
+  const directChannels = ['네이버', '구글', '메타', '유튜브', '검색유입', '자사채널', '블로그', '언론', '이벤트/행사']
+  if (directChannels.includes(ch)) {
+    // 서브소스(campaign_name) 결정
+    if (ch === '검색유입') {
+      if (src.includes('네이버') || src.toLowerCase().includes('naver'))
+        return { channel: ch, campaign_name: '네이버' }
+      if (src.includes('구글') || src.toLowerCase().includes('google'))
+        return { channel: ch, campaign_name: '구글' }
+      if (src.includes('AI') || src.includes('GPT') || src.includes('클로드') || src.includes('퍼플렉'))
+        return { channel: ch, campaign_name: '생성형AI' }
+      return { channel: ch, campaign_name: src || '기타' }
+    }
+    if (ch === '자사채널') {
+      return { channel: ch, campaign_name: src || '홈페이지' }
+    }
+    if (ch === '블로그') {
+      if (src.includes('네이버')) return { channel: ch, campaign_name: '네이버' }
+      if (src.includes('티스토리')) return { channel: ch, campaign_name: '티스토리' }
+      return { channel: ch, campaign_name: src || '기타' }
+    }
+    return { channel: ch, campaign_name: src || ch }
+  }
+
+  // 세일즈 전용 채널
+  if (ch === '대표전화' || ch === '개인전화') {
+    return { channel: '자사채널', campaign_name: ch }
+  }
+  if (ch === '추천') {
+    return { channel: '기타', campaign_name: '추천' }
+  }
+
+  // --- 레거시 채널명 하위 호환 ---
   switch (ch) {
     case '검색채널':
-      // 상세 경로에서 소스 추정
       if (src.includes('네이버') || src.toLowerCase().includes('naver'))
         return { channel: '검색유입', campaign_name: '네이버' }
       if (src.includes('구글') || src.toLowerCase().includes('google'))
@@ -21,25 +54,14 @@ function mapLeadChannelToAds(inquiryChannel: string, inquirySource: string): {
       return { channel: '검색유입', campaign_name: src || '기타' }
 
     case '문의하기':
-      return { channel: '자사채널', campaign_name: '홈페이지' }
-
     case '공식홈페이지':
       return { channel: '자사채널', campaign_name: '홈페이지' }
-
-    case '대표전화':
-    case '개인전화':
-      return { channel: '자사채널', campaign_name: ch }
 
     case '이용자 추천':
       return { channel: '기타', campaign_name: '추천' }
 
     case '박람회':
-      return { channel: '기타', campaign_name: '박람회' }
-
-    case '블로그':
-      if (src.includes('네이버')) return { channel: '블로그', campaign_name: '네이버' }
-      if (src.includes('티스토리')) return { channel: '블로그', campaign_name: '티스토리' }
-      return { channel: '블로그', campaign_name: src || '기타' }
+      return { channel: '이벤트/행사', campaign_name: '박람회' }
 
     default:
       if (!ch) return null

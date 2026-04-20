@@ -211,6 +211,7 @@ export default function LeadDetailPage() {
   const startEdit = () => {
     if (!lead) return
     setEditForm({
+      customer_code: lead.customer_code,
       company_name: lead.company_name,
       contact_person: lead.contact_person,
       contact_phone: lead.contact_phone,
@@ -501,7 +502,10 @@ export default function LeadDetailPage() {
           <Link href="/pipeline/list" className="text-text-tertiary hover:text-text-secondary">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-lg font-bold text-text-primary">{lead.company_name}</h1>
+          <div>
+            <h1 className="text-lg font-bold text-text-primary">{lead.company_name}</h1>
+            {lead.customer_code && <p className="text-[10px] font-mono text-text-tertiary">{lead.customer_code}</p>}
+          </div>
           <Badge className={STAGE_COLORS[lead.stage]}>{lead.stage}</Badge>
           {lead.priority && lead.priority !== '중간' && <Badge className={`${PRIORITY_COLORS[lead.priority]} border`}>{lead.priority}</Badge>}
           {(lead as any).conversion_probability && (lead as any).conversion_probability !== '중간' && (
@@ -667,7 +671,10 @@ export default function LeadDetailPage() {
             </div>
             {editing ? (
               <div className="space-y-3">
-                <Input label="회사명" value={editForm.company_name || ''} onChange={(e) => setEditForm({ ...editForm, company_name: e.target.value })} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="회사명" value={editForm.company_name || ''} onChange={(e) => setEditForm({ ...editForm, company_name: e.target.value })} />
+                  <Input label="고객사 코드" value={editForm.customer_code || ''} onChange={(e) => setEditForm({ ...editForm, customer_code: e.target.value })} placeholder="예: 2604171030" className="font-mono" />
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Select label="사업분류" value={editForm.industry || ''} onChange={(e) => setEditForm({ ...editForm, industry: e.target.value })} options={INDUSTRY_OPTIONS.map(i => ({ value: i, label: i }))} placeholder="업종" />
                   <Input label="핵심니즈" value={editForm.core_need || ''} onChange={(e) => setEditForm({ ...editForm, core_need: e.target.value })} />
@@ -689,6 +696,7 @@ export default function LeadDetailPage() {
             ) : (
               <div className="space-y-2.5 text-sm">
                 {[
+                  ['코드', lead.customer_code ? { text: lead.customer_code, mono: true } : null],
                   ['사업분류', lead.industry],
                   ['문의자', lead.contact_person ? `${lead.contact_person}${lead.contact_position ? ' (' + lead.contact_position + ')' : ''}` : null],
                   ['연락처', lead.contact_phone],
@@ -698,12 +706,16 @@ export default function LeadDetailPage() {
                   ['유입경로', lead.inquiry_source],
                   ['유입일', lead.inquiry_date ? formatDate(lead.inquiry_date) : null],
                   ['등록일', formatDate(lead.created_at)],
-                ].map(([label, value]) => (
-                  <div key={label as string} className="flex items-baseline">
-                    <dt className="w-16 shrink-0 text-xs text-text-tertiary">{label}</dt>
-                    <dd className="text-sm text-text-primary">{(value as string) || '-'}</dd>
-                  </div>
-                ))}
+                ].map(([label, value]) => {
+                  const isMono = value && typeof value === 'object' && 'mono' in (value as any)
+                  const displayText = isMono ? (value as any).text : (value as string)
+                  return (
+                    <div key={String(label)} className="flex items-baseline">
+                      <dt className="w-16 shrink-0 text-xs text-text-tertiary">{String(label)}</dt>
+                      <dd className={`text-sm text-text-primary ${isMono ? 'font-mono text-xs' : ''}`}>{displayText || '-'}</dd>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
