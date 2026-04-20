@@ -277,8 +277,19 @@ export async function POST(request: NextRequest) {
           ? (inquiry.company_name === '무명' ? '무명 (미공개)' : inquiry.company_name)
           : '미상'
 
+        // customer_code 자동 생성 (YYMMDDHHmm 형식, KST 기준)
+        const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+        const customerCode = [
+          String(kstNow.getUTCFullYear()).slice(2),
+          String(kstNow.getUTCMonth() + 1).padStart(2, '0'),
+          String(kstNow.getUTCDate()).padStart(2, '0'),
+          String(kstNow.getUTCHours()).padStart(2, '0'),
+          String(kstNow.getUTCMinutes()).padStart(2, '0'),
+        ].join('')
+
         // pipeline_leads에 삽입
         const { error: leadError } = await supabase.from('pipeline_leads').insert({
+          customer_code: customerCode,
           company_name: companyName,
           contact_person: inquiry.name,
           contact_email: inquiry.email,

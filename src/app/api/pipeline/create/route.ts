@@ -17,6 +17,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'company_name is required' }, { status: 400 })
     }
 
+    // customer_code가 없으면 자동 생성 (YYMMDDHHmm, KST)
+    if (!body.customer_code) {
+      const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+      body.customer_code = [
+        String(kstNow.getUTCFullYear()).slice(2),
+        String(kstNow.getUTCMonth() + 1).padStart(2, '0'),
+        String(kstNow.getUTCDate()).padStart(2, '0'),
+        String(kstNow.getUTCHours()).padStart(2, '0'),
+        String(kstNow.getUTCMinutes()).padStart(2, '0'),
+      ].join('')
+    }
+
     const { data, error } = await supabase
       .from('pipeline_leads')
       .insert(body)
