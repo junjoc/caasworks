@@ -130,17 +130,11 @@ export default function PipelineBoardPage() {
         return ld >= dateRange.from && ld <= dateRange.to
       })
     }
-    // 정렬: 액션일 기한초과 → 액션일 오늘/미래(날짜 순) → 액션일 없는 카드(생성일 역순)
+    // 정렬: 유입일 기준 최신순 (유입일 없으면 생성일 사용)
     filtered.sort((a, b) => {
-      const aDate = a.next_action_date
-      const bDate = b.next_action_date
-      // 둘 다 없으면 생성일 역순
-      if (!aDate && !bDate) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      // 액션일 있는 것이 위로
-      if (!aDate) return 1
-      if (!bDate) return -1
-      // 둘 다 있으면 날짜 순 (가까운 순)
-      return new Date(aDate).getTime() - new Date(bDate).getTime()
+      const aDate = a.inquiry_date || a.created_at?.substring(0, 10) || ''
+      const bDate = b.inquiry_date || b.created_at?.substring(0, 10) || ''
+      return bDate.localeCompare(aDate)
     })
     return filtered
   }
