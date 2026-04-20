@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
-import { INDUSTRY_OPTIONS, CHANNEL_OPTIONS, SITE_CATEGORY_OPTIONS } from '@/lib/utils'
+import { INDUSTRY_OPTIONS, CHANNEL_OPTIONS, CHANNEL_SUB_SOURCES, SITE_CATEGORY_OPTIONS } from '@/lib/utils'
 import { syncLeadToAdPerformance } from '@/lib/sync-lead-to-ads'
 import type { User } from '@/types/database'
 import { toast } from 'sonner'
@@ -184,17 +184,33 @@ export default function NewLeadPage() {
               id="inquiry_channel"
               label="유입채널"
               value={form.inquiry_channel}
-              onChange={(e) => handleChange('inquiry_channel', e.target.value)}
+              onChange={(e) => {
+                handleChange('inquiry_channel', e.target.value)
+                // 채널 변경 시 유입경로 초기화
+                const subs = CHANNEL_SUB_SOURCES[e.target.value]
+                handleChange('inquiry_source', subs ? subs[0] : '')
+              }}
               options={CHANNEL_OPTIONS.map(c => ({ value: c, label: c }))}
               placeholder="채널 선택"
             />
-            <Input
-              id="inquiry_source"
-              label="유입경로"
-              value={form.inquiry_source}
-              onChange={(e) => handleChange('inquiry_source', e.target.value)}
-              placeholder="상세 경로"
-            />
+            {CHANNEL_SUB_SOURCES[form.inquiry_channel] ? (
+              <Select
+                id="inquiry_source"
+                label="유입경로"
+                value={form.inquiry_source}
+                onChange={(e) => handleChange('inquiry_source', e.target.value)}
+                options={CHANNEL_SUB_SOURCES[form.inquiry_channel].map(s => ({ value: s, label: s }))}
+                placeholder="경로 선택"
+              />
+            ) : (
+              <Input
+                id="inquiry_source"
+                label="유입경로"
+                value={form.inquiry_source}
+                onChange={(e) => handleChange('inquiry_source', e.target.value)}
+                placeholder="상세 경로"
+              />
+            )}
           </div>
         </div>
 

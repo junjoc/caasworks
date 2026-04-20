@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { PageLoading } from '@/components/ui/loading'
 import { useAuth } from '@/hooks/useAuth'
 import {
-  STAGE_COLORS, PRIORITY_COLORS, INDUSTRY_OPTIONS, CHANNEL_OPTIONS,
+  STAGE_COLORS, PRIORITY_COLORS, INDUSTRY_OPTIONS, CHANNEL_OPTIONS, CHANNEL_SUB_SOURCES,
   ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ICONS, ACTIVITY_TYPE_COLORS, ACTIVITY_TYPE_OPTIONS, ACTIVITY_TYPE_GROUPS,
   ACTIVITY_STAGE_MAP,
   VOC_CATEGORY_LABELS, VOC_PRIORITY_LABELS,
@@ -687,9 +687,16 @@ export default function LeadDetailPage() {
                 <Input label="이메일" value={editForm.contact_email || ''} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} />
                 <div className="grid grid-cols-2 gap-3">
                   <Input label="유입일" type="date" value={editForm.inquiry_date || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_date: e.target.value })} />
-                  <Select label="유입채널" value={editForm.inquiry_channel || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_channel: e.target.value })} options={CHANNEL_OPTIONS.map(c => ({ value: c, label: c }))} placeholder="채널" />
+                  <Select label="유입채널" value={editForm.inquiry_channel || ''} onChange={(e) => {
+                    const subs = CHANNEL_SUB_SOURCES[e.target.value]
+                    setEditForm({ ...editForm, inquiry_channel: e.target.value, inquiry_source: subs ? subs[0] : '' })
+                  }} options={CHANNEL_OPTIONS.map(c => ({ value: c, label: c }))} placeholder="채널" />
                 </div>
-                <Input label="유입경로" value={editForm.inquiry_source || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_source: e.target.value })} />
+                {CHANNEL_SUB_SOURCES[editForm.inquiry_channel || ''] ? (
+                  <Select label="유입경로" value={editForm.inquiry_source || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_source: e.target.value })} options={CHANNEL_SUB_SOURCES[editForm.inquiry_channel || ''].map(s => ({ value: s, label: s }))} placeholder="경로 선택" />
+                ) : (
+                  <Input label="유입경로" value={editForm.inquiry_source || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_source: e.target.value })} placeholder="상세 경로" />
+                )}
                 <Textarea label="문의내용" value={editForm.inquiry_content || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_content: e.target.value })} />
                 <Textarea label="메모" value={editForm.notes || ''} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
               </div>

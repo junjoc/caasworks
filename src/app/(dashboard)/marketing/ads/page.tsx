@@ -10,7 +10,7 @@ import { Modal } from '@/components/ui/modal'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
-import { formatCurrency, formatNumber } from '@/lib/utils'
+import { formatCurrency, formatNumber, CHANNEL_SUB_SOURCES as SHARED_SUB_SOURCES } from '@/lib/utils'
 import { toast } from 'sonner'
 import { CompanyTagInput } from '@/components/ui/company-tag-input'
 import {
@@ -95,11 +95,9 @@ const AD_TYPE_OPTIONS = [
   { value: '기타', label: '기타' },
 ]
 
-// 채널별 서브소스 프리셋 (시트 기반)
+// 채널별 서브소스 프리셋 (utils.ts 공유 + 광고성과 전용 확장)
 const CHANNEL_SUB_SOURCES: Record<string, string[]> = {
-  '검색유입': ['네이버', '구글', '생성형AI', '기타'],
-  '자사채널': ['홈페이지', '깃북', '해피톡'],
-  '블로그': ['네이버', '티스토리', '아이콘'],
+  ...SHARED_SUB_SOURCES,
 }
 
 const CHANNEL_COLORS: Record<string, string> = {
