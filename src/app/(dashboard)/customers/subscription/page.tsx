@@ -17,6 +17,7 @@ import Link from 'next/link'
 
 interface SubscriptionCustomer {
   id: string
+  customer_code: string | null
   company_name: string
   contact_person: string | null
   contact_phone: string | null
@@ -87,7 +88,7 @@ export default function SubscriptionPage() {
         .from('customers')
         .select('*')
         .eq('status', 'active')
-        .order('company_name')
+        .order('customer_code', { ascending: false, nullsFirst: false })
 
       // Fetch all active projects
       const { data: projData } = await supabase
@@ -163,6 +164,7 @@ export default function SubscriptionPage() {
 
           return {
             id: c.id,
+            customer_code: c.customer_code || null,
             company_name: c.company_name,
             contact_person: c.contact_person,
             contact_phone: c.contact_phone,
@@ -204,6 +206,7 @@ export default function SubscriptionPage() {
       const q = searchQuery.toLowerCase()
       result = result.filter(c =>
         c.company_name.toLowerCase().includes(q) ||
+        (c.customer_code || '').toLowerCase().includes(q) ||
         c.contact_person?.toLowerCase().includes(q) ||
         c.service_type?.toLowerCase().includes(q)
       )
@@ -321,7 +324,8 @@ export default function SubscriptionPage() {
           <table className="data-table" style={{ minWidth: '1000px' }}>
             <thead>
               <tr>
-                <th style={{ width: '18%' }}>고객사</th>
+                <th style={{ width: '10%' }}>코드</th>
+                <th style={{ width: '14%' }}>고객사</th>
                 <th style={{ width: '8%' }}>과금유형</th>
                 <th style={{ width: '20%' }}>서비스 구성</th>
                 <th style={{ width: '10%' }} className="text-right">월 과금액</th>
@@ -336,6 +340,7 @@ export default function SubscriptionPage() {
             <tbody>
               {filtered.map((cust) => (
                 <tr key={cust.id}>
+                  <td className="text-[11px] font-mono text-text-tertiary">{cust.customer_code || '-'}</td>
                   <td className="col-company">
                     <Link href={`/customers/${cust.id}`} className="font-medium text-primary-500 hover:text-primary-500 hover:underline truncate block">{cust.company_name}</Link>
                     {cust.contact_person && <div className="text-micro text-text-tertiary truncate">{cust.contact_person}</div>}

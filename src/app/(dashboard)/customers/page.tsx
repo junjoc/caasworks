@@ -45,7 +45,7 @@ export default function CustomersPage() {
     const { data } = await supabase
       .from('customers')
       .select('*, assigned_user:users!customers_assigned_to_fkey(id, name)')
-      .order('created_at', { ascending: false })
+      .order('customer_code', { ascending: false, nullsFirst: false })
 
     setCustomers(data || [])
     setLoading(false)
