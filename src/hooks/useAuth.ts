@@ -10,14 +10,21 @@ export function useAuth() {
   const supabaseRef = useRef(createClient())
   const mountedRef = useRef(true)
 
-  const fetchUser = useCallback(async (userId: string) => {
+  // Fetch user from public.users by auth id first; fall back to email if
+  // no row exists with that id (auth.users ↔ public.users id mismatch is
+  // common when users were seeded before their Google OAuth login).
+  const fetchUser = useCallback(async (authUserId: string, email: string | null | undefined) => {
     try {
-      const { data } = await supabaseRef.current
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single()
-      if (mountedRef.current) setUser(data)
+      const sb = supabaseRef.current
+      const { data: byId } = await sb.from('users').select('*').eq('id', authUserId).maybeSingle()
+      if (byId) {
+        if (mountedRef.current) setUser(byId)
+        return
+      }
+      if (email) {
+        const { data: byEmail } = await sb.from('users').select('*').eq('email', email).maybeSingle()
+        if (byEmail && mountedRef.current) setUser(byEmail)
+      }
     } catch {
       // silently fail - user table might be slow
     }
@@ -30,7 +37,7 @@ export function useAuth() {
     // Fast path: getSession reads from cookie, no network
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user && mountedRef.current) {
-        fetchUser(session.user.id)
+        fetchUser(session.user.id, session.user.email)
       }
       if (mountedRef.current) setLoading(false)
     }).catch(() => {
@@ -41,7 +48,7 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mountedRef.current) return
       if (session?.user) {
-        fetchUser(session.user.id)
+        fetchUser(session.user.id, session.user.email)
       } else {
         setUser(null)
       }

@@ -115,8 +115,10 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
 
   // Child access check: admin-only paths (e.g. /settings/users, /settings/roles) require admin
   const canSeeChild = (href: string): boolean => {
-    // TEMPORARY: grant all logged-in users full access (see kill-switch above)
-    if (DISABLE_ROLE_FILTERING) return !!user
+    // TEMPORARY: grant ALL logged-in users full access, even if the
+    // public.users row didn't load (e.g. auth id ↔ public.users id mismatch).
+    // The AuthProvider's session check upstream already prevents unauth access.
+    if (DISABLE_ROLE_FILTERING) return true
     if (ADMIN_ONLY_PATHS.includes(href)) return isAdmin
     return roleCanAccess(allowedPaths, href)
   }
