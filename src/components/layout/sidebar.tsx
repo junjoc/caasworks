@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import type { User } from '@/types/database'
+import { createClient } from '@/lib/supabase/client'
+import { NAV_MENU, roleCanAccess, ADMIN_ONLY_PATHS } from '@/lib/nav-menu'
 import {
   LayoutDashboard,
   Megaphone,
@@ -20,6 +22,7 @@ import {
   X,
   LogOut,
   BarChart3,
+  UserCircle,
 } from 'lucide-react'
 
 // Icon color mapping for each nav section
@@ -36,111 +39,18 @@ const iconColors: Record<string, { color: string; bg: string }> = {
   '설정': { color: '#6b7280', bg: '#f3f4f6' },
 }
 
-interface NavItem {
-  label: string
-  href?: string
-  icon: React.ReactNode
-  roles?: string[]
-  badge?: number
-  children?: { label: string; href: string; roles?: string[] }[]
+const iconFor: Record<string, React.ReactNode> = {
+  '대시보드': <LayoutDashboard className="w-[16px] h-[16px]" />,
+  '분석': <BarChart3 className="w-[16px] h-[16px]" />,
+  '마케팅': <Megaphone className="w-[16px] h-[16px]" />,
+  '세일즈': <Target className="w-[16px] h-[16px]" />,
+  '고객관리': <Users className="w-[16px] h-[16px]" />,
+  '재무관리': <Wallet className="w-[16px] h-[16px]" />,
+  '운영관리': <Package className="w-[16px] h-[16px]" />,
+  'VoC/CS': <MessageSquare className="w-[16px] h-[16px]" />,
+  '업무': <ClipboardList className="w-[16px] h-[16px]" />,
+  '설정': <Settings className="w-[16px] h-[16px]" />,
 }
-
-const navItems: NavItem[] = [
-  {
-    label: '대시보드',
-    href: '/',
-    icon: <LayoutDashboard className="w-[16px] h-[16px]" />,
-  },
-  {
-    label: '분석',
-    href: '/analytics',
-    icon: <BarChart3 className="w-[16px] h-[16px]" />,
-  },
-  {
-    label: '마케팅',
-    icon: <Megaphone className="w-[16px] h-[16px]" />,
-    children: [
-      { label: '캠페인 관리', href: '/marketing/campaigns' },
-      { label: '광고 성과', href: '/marketing/ads' },
-      { label: '콘텐츠 성과', href: '/marketing/content' },
-      { label: '방문자 여정', href: '/marketing/journey' },
-      { label: '마케팅 분석', href: '/marketing/analytics' },
-    ],
-  },
-  {
-    label: '세일즈',
-    icon: <Target className="w-[16px] h-[16px]" />,
-    children: [
-      { label: '보드뷰', href: '/pipeline/board' },
-      { label: '리스트', href: '/pipeline/list' },
-      { label: '파이프라인 분석', href: '/pipeline/analytics' },
-      { label: '견적서', href: '/quotations' },
-      { label: '견적 모의계산', href: '/quotations/simulator' },
-      { label: '단가표', href: '/quotations/price-list' },
-    ],
-  },
-  {
-    label: '고객관리',
-    icon: <Users className="w-[16px] h-[16px]" />,
-    children: [
-      { label: '매출 현황', href: '/revenue' },
-      { label: '과금 고객', href: '/customers/subscription' },
-      { label: '전체 고객', href: '/customers' },
-      { label: '계약 관리', href: '/contracts' },
-    ],
-  },
-  {
-    label: '재무관리',
-    icon: <Wallet className="w-[16px] h-[16px]" />,
-    children: [
-      { label: '청구/계산서', href: '/finance/invoices' },
-      { label: '미납 현황', href: '/finance/unpaid' },
-      { label: '납부 관리', href: '/finance/payments' },
-      { label: '매입/비용', href: '/finance/costs' },
-      { label: '손익 분석', href: '/finance/analysis' },
-    ],
-  },
-  {
-    label: '운영관리',
-    icon: <Package className="w-[16px] h-[16px]" />,
-    children: [
-      { label: '현장 관리', href: '/operations/sites' },
-      { label: '카메라 반출', href: '/operations/camera-shipments' },
-      { label: '장비 관리', href: '/operations/equipment' },
-      { label: '협력사 발주', href: '/operations/orders' },
-    ],
-  },
-  {
-    label: 'VoC/CS',
-    icon: <MessageSquare className="w-[16px] h-[16px]" />,
-    children: [
-      { label: '티켓 목록', href: '/voc' },
-      { label: 'SLA 현황', href: '/voc/sla' },
-    ],
-  },
-  {
-    label: '업무',
-    icon: <ClipboardList className="w-[16px] h-[16px]" />,
-    children: [
-      { label: '오늘 할일', href: '/work/today' },
-      { label: '활동 로그', href: '/activities' },
-      { label: '업무보고', href: '/work/report' },
-      { label: '캘린더', href: '/team/calendar' },
-      { label: '미팅 관리', href: '/meetings' },
-    ],
-  },
-  {
-    label: '설정',
-    icon: <Settings className="w-[16px] h-[16px]" />,
-    children: [
-      { label: '팀원 관리', href: '/settings/users' },
-      { label: '제품/서비스', href: '/settings/products' },
-      { label: '견적서 템플릿', href: '/settings/templates' },
-      { label: 'Slack 연동', href: '/settings/slack' },
-      { label: '알림 설정', href: '/settings/notifications' },
-    ],
-  },
-]
 
 interface SidebarProps {
   user: User | null
@@ -151,10 +61,29 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
   const pathname = usePathname()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [allowedPaths, setAllowedPaths] = useState<string[] | null>(null)
+
+  // Fetch the current user's role permissions
+  useEffect(() => {
+    if (!user?.role) {
+      setAllowedPaths(null)
+      return
+    }
+    // Admin role always gets everything
+    if (user.role === 'admin') {
+      setAllowedPaths(['*'])
+      return
+    }
+    const sb = createClient()
+    sb.from('roles').select('allowed_paths').eq('name', user.role).single().then(({ data }) => {
+      const paths = (data?.allowed_paths as string[] | undefined) || []
+      setAllowedPaths(paths)
+    })
+  }, [user?.role])
 
   // Auto-expand active parent on mount
   useEffect(() => {
-    const activeParent = navItems.find(
+    const activeParent = NAV_MENU.find(
       item => item.children?.some(c => pathname?.startsWith(c.href))
     )
     if (activeParent && !expandedItems.includes(activeParent.label)) {
@@ -170,14 +99,31 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
-    // Exact match for leaf menu items (prevent /customers matching /customers/subscription)
     return pathname === href
   }
 
-  const filteredItems = navItems.filter((item) => {
-    if (!item.roles) return true
-    return user && item.roles.includes(user.role)
-  })
+  const isAdmin = user?.role === 'admin'
+
+  // Child access check: admin-only paths (e.g. /settings/users, /settings/roles) require admin
+  const canSeeChild = (href: string): boolean => {
+    if (ADMIN_ONLY_PATHS.includes(href)) return isAdmin
+    return roleCanAccess(allowedPaths, href)
+  }
+
+  // Filter menu by role permissions
+  const filteredItems = NAV_MENU
+    .map(section => {
+      if (section.href) {
+        // Top-level leaf item
+        return canSeeChild(section.href) ? section : null
+      }
+      // Section with children — filter children and keep only if any remain
+      const visibleChildren = section.children?.filter(c => canSeeChild(c.href)) || []
+      return visibleChildren.length > 0
+        ? { ...section, children: visibleChildren }
+        : null
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null)
 
   const IconWrapper = ({ label, children, isItemActive }: { label: string; children: React.ReactNode; isItemActive: boolean }) => {
     const colors = iconColors[label] || { color: '#6b7280', bg: '#f3f4f6' }
@@ -197,7 +143,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
   const sidebarContent = (
     <nav className="flex-1 py-2 overflow-y-auto">
       {filteredItems.map((item) => {
-        const hasChildren = item.children && item.children.length > 0
+        const hasChildren = !!item.children && item.children.length > 0
         const isExpanded = expandedItems.includes(item.label)
         const hasActiveChild = hasChildren && item.children!.some((c) => isActive(c.href))
 
@@ -214,7 +160,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
               )}
             >
               <IconWrapper label={item.label} isItemActive={active}>
-                {item.icon}
+                {iconFor[item.label]}
               </IconWrapper>
               <span className="flex-1">{item.label}</span>
             </Link>
@@ -233,7 +179,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
             >
               <span className="flex items-center gap-2.5">
                 <IconWrapper label={item.label} isItemActive={!!hasActiveChild}>
-                  {item.icon}
+                  {iconFor[item.label]}
                 </IconWrapper>
                 {item.label}
               </span>
@@ -247,30 +193,25 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
               isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
             )}>
               <div className="py-0.5">
-                {item.children!
-                  .filter((child) => {
-                    if (!child.roles) return true
-                    return user && child.roles.includes(user.role)
-                  })
-                  .map((child) => (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={cn(
-                        'flex items-center gap-2 pl-12 pr-3 py-2 mx-2 rounded-md text-[13px] transition-all duration-100',
-                        isActive(child.href)
-                          ? 'text-primary-500 bg-primary-50 font-medium'
-                          : 'text-text-secondary hover:text-text-primary hover:bg-surface-tertiary'
-                      )}
-                    >
-                      <span className={cn(
-                        'w-1.5 h-1.5 rounded-full transition-colors',
-                        isActive(child.href) ? 'bg-primary-500' : 'bg-text-tertiary/40'
-                      )} />
-                      {child.label}
-                    </Link>
-                  ))}
+                {item.children!.map((child) => (
+                  <Link
+                    key={child.href}
+                    href={child.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      'flex items-center gap-2 pl-12 pr-3 py-2 mx-2 rounded-md text-[13px] transition-all duration-100',
+                      isActive(child.href)
+                        ? 'text-primary-500 bg-primary-50 font-medium'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-surface-tertiary'
+                    )}
+                  >
+                    <span className={cn(
+                      'w-1.5 h-1.5 rounded-full transition-colors',
+                      isActive(child.href) ? 'bg-primary-500' : 'bg-text-tertiary/40'
+                    )} />
+                    {child.label}
+                  </Link>
+                ))}
               </div>
             </div>
           </div>
@@ -281,7 +222,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile hamburger - positioned inside header area */}
+      {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpen(true)}
         className="lg:hidden fixed top-2.5 left-3 z-50 p-2 rounded-lg bg-white text-text-secondary border border-border shadow-card"
@@ -289,7 +230,6 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         <Menu className="w-5 h-5" />
       </button>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
@@ -297,7 +237,6 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           'fixed top-0 left-0 z-40 h-screen bg-white border-r border-border flex flex-col',
@@ -322,7 +261,6 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
           </button>
         </div>
 
-        {/* Divider */}
         <div className="mx-4 border-t border-border-light" />
 
         {sidebarContent}
@@ -331,22 +269,43 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         {user && (
           <div className="mx-3 mb-3 p-3 rounded-lg bg-surface-tertiary">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  {user.name?.charAt(0) || 'U'}
-                </div>
+              <Link href="/profile" className="flex items-center gap-2.5 min-w-0 group" onClick={() => setMobileOpen(false)}>
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.name}
+                    className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-white/60 group-hover:border-primary-300 transition-colors"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {user.name?.charAt(0) || 'U'}
+                  </div>
+                )}
                 <div className="min-w-0">
-                  <p className="text-sm text-text-primary font-medium truncate">{user.name}</p>
+                  <p className="text-sm text-text-primary font-medium truncate group-hover:text-primary-600">
+                    {user.name}
+                    {user.position && <span className="text-[10px] text-text-tertiary font-normal ml-1">· {user.position}</span>}
+                  </p>
                   <p className="text-[11px] text-text-tertiary truncate">{user.email}</p>
                 </div>
+              </Link>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Link
+                  href="/profile"
+                  className="p-1.5 rounded-md text-text-tertiary hover:text-primary-600 hover:bg-surface-secondary transition-colors"
+                  title="내 프로필"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <UserCircle className="w-4 h-4" />
+                </Link>
+                <button
+                  onClick={onSignOut}
+                  className="p-1.5 rounded-md text-text-tertiary hover:text-status-red hover:bg-surface-secondary transition-colors"
+                  title="로그아웃"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                onClick={onSignOut}
-                className="p-1.5 rounded-md text-text-tertiary hover:text-status-red hover:bg-surface-secondary transition-colors flex-shrink-0"
-                title="로그아웃"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
             </div>
           </div>
         )}

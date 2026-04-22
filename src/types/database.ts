@@ -1,4 +1,9 @@
-export type UserRole = 'admin' | 'member' | 'accountant'
+// UserRole is now a string because roles are customizable in the roles table
+export type UserRole = string
+
+export type UserPosition =
+  | '사원' | '주임' | '대리' | '과장' | '차장'
+  | '부장' | '이사' | '상무' | '전무' | '대표'
 
 export type LeadStage = '신규리드' | '컨텍' | '제안' | '미팅' | '도입직전' | '도입완료' | '이탈'
 
@@ -47,6 +52,16 @@ export interface User {
   slack_user_id: string | null
   phone: string | null
   is_active: boolean
+  position: string | null
+  avatar_url: string | null
+  created_at: string
+}
+
+export interface Role {
+  name: string
+  label: string
+  allowed_paths: string[]  // '*' = all, else list of hrefs
+  is_system: boolean
   created_at: string
 }
 
