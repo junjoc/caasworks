@@ -1,36 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-  const router = useRouter()
   const supabase = createClient()
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-
-    if (error) {
-      setError('이메일 또는 비밀번호가 올바르지 않습니다.')
-      setLoading(false)
-      return
-    }
-
-    router.push('/')
-    router.refresh()
-  }
 
   const handleGoogleLogin = async () => {
     setError('')
@@ -80,50 +56,15 @@ export default function LoginPage() {
             Google 계정으로 로그인
           </button>
 
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="px-3 bg-white text-text-placeholder">또는</span>
-            </div>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <Input
-              id="email"
-              label="이메일"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@company.com"
-              required
-            />
-
-            <Input
-              id="password"
-              label="비밀번호"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="비밀번호 입력"
-              required
-            />
-
-            {error && (
-              <p className="text-xs text-status-red bg-status-red-bg px-3 py-2 rounded-lg font-medium">
-                {error}
-              </p>
-            )}
-
-            <Button type="submit" className="w-full" size="md" loading={loading}>
-              로그인
-            </Button>
-          </form>
+          {error && (
+            <p className="text-xs text-status-red bg-status-red-bg px-3 py-2 rounded-lg font-medium mt-4">
+              {error}
+            </p>
+          )}
         </div>
 
         <p className="text-center text-xs text-text-placeholder mt-6">
-          @ai-con.co.kr 계정으로 로그인할 수 있습니다.
+          @ai-con.co.kr 계정으로만 로그인할 수 있습니다.
         </p>
       </div>
     </div>
