@@ -88,7 +88,7 @@ export const NAV_MENU: NavSection[] = [
   {
     label: '설정',
     children: [
-      { label: '팀원 관리', href: '/settings/users' },
+      { label: '사용자 관리', href: '/settings/users' },
       { label: '역할 관리', href: '/settings/roles' },
       { label: '제품/서비스', href: '/settings/products' },
       { label: '견적서 템플릿', href: '/settings/templates' },

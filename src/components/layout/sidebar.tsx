@@ -7,6 +7,15 @@ import { cn } from '@/lib/utils'
 import type { User } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { NAV_MENU, roleCanAccess, ADMIN_ONLY_PATHS } from '@/lib/nav-menu'
+
+// ──────────────────────────────────────────────────────────────
+// TEMPORARY KILL-SWITCH — 2026-04-22
+// Role-based menu filtering is currently BYPASSED so all logged-in
+// users see every menu (including /settings/users, /settings/roles).
+// This is an emergency measure while the 역할 관리 UI is being
+// debugged. Set to `false` to re-enable proper role filtering.
+// ──────────────────────────────────────────────────────────────
+const DISABLE_ROLE_FILTERING = true
 import {
   LayoutDashboard,
   Megaphone,
@@ -106,6 +115,8 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
 
   // Child access check: admin-only paths (e.g. /settings/users, /settings/roles) require admin
   const canSeeChild = (href: string): boolean => {
+    // TEMPORARY: grant all logged-in users full access (see kill-switch above)
+    if (DISABLE_ROLE_FILTERING) return !!user
     if (ADMIN_ONLY_PATHS.includes(href)) return isAdmin
     return roleCanAccess(allowedPaths, href)
   }

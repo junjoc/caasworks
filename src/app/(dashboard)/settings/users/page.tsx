@@ -12,7 +12,7 @@ import type { User, Role } from '@/types/database'
 import { POSITION_OPTIONS } from '@/lib/nav-menu'
 import { uploadAvatar } from '@/lib/avatar-upload'
 import { toast } from 'sonner'
-import { Plus, Edit2, Camera } from 'lucide-react'
+import { Plus, Edit2, Camera, Trash2 } from 'lucide-react'
 
 export default function UsersSettingsPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -85,6 +85,30 @@ export default function UsersSettingsPage() {
       setUploadingAvatar(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
+  }
+
+  const handleDelete = async (u: User) => {
+    if (!confirm(`"${u.name}" (${u.email}) 사용자를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다. 해당 사용자가 배정된 리드/활동은 '담당자 없음' 상태가 됩니다.`)) return
+    const { error } = await supabase.from('users').delete().eq('id', u.id)
+    if (error) {
+      toast.error('삭제 실패: ' + error.message + '\n(관련 데이터가 있으면 먼저 담당자를 변경하거나 비활성화를 사용해 주세요.)')
+      return
+    }
+    toast.success('사용자가 삭제되었습니다.')
+    fetchAll()
+  }
+
+  const toggleActive = async (u: User) => {
+    const { error } = await supabase
+      .from('users')
+      .update({ is_active: !u.is_active })
+      .eq('id', u.id)
+    if (error) {
+      toast.error('상태 변경 실패')
+      return
+    }
+    toast.success(u.is_active ? '비활성화되었습니다.' : '활성화되었습니다.')
+    fetchAll()
   }
 
   const handleSave = async () => {
@@ -179,14 +203,21 @@ export default function UsersSettingsPage() {
                   <td><Badge className={roleColor(u.role)}>{roleLabel(u.role)}</Badge></td>
                   <td className="text-gray-500">{u.phone || '-'}</td>
                   <td>
-                    <Badge className={u.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>
-                      {u.is_active ? '활성' : '비활성'}
-                    </Badge>
+                    <button onClick={() => toggleActive(u)} title={u.is_active ? '클릭하여 비활성화' : '클릭하여 활성화'}>
+                      <Badge className={`${u.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'} cursor-pointer hover:opacity-80`}>
+                        {u.is_active ? '활성' : '비활성'}
+                      </Badge>
+                    </button>
                   </td>
                   <td>
-                    <button onClick={() => openEdit(u)} className="text-gray-400 hover:text-primary-600">
-                      <Edit2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => openEdit(u)} className="text-gray-400 hover:text-primary-600" title="편집">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(u)} className="text-gray-400 hover:text-red-600" title="삭제">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
