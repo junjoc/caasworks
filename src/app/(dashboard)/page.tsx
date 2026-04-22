@@ -158,7 +158,7 @@ export default function DashboardPage() {
     ;(pipelineRes.data || []).forEach((l) => {
       stageCounts[l.stage] = (stageCounts[l.stage] || 0) + 1
     })
-    const pipelineByStage = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료'].map((stage) => ({
+    const pipelineByStage = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료'].map((stage) => ({
       stage,
       count: stageCounts[stage] || 0,
     }))
@@ -182,7 +182,7 @@ export default function DashboardPage() {
       salesByStageMap[l.stage].count++
       salesByStageMap[l.stage].amount += quoteByLead[l.id]?.quote || 0
     })
-    const salesByStage = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료'].map(stage => ({
+    const salesByStage = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료'].map(stage => ({
       stage,
       count: salesByStageMap[stage]?.count || 0,
       amount: salesByStageMap[stage]?.amount || 0,
@@ -279,7 +279,7 @@ export default function DashboardPage() {
       stageMap[l.stage].count++
       stageMap[l.stage].amount += data.quoteByLead[l.id]?.quote || 0
     })
-    return ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료'].map(stage => ({
+    return ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료'].map(stage => ({
       stage,
       count: stageMap[stage]?.count || 0,
       amount: stageMap[stage]?.amount || 0,
