@@ -96,7 +96,7 @@ for (let i = 8; i < rowsFmt.length; i++) {  // row 9 onwards (0-indexed 8)
   const monthlyRevs = []
   for (let m2 = 0; m2 < 12; m2++) {
     const amount = rawNum(rRow[MONTH_COLS[m2]])
-    if (amount > 0) monthlyRevs.push({ month: m2+1, amount })
+    if (amount !== 0) monthlyRevs.push({ month: m2+1, amount })  // include negatives (discounts)
   }
   sheetProjects.push({
     customerName: companyName,
