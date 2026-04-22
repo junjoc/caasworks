@@ -26,6 +26,7 @@ interface Lead {
   interest_service: string | null
   inquiry_date: string | null
   created_at: string
+  updated_at: string | null
   converted_at: string | null
   next_action_date: string | null
   priority: string | null
@@ -45,9 +46,15 @@ interface Insight {
 
 // ─── Constants ──────────────────────────────────────────
 
-const STAGE_ORDER = ['신규리드', '컨텍', '미팅', '제안', '도입직전', '도입완료', '이탈']
-const ACTIVE_STAGES = ['신규리드', '컨텍', '미팅', '제안', '도입직전']
-const FUNNEL_COLORS = ['#94a3b8', '#60a5fa', '#fbbf24', '#a78bfa', '#34d399', '#10b981', '#f87171']
+const STAGE_ORDER = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
+const ACTIVE_STAGES = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전']
+const FUNNEL_COLORS = ['#94a3b8', '#60a5fa', '#06b6d4', '#a78bfa', '#fbbf24', '#34d399', '#10b981', '#f87171']
+// 장기 방치 판단 기준 (단계별). 예정은 설계 단계 문의 등이라 6개월 정상.
+const STUCK_DAYS_BY_STAGE: Record<string, number> = {
+  '신규리드': 90, '컨텍': 90, '제안': 90, '미팅': 90, '도입직전': 90,
+  '예정': 180,
+}
+const isLongIdle = (stage: string, days: number) => days > (STUCK_DAYS_BY_STAGE[stage] ?? 90)
 const INDUSTRY_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6']
 
 // ─── Component ──────────────────────────────────────────
@@ -77,7 +84,7 @@ export default function PipelineAnalyticsPage() {
   async function fetchData() {
     setLoading(true)
     const [leadsRes, usersRes] = await Promise.all([
-      supabase.from('pipeline_leads').select('id, company_name, stage, assigned_to, inquiry_channel, industry, interest_service, inquiry_date, created_at, converted_at, next_action_date, priority'),
+      supabase.from('pipeline_leads').select('id, company_name, stage, assigned_to, inquiry_channel, industry, interest_service, inquiry_date, created_at, updated_at, converted_at, next_action_date, priority'),
       supabase.from('users').select('id, name'),
     ])
     setLeads(leadsRes.data || [])
@@ -266,7 +273,7 @@ export default function PipelineAnalyticsPage() {
     return buckets
   }, [filtered])
 
-  // Stuck leads detail (90일+ 방치)
+  // Stuck leads detail (단계별 기준: 예정 180일+, 나머지 90일+ 방치)
   const stuckLeads = useMemo(() => {
     const now = new Date()
     return filtered
@@ -276,23 +283,37 @@ export default function PipelineAnalyticsPage() {
         const days = Math.max(0, Math.round((now.getTime() - new Date(d).getTime()) / 86400000))
         return { ...l, days }
       })
-      .filter(l => l.days > 90)
+      .filter(l => isLongIdle(l.stage, l.days))
       .sort((a, b) => b.days - a.days)
       .slice(0, 10)
   }, [filtered])
 
   // ─── 6. Monthly Trend ──────────────────────────────────
+  // 유입(신규): inquiry_date 월 기준
+  // 도입: converted_at 월 기준 (실제 도입 시점)
+  // 이탈: updated_at 월 기준 (이탈 처리한 시점 근사)
 
   const monthlyTrend = useMemo(() => {
     const months: Record<string, { month: string; 신규: number; 도입: number; 이탈: number }> = {}
+    const ensure = (m: string) => {
+      if (!months[m]) months[m] = { month: m, 신규: 0, 도입: 0, 이탈: 0 }
+      return months[m]
+    }
 
     filtered.forEach(l => {
-      const d = l.inquiry_date || l.created_at.substring(0, 10)
-      const m = d.substring(0, 7) // YYYY-MM
-      if (!months[m]) months[m] = { month: m, 신규: 0, 도입: 0, 이탈: 0 }
-      months[m].신규++
-      if (l.stage === '도입완료') months[m].도입++
-      if (l.stage === '이탈') months[m].이탈++
+      // 신규 (유입): 유입일 기준
+      const inquiryDate = l.inquiry_date || l.created_at?.substring(0, 10)
+      if (inquiryDate) ensure(inquiryDate.substring(0, 7)).신규++
+
+      // 도입: 실제 전환 시점(converted_at) 기준
+      if (l.stage === '도입완료' && l.converted_at) {
+        ensure(l.converted_at.substring(0, 7)).도입++
+      }
+
+      // 이탈: updated_at 기준 (이탈 처리 시점 근사)
+      if (l.stage === '이탈' && l.updated_at) {
+        ensure(l.updated_at.substring(0, 7)).이탈++
+      }
     })
 
     return Object.values(months).sort((a, b) => a.month.localeCompare(b.month)).slice(-12)
@@ -367,18 +388,19 @@ export default function PipelineAnalyticsPage() {
       })
     }
 
-    // 3. 장기 방치 리드
+    // 3. 장기 방치 리드 (단계별 기준: 예정 180일+, 나머지 90일+)
     const stuckCount = active.filter(l => {
       const d = l.inquiry_date || l.created_at.substring(0, 10)
-      return Math.round((now.getTime() - new Date(d).getTime()) / 86400000) > 90
+      const days = Math.round((now.getTime() - new Date(d).getTime()) / 86400000)
+      return isLongIdle(l.stage, days)
     }).length
     if (stuckCount > 0) {
       const pct = Math.round(stuckCount / Math.max(active.length, 1) * 100)
       result.push({
         type: stuckCount > 20 ? 'danger' : 'warning',
         icon: <Clock className="w-4 h-4" />,
-        title: `90일+ 방치 리드 ${formatNumber(stuckCount)}건 (활성의 ${pct}%)`,
-        description: `장기간 진행이 없는 리드입니다. 재접촉하거나 이탈 처리하여 파이프라인을 정리하세요.`,
+        title: `장기 방치 리드 ${formatNumber(stuckCount)}건 (활성의 ${pct}%)`,
+        description: `기준(예정 180일 / 나머지 90일) 이상 진행이 없는 리드입니다. 재접촉하거나 이탈 처리하세요.`,
       })
     }
 

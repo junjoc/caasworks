@@ -28,9 +28,25 @@ export function formatNumber(num: number) {
   return new Intl.NumberFormat('ko-KR').format(num)
 }
 
+// 파이프라인 단계 순서: 신규리드 → 컨텍 → 예정 → 제안 → 미팅 → 도입직전 → 도입완료 → 이탈
+// '예정'은 설계 단계 문의 등 장기 프로젝트 대기 상태 (6개월+ 소요 정상)
+export const STAGE_ORDER = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈'] as const
+
+// 예정 단계는 장기 프로젝트 정상 상태이므로 stuck threshold 180일
+// 나머지 active 단계는 90일 기준으로 stuck 판정
+export const STUCK_DAYS_BY_STAGE: Record<string, number> = {
+  '신규리드': 90,
+  '컨텍': 90,
+  '예정': 180,
+  '제안': 90,
+  '미팅': 90,
+  '도입직전': 90,
+}
+
 export const STAGE_LABELS: Record<string, string> = {
   '신규리드': '신규리드',
   '컨텍': '컨텍',
+  '예정': '예정',
   '미팅': '미팅',
   '제안': '제안',
   '도입직전': '도입직전',
@@ -41,6 +57,7 @@ export const STAGE_LABELS: Record<string, string> = {
 export const STAGE_COLORS: Record<string, string> = {
   '신규리드': 'bg-gray-100 text-gray-700',
   '컨텍': 'bg-blue-100 text-blue-700',
+  '예정': 'bg-cyan-100 text-cyan-700',
   '미팅': 'bg-yellow-100 text-yellow-700',
   '제안': 'bg-purple-100 text-purple-700',
   '도입직전': 'bg-green-100 text-green-700',

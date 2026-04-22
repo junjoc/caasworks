@@ -27,7 +27,7 @@ import { ArrowLeft, Edit2, Save, X, Clock, AlertCircle, Plus, Send, MessageSquar
 import QuotationSection from '@/components/pipeline/QuotationSection'
 import { syncLeadToAdPerformance } from '@/lib/sync-lead-to-ads'
 
-const STAGES = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료', '이탈']
+const STAGES = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
 const PRIORITY_OPTIONS = [
   { value: '긴급', label: '긴급' },
   { value: '높음', label: '높음' },

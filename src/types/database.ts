@@ -5,7 +5,7 @@ export type UserPosition =
   | '사원' | '주임' | '대리' | '과장' | '차장'
   | '부장' | '이사' | '상무' | '전무' | '대표'
 
-export type LeadStage = '신규리드' | '컨텍' | '제안' | '미팅' | '도입직전' | '도입완료' | '이탈'
+export type LeadStage = '신규리드' | '컨텍' | '예정' | '제안' | '미팅' | '도입직전' | '도입완료' | '이탈'
 
 export type CustomerStatus = 'active' | 'suspended' | 'churned'
 

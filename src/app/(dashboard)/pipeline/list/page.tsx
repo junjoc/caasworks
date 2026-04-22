@@ -16,8 +16,8 @@ import type { PipelineLead, User } from '@/types/database'
 import { toast } from 'sonner'
 import { Plus, Search, GitBranch, AlertCircle, Clock, ChevronDown, ChevronUp, CheckSquare, Trash2, ArrowRight, UserCheck } from 'lucide-react'
 
-const STAGES = ['전체', '신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료', '이탈']
-const STAGE_OPTIONS = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료', '이탈']
+const STAGES = ['전체', '신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
+const STAGE_OPTIONS = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
 const PRIORITIES = ['전체', '긴급', '높음', '중간', '낮음']
 
 function getActionDateClass(dateStr: string | null) {

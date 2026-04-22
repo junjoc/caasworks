@@ -14,14 +14,15 @@ import { toast } from 'sonner'
 import { Plus, Clock, AlertCircle, Search, CheckSquare, Square, X, ArrowRight, UserPlus } from 'lucide-react'
 import { syncLeadToAdPerformance } from '@/lib/sync-lead-to-ads'
 
-const STAGES = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료', '이탈']
+const STAGES = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
 
 // Stage-specific colors for column headers and accents
 const STAGE_COLUMN_COLORS: Record<string, { bar: string; bg: string; headerBg: string }> = {
   '신규리드': { bar: 'bg-blue-400', bg: 'bg-blue-50/60', headerBg: 'bg-blue-50' },
   '컨텍': { bar: 'bg-indigo-400', bg: 'bg-indigo-50/60', headerBg: 'bg-indigo-50' },
-  '미팅': { bar: 'bg-amber-400', bg: 'bg-amber-50/60', headerBg: 'bg-amber-50' },
+  '예정': { bar: 'bg-cyan-400', bg: 'bg-cyan-50/60', headerBg: 'bg-cyan-50' },
   '제안': { bar: 'bg-orange-400', bg: 'bg-orange-50/60', headerBg: 'bg-orange-50' },
+  '미팅': { bar: 'bg-amber-400', bg: 'bg-amber-50/60', headerBg: 'bg-amber-50' },
   '도입직전': { bar: 'bg-emerald-400', bg: 'bg-emerald-50/60', headerBg: 'bg-emerald-50' },
   '도입완료': { bar: 'bg-green-500', bg: 'bg-green-50/60', headerBg: 'bg-green-50' },
   '이탈': { bar: 'bg-gray-400', bg: 'bg-gray-50/80', headerBg: 'bg-gray-100' },
