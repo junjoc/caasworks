@@ -8,14 +8,13 @@ import type { User } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { NAV_MENU, roleCanAccess, ADMIN_ONLY_PATHS } from '@/lib/nav-menu'
 
-// ──────────────────────────────────────────────────────────────
-// TEMPORARY KILL-SWITCH — 2026-04-22
-// Role-based menu filtering is currently BYPASSED so all logged-in
-// users see every menu (including /settings/users, /settings/roles).
-// This is an emergency measure while the 역할 관리 UI is being
-// debugged. Set to `false` to re-enable proper role filtering.
-// ──────────────────────────────────────────────────────────────
-const DISABLE_ROLE_FILTERING = true
+// Role-based menu filtering is active. The sidebar reads each
+// user's role, looks up that role's allowed_paths in the `roles`
+// table, and hides menu items the role can't access. Admins see
+// everything. Seeded roles (admin/member/accountant) are bootstrapped
+// with allowed_paths=["*"] so existing users retain full access by
+// default — tighten per-role permissions in /settings/roles.
+const DISABLE_ROLE_FILTERING = false
 import {
   LayoutDashboard,
   Megaphone,
