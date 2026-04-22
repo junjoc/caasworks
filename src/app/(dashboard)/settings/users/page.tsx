@@ -34,12 +34,21 @@ export default function UsersSettingsPage() {
   }, [])
 
   async function fetchAll() {
-    const [{ data: u }, { data: r }] = await Promise.all([
+    const [{ data: u }, rolesRes] = await Promise.all([
       supabase.from('users').select('*').order('created_at'),
       supabase.from('roles').select('*').order('is_system', { ascending: false }).order('name'),
     ])
     setUsers(u || [])
-    setRoles(r || [])
+    // Fallback to hardcoded defaults if roles table doesn't exist yet
+    if (rolesRes.error || !rolesRes.data) {
+      setRoles([
+        { name: 'admin', label: '관리자', allowed_paths: ['*'], is_system: true, created_at: '' },
+        { name: 'member', label: '일반', allowed_paths: [], is_system: true, created_at: '' },
+        { name: 'accountant', label: '회계', allowed_paths: [], is_system: true, created_at: '' },
+      ])
+    } else {
+      setRoles(rolesRes.data)
+    }
     setLoading(false)
   }
 
@@ -118,30 +127,43 @@ export default function UsersSettingsPage() {
     }
     setSaving(true)
 
-    if (editUser) {
-      const { error } = await supabase
-        .from('users')
-        .update({
-          name: form.name,
-          role: form.role,
-          phone: form.phone || null,
-          slack_user_id: form.slack_user_id || null,
-          position: form.position || null,
-          avatar_url: form.avatar_url || null,
-        })
-        .eq('id', editUser.id)
-
-      if (error) toast.error('수정 실패')
-      else toast.success('사용자가 수정되었습니다.')
-    } else {
-      const { error } = await supabase.from('users').insert({
-        ...form,
-        phone: form.phone || null,
-        slack_user_id: form.slack_user_id || null,
+    // Save with optional fields; retry without them if columns don't exist yet
+    // (graceful fallback when migration 004 hasn't been run)
+    const savePayload = (includeOptional: boolean) => ({
+      name: form.name,
+      role: form.role,
+      phone: form.phone || null,
+      slack_user_id: form.slack_user_id || null,
+      ...(includeOptional && {
         position: form.position || null,
         avatar_url: form.avatar_url || null,
-      })
+      }),
+    })
+    const isMissingColumn = (msg?: string) =>
+      !!msg && /column .* does not exist|column ".*" of relation/i.test(msg)
 
+    if (editUser) {
+      let { error } = await supabase
+        .from('users')
+        .update(savePayload(true))
+        .eq('id', editUser.id)
+      if (error && isMissingColumn(error.message)) {
+        // Retry without position/avatar_url
+        const retry = await supabase.from('users').update(savePayload(false)).eq('id', editUser.id)
+        error = retry.error
+        if (!error) toast.warning('직급/프로필이미지 컬럼이 아직 DB에 없어 저장 건너뛰었습니다. 관리자에게 문의하세요.')
+      }
+      if (error) toast.error('수정 실패: ' + error.message)
+      else toast.success('사용자가 수정되었습니다.')
+    } else {
+      const insertFull = { ...savePayload(true), email: form.email }
+      let { error } = await supabase.from('users').insert(insertFull)
+      if (error && isMissingColumn(error.message)) {
+        const insertMin = { ...savePayload(false), email: form.email }
+        const retry = await supabase.from('users').insert(insertMin)
+        error = retry.error
+        if (!error) toast.warning('직급/프로필이미지 컬럼 없이 등록되었습니다.')
+      }
       if (error) toast.error('등록 실패: ' + error.message)
       else toast.success('사용자가 등록되었습니다.')
     }
@@ -182,7 +204,8 @@ export default function UsersSettingsPage() {
                 <th>역할</th>
                 <th>연락처</th>
                 <th>상태</th>
-                <th></th>
+                <th className="text-center w-16">편집</th>
+                <th className="text-center w-16 border-l border-gray-200">삭제</th>
               </tr>
             </thead>
             <tbody>
@@ -209,15 +232,23 @@ export default function UsersSettingsPage() {
                       </Badge>
                     </button>
                   </td>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => openEdit(u)} className="text-gray-400 hover:text-primary-600" title="편집">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDelete(u)} className="text-gray-400 hover:text-red-600" title="삭제">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <td className="text-center">
+                    <button
+                      onClick={() => openEdit(u)}
+                      className="inline-flex items-center justify-center w-7 h-7 rounded text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                      title="편집"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                  <td className="text-center border-l border-gray-100">
+                    <button
+                      onClick={() => handleDelete(u)}
+                      className="inline-flex items-center justify-center w-7 h-7 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      title="삭제"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
