@@ -63,6 +63,7 @@ export default function PipelineAnalyticsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [users, setUsers] = useState<UserInfo[]>([])
   const [loading, setLoading] = useState(true)
+  const [stageChanging, setStageChanging] = useState<string | null>(null)
 
   // Filters
   const [filterAssignee, setFilterAssignee] = useState('전체')
@@ -97,6 +98,37 @@ export default function PipelineAnalyticsPage() {
   const userName = (id: string | null) => {
     if (!id) return '미배정'
     return users.find(u => u.id === id)?.name || '미배정'
+  }
+
+  // 장기 방치 리스트에서 인라인으로 단계 변경
+  async function handleStuckStageChange(leadId: string, oldStage: string, newStage: string) {
+    if (newStage === oldStage) return
+    setStageChanging(leadId)
+    // Optimistic update
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: newStage } : l))
+    try {
+      const res = await fetch('/api/pipeline/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'change_stage',
+          lead_id: leadId,
+          new_stage: newStage,
+          old_stage: oldStage,
+        }),
+      })
+      const result = await res.json()
+      if (result.error) {
+        // Rollback on failure
+        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: oldStage } : l))
+        alert('단계 변경 실패: ' + result.error)
+      }
+    } catch (e: any) {
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: oldStage } : l))
+      alert('단계 변경 실패: ' + e.message)
+    } finally {
+      setStageChanging(null)
+    }
   }
 
   const toggleSection = (s: string) => {
@@ -882,21 +914,36 @@ export default function PipelineAnalyticsPage() {
               </table>
             </div>
 
-            {/* Stuck Leads */}
+            {/* Stuck Leads — 단계별 기준(예정 180일/나머지 90일) 초과 리드, 인라인 단계 변경 가능 */}
             {stuckLeads.length > 0 && (
               <>
-                <p className="text-xs text-text-tertiary mb-2">90일+ 장기 방치 리드 (상위 10건)</p>
+                <p className="text-xs text-text-tertiary mb-2">
+                  장기 방치 리드 (상위 10건) · 우측 드롭다운으로 단계 즉시 변경 가능
+                </p>
                 <div className="space-y-1">
                   {stuckLeads.map(l => (
-                    <a key={l.id} href={`/pipeline/${l.id}`}
-                      className="flex items-center justify-between py-2 px-3 rounded hover:bg-bg-secondary/50 transition-colors text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-micro px-1.5 py-0.5 rounded ${STAGE_COLORS[l.stage]}`}>{l.stage}</span>
-                        <span className="font-medium text-text-primary">{l.company_name}</span>
-                        <span className="text-text-tertiary">{userName(l.assigned_to)}</span>
-                      </div>
-                      <span className="text-red-500 font-bold">{l.days}일</span>
-                    </a>
+                    <div key={l.id}
+                      className="flex items-center justify-between gap-2 py-2 px-3 rounded hover:bg-bg-secondary/50 transition-colors text-xs">
+                      <a href={`/pipeline/${l.id}`} className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className={`text-micro px-1.5 py-0.5 rounded ${STAGE_COLORS[l.stage] || 'bg-gray-100 text-gray-700'} shrink-0`}>{l.stage}</span>
+                        <span className="font-medium text-text-primary truncate">{l.company_name}</span>
+                        <span className="text-text-tertiary shrink-0">{userName(l.assigned_to)}</span>
+                      </a>
+                      <span className="text-red-500 font-bold shrink-0">{l.days}일</span>
+                      {/* 인라인 단계 변경 */}
+                      <select
+                        value={l.stage}
+                        disabled={stageChanging === l.id}
+                        onChange={(e) => handleStuckStageChange(l.id, l.stage, e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white hover:border-primary-400 focus:border-primary-500 focus:outline-none shrink-0 disabled:opacity-50"
+                        title="단계 변경"
+                      >
+                        {['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈'].map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
                   ))}
                 </div>
               </>

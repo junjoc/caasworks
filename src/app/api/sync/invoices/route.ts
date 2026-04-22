@@ -37,13 +37,34 @@ interface InvoiceGroup {
   month: number
 }
 
+// Allow CORS from the CaaS Admin so a logged-in admin can paste-and-sync
+// without leaking the JWT to a third party. See OPTIONS handler below.
+const ALLOWED_ORIGINS = ['https://admin.caas.works', 'https://caasworks.vercel.app']
+function corsHeaders(origin: string | null): Record<string, string> {
+  const allow = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Access-Control-Allow-Origin': allow,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+  }
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(request.headers.get('origin')) })
+}
+
 export async function POST(request: NextRequest) {
+  const cors = corsHeaders(request.headers.get('origin'))
   try {
-    const body = await request.json().catch(() => ({}))
+    // Accept both application/json and text/plain (cross-origin simple POST)
+    const rawText = await request.text()
+    let body: any = {}
+    try { body = rawText ? JSON.parse(rawText) : {} } catch { body = {} }
     const jwtToken = body.token || process.env.CAAS_ADMIN_JWT_TOKEN
 
     if (!jwtToken) {
-      return NextResponse.json({ error: 'CAAS Admin JWT token required' }, { status: 400 })
+      return NextResponse.json({ error: 'CAAS Admin JWT token required' }, { status: 400, headers: cors })
     }
 
     const supabase = getSupabase()
@@ -54,8 +75,9 @@ export async function POST(request: NextRequest) {
       headers: { 'Authorization': `Bearer ${jwtToken}` },
     })
 
+
     if (!res.ok) {
-      return NextResponse.json({ error: `CaaS API error: ${res.status}` }, { status: 502 })
+      return NextResponse.json({ error: `CaaS API error: ${res.status}` }, { status: 502, headers: cors })
     }
 
     const apiData = await res.json()
@@ -273,10 +295,10 @@ export async function POST(request: NextRequest) {
       companies_created: companiesCreated,
       errorMessages: errorMessages.length > 0 ? errorMessages : undefined,
       total_in_db: totalCount,
-    })
+    }, { headers: cors })
   } catch (error: any) {
     console.error('[Invoice Sync] Error:', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500, headers: cors })
   }
 }
 
