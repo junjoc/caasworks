@@ -173,9 +173,9 @@ export const CONVERSION_PROB_OPTIONS = [
 ]
 
 export const CONVERSION_PROB_COLORS: Record<string, string> = {
-  '높음': 'bg-green-100 text-green-700 border-green-200',
-  '중간': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  '낮음': 'bg-red-100 text-red-700 border-red-200',
+  '높음': 'bg-blue-700 text-white border-blue-800',
+  '중간': 'bg-green-100 text-green-700 border-green-200',
+  '낮음': 'bg-gray-100 text-gray-400 border-gray-200',
 }
 
 export const ACTIVITY_TYPE_ICONS: Record<string, string> = {

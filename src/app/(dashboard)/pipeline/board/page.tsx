@@ -130,8 +130,18 @@ export default function PipelineBoardPage() {
         return ld >= dateRange.from && ld <= dateRange.to
       })
     }
-    // 정렬: 유입일 기준 최신순 (유입일 없으면 생성일 사용)
+    // 정렬: 다음 액션 예정일 있는 카드가 먼저 (빠른 날짜 순),
+    // 액션일 없는 카드는 유입일 기준 최신순
     filtered.sort((a, b) => {
+      const aHasAction = !!a.next_action_date
+      const bHasAction = !!b.next_action_date
+      if (aHasAction && bHasAction) {
+        // 둘 다 액션일 있음: 빠른 날짜가 먼저
+        return a.next_action_date!.localeCompare(b.next_action_date!)
+      }
+      if (aHasAction) return -1  // a만 액션일 있음 → a 먼저
+      if (bHasAction) return 1   // b만 액션일 있음 → b 먼저
+      // 둘 다 액션일 없음: 유입일 기준 최신순
       const aDate = a.inquiry_date || a.created_at?.substring(0, 10) || ''
       const bDate = b.inquiry_date || b.created_at?.substring(0, 10) || ''
       return bDate.localeCompare(aDate)
@@ -537,7 +547,7 @@ export default function PipelineBoardPage() {
                                 {lead.priority}
                               </Badge>
                             )}
-                            {(lead as any).conversion_probability && (lead as any).conversion_probability !== '중간' && (
+                            {(lead as any).conversion_probability && (
                               <Badge className={`${CONVERSION_PROB_COLORS[(lead as any).conversion_probability] || ''} text-[10px] px-1.5 py-0 border`}>
                                 도입{(lead as any).conversion_probability}
                               </Badge>
@@ -584,7 +594,7 @@ export default function PipelineBoardPage() {
                                 {lead.priority}
                               </Badge>
                             )}
-                            {(lead as any).conversion_probability && (lead as any).conversion_probability !== '중간' && (
+                            {(lead as any).conversion_probability && (
                               <Badge className={`${CONVERSION_PROB_COLORS[(lead as any).conversion_probability] || ''} text-[10px] px-1.5 py-0 border`}>
                                 도입{(lead as any).conversion_probability}
                               </Badge>
