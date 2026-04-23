@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +12,7 @@ import { Modal } from '@/components/ui/modal'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, FileText, Check, Clock, AlertCircle, Search, Pencil, Trash2, X, Download, Info, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, FileText, Check, Clock, AlertCircle, Search, Pencil, Trash2, X, Download, Info, ChevronLeft, ChevronRight, ChevronDown, Calendar, List } from 'lucide-react'
 import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { toast } from 'sonner'
 import { InvoicePDFButton } from '@/components/invoices/InvoicePDFButton'
@@ -54,6 +54,8 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState('전체')
   const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const [searchQuery, setSearchQuery] = useState('')
+  const [groupByDate, setGroupByDate] = useState(false)
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   const [modalOpen, setModalOpen] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState<any>(null)
   const [saving, setSaving] = useState(false)
@@ -394,6 +396,34 @@ export default function InvoicesPage() {
       )
     : dateFiltered
 
+  // 청구일(sent_at) 기준 그룹핑: 같은 날짜의 청구서들을 묶어서 표시
+  // 정렬: 날짜 desc (null은 맨 아래)
+  const dateGroups = useMemo(() => {
+    const groups: Record<string, { date: string; label: string; invoices: any[]; total: number; count: number }> = {}
+    filtered.forEach(inv => {
+      const rawDate = inv.sent_at ? String(inv.sent_at).substring(0, 10) : ''
+      const key = rawDate || '__unsent__'
+      const label = rawDate ? rawDate : '미발송'
+      if (!groups[key]) {
+        groups[key] = { date: rawDate, label, invoices: [], total: 0, count: 0 }
+      }
+      groups[key].invoices.push(inv)
+      groups[key].total += Number(inv.total || 0)
+      groups[key].count += 1
+    })
+    // sort by date desc (empty/unsent at bottom)
+    return Object.values(groups).sort((a, b) => {
+      if (!a.date && !b.date) return 0
+      if (!a.date) return 1
+      if (!b.date) return -1
+      return b.date.localeCompare(a.date)
+    })
+  }, [filtered])
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
   const totalAmount = invoices.reduce((s, i) => s + Number(i.total || 0), 0)
   const paidAmount = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total || 0), 0)
   const unpaidAmount = invoices.filter(i => ['sent', 'overdue'].includes(i.status)).reduce((s, i) => s + Number(i.total || 0), 0)
@@ -491,6 +521,28 @@ export default function InvoicesPage() {
 
         <DateRangePicker value={dateRange} onChange={setDateRange} />
 
+        {/* 그룹 보기 토글 */}
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5" title="청구일별로 묶어서 보기">
+          <button
+            onClick={() => setGroupByDate(false)}
+            className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+              !groupByDate ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <List className="w-3.5 h-3.5" />
+            목록
+          </button>
+          <button
+            onClick={() => setGroupByDate(true)}
+            className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+              groupByDate ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            청구일별
+          </button>
+        </div>
+
         <div className="flex-1" />
 
         <div className="relative max-w-[240px]">
@@ -519,41 +571,103 @@ export default function InvoicesPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((inv) => (
-                <tr key={inv.id}>
-                  <td className="text-center text-text-secondary">{inv.sent_at ? formatDate(inv.sent_at, 'yyyy-MM-dd') : '-'}</td>
-                  <td className="font-medium text-primary-500 cursor-pointer col-truncate" onClick={() => openEditInvoice(inv)}>{inv.customer_name}</td>
-                  <td className="text-center text-text-secondary">{inv.year}.{String(inv.month).padStart(2, '0')}</td>
-                  <td className="text-right text-text-secondary">{formatCurrency(inv.subtotal)}</td>
-                  <td className="text-right text-text-tertiary">{formatCurrency(inv.vat)}</td>
-                  <td className="text-right font-semibold">{formatCurrency(inv.total)}</td>
-                  <td className="text-center">
-                    <Badge className={STATUS_COLORS[inv.status] || 'badge-gray'}>{STATUS_LABELS[inv.status] || inv.status}</Badge>
-                  </td>
-                  <td className="text-center text-text-tertiary">{inv.due_date ? formatDate(inv.due_date, 'M/d') : '-'}</td>
-                  <td className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => openEditInvoice(inv)} className="icon-btn" title="수정">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      {inv.status === 'draft' && (
-                        <button onClick={() => handleStatusChange(inv, 'sent')} className="p-1 text-text-tertiary hover:text-status-blue rounded" title="발송처리">
-                          <FileText className="w-3.5 h-3.5" />
+              {groupByDate ? (
+                // 청구일별 그룹핑 뷰
+                dateGroups.map(g => {
+                  const key = g.date || '__unsent__'
+                  const collapsed = !!collapsedGroups[key]
+                  return (
+                    <React.Fragment key={key}>
+                      <tr
+                        className="bg-gray-50 hover:bg-gray-100 cursor-pointer border-t-2 border-gray-300"
+                        onClick={() => toggleGroup(key)}
+                      >
+                        <td colSpan={9} className="px-3 py-2">
+                          <div className="flex items-center gap-3">
+                            <ChevronDown className={`w-4 h-4 text-text-secondary transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+                            <Calendar className="w-4 h-4 text-primary-500" />
+                            <span className="font-semibold text-text-primary">{g.label}</span>
+                            <Badge className="bg-primary-50 text-primary-700">{g.count}건</Badge>
+                            <span className="flex-1" />
+                            <span className="text-sm font-semibold text-primary-600">합계 {formatCurrency(g.total)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                      {!collapsed && g.invoices.map(inv => (
+                        <tr key={inv.id}>
+                          <td className="text-center text-text-secondary">{inv.sent_at ? formatDate(inv.sent_at, 'yyyy-MM-dd') : '-'}</td>
+                          <td className="font-medium text-primary-500 cursor-pointer col-truncate" onClick={() => openEditInvoice(inv)}>{inv.customer_name}</td>
+                          <td className="text-center text-text-secondary">{inv.year}.{String(inv.month).padStart(2, '0')}</td>
+                          <td className="text-right text-text-secondary">{formatCurrency(inv.subtotal)}</td>
+                          <td className="text-right text-text-tertiary">{formatCurrency(inv.vat)}</td>
+                          <td className="text-right font-semibold">{formatCurrency(inv.total)}</td>
+                          <td className="text-center">
+                            <Badge className={STATUS_COLORS[inv.status] || 'badge-gray'}>{STATUS_LABELS[inv.status] || inv.status}</Badge>
+                          </td>
+                          <td className="text-center text-text-tertiary">{inv.due_date ? formatDate(inv.due_date, 'M/d') : '-'}</td>
+                          <td className="text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button onClick={() => openEditInvoice(inv)} className="icon-btn" title="수정">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              {inv.status === 'draft' && (
+                                <button onClick={() => handleStatusChange(inv, 'sent')} className="p-1 text-text-tertiary hover:text-status-blue rounded" title="발송처리">
+                                  <FileText className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {inv.status === 'sent' && (
+                                <button onClick={() => handleStatusChange(inv, 'paid')} className="p-1 text-text-tertiary hover:text-status-green rounded" title="수납처리">
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <InvoicePDFButton invoice={inv} items={inv._items || []} className="!p-1 !px-1" />
+                              <button onClick={() => setDeleteModal(inv)} className="p-1 text-text-tertiary hover:text-status-red rounded" title="삭제">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  )
+                })
+              ) : (
+                filtered.map((inv) => (
+                  <tr key={inv.id}>
+                    <td className="text-center text-text-secondary">{inv.sent_at ? formatDate(inv.sent_at, 'yyyy-MM-dd') : '-'}</td>
+                    <td className="font-medium text-primary-500 cursor-pointer col-truncate" onClick={() => openEditInvoice(inv)}>{inv.customer_name}</td>
+                    <td className="text-center text-text-secondary">{inv.year}.{String(inv.month).padStart(2, '0')}</td>
+                    <td className="text-right text-text-secondary">{formatCurrency(inv.subtotal)}</td>
+                    <td className="text-right text-text-tertiary">{formatCurrency(inv.vat)}</td>
+                    <td className="text-right font-semibold">{formatCurrency(inv.total)}</td>
+                    <td className="text-center">
+                      <Badge className={STATUS_COLORS[inv.status] || 'badge-gray'}>{STATUS_LABELS[inv.status] || inv.status}</Badge>
+                    </td>
+                    <td className="text-center text-text-tertiary">{inv.due_date ? formatDate(inv.due_date, 'M/d') : '-'}</td>
+                    <td className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => openEditInvoice(inv)} className="icon-btn" title="수정">
+                          <Pencil className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                      {inv.status === 'sent' && (
-                        <button onClick={() => handleStatusChange(inv, 'paid')} className="p-1 text-text-tertiary hover:text-status-green rounded" title="수납처리">
-                          <Check className="w-3.5 h-3.5" />
+                        {inv.status === 'draft' && (
+                          <button onClick={() => handleStatusChange(inv, 'sent')} className="p-1 text-text-tertiary hover:text-status-blue rounded" title="발송처리">
+                            <FileText className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {inv.status === 'sent' && (
+                          <button onClick={() => handleStatusChange(inv, 'paid')} className="p-1 text-text-tertiary hover:text-status-green rounded" title="수납처리">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <InvoicePDFButton invoice={inv} items={inv._items || []} className="!p-1 !px-1" />
+                        <button onClick={() => setDeleteModal(inv)} className="p-1 text-text-tertiary hover:text-status-red rounded" title="삭제">
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                      <InvoicePDFButton invoice={inv} items={inv._items || []} className="!p-1 !px-1" />
-                      <button onClick={() => setDeleteModal(inv)} className="p-1 text-text-tertiary hover:text-status-red rounded" title="삭제">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
