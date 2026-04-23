@@ -3,6 +3,7 @@
 import { useAuth } from '@/hooks/useAuth'
 import { Sidebar } from './sidebar'
 import { Header } from './header'
+import { FeedbackFloatingButton } from '@/components/feedback/floating-button'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut } = useAuth()
@@ -14,6 +15,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Header user={user} />
         <main className="flex-1 p-5 overflow-auto">{children}</main>
       </div>
+      <FeedbackFloatingButton />
     </div>
   )
 }

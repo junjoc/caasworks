@@ -86,6 +86,13 @@ export const NAV_MENU: NavSection[] = [
     ],
   },
   {
+    label: '피드백',
+    children: [
+      { label: '요청사항', href: '/feedback' },
+      { label: '개발일지', href: '/feedback/changelog' },
+    ],
+  },
+  {
     label: '설정',
     children: [
       { label: '사용자 관리', href: '/settings/users' },

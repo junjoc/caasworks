@@ -65,6 +65,49 @@ export interface Role {
   created_at: string
 }
 
+export type FeedbackCategory = 'bug' | 'feature' | 'improvement' | 'question'
+export type FeedbackStatus = 'submitted' | 'reviewing' | 'planned' | 'in_progress' | 'done' | 'wont_do'
+export type FeedbackPriority = 'high' | 'normal' | 'low'
+
+export interface UserFeedback {
+  id: string
+  title: string
+  description: string | null
+  category: FeedbackCategory
+  status: FeedbackStatus
+  priority: FeedbackPriority
+  target_page: string | null
+  created_by: string | null
+  assigned_to: string | null
+  planned_at: string | null
+  planned_for: string | null
+  started_at: string | null
+  completed_at: string | null
+  resolution_summary: string | null
+  pr_urls: string[]
+  commit_shas: string[]
+  affected_files: string[]
+  created_at: string
+  updated_at: string
+  // joined
+  created_by_user?: Pick<User, 'id' | 'name' | 'avatar_url'>
+  assigned_to_user?: Pick<User, 'id' | 'name' | 'avatar_url'>
+  comments?: FeedbackComment[]
+}
+
+export interface FeedbackComment {
+  id: string
+  feedback_id: string
+  author_id: string | null
+  author_type: 'user' | 'admin' | 'claude'
+  comment: string
+  is_admin_directive: boolean
+  is_claude_report: boolean
+  claude_processed_at: string | null
+  created_at: string
+  author?: Pick<User, 'id' | 'name' | 'avatar_url' | 'role'>
+}
+
 export interface PipelineLead {
   id: string
   lead_number: number
