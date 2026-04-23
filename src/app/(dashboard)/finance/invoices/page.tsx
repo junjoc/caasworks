@@ -83,6 +83,7 @@ export default function InvoicesPage() {
     let query = supabase
       .from('invoices')
       .select('*, customer:customers(company_name), items:invoice_items(*)')
+      .order('sent_at', { ascending: false, nullsFirst: false })
       .order('year', { ascending: false })
       .order('month', { ascending: false })
 
@@ -506,19 +507,21 @@ export default function InvoicesPage() {
           <table className="data-table" style={{ minWidth: '900px' }}>
             <thead>
               <tr>
-                <th style={{ width: '22%' }}>고객사</th>
-                <th style={{ width: '9%' }} className="text-center">청구월</th>
-                <th style={{ width: '13%' }} className="text-right">공급가</th>
-                <th style={{ width: '11%' }} className="text-right">VAT</th>
-                <th style={{ width: '13%' }} className="text-right">합계</th>
-                <th style={{ width: '9%' }} className="text-center">상태</th>
-                <th style={{ width: '9%' }} className="text-center">납기일</th>
-                <th style={{ width: '14%' }} className="text-center">관리</th>
+                <th style={{ width: '10%' }} className="text-center">청구일</th>
+                <th style={{ width: '20%' }}>고객사</th>
+                <th style={{ width: '8%' }} className="text-center">청구월</th>
+                <th style={{ width: '12%' }} className="text-right">공급가</th>
+                <th style={{ width: '10%' }} className="text-right">VAT</th>
+                <th style={{ width: '12%' }} className="text-right">합계</th>
+                <th style={{ width: '8%' }} className="text-center">상태</th>
+                <th style={{ width: '8%' }} className="text-center">납기일</th>
+                <th style={{ width: '12%' }} className="text-center">관리</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((inv) => (
                 <tr key={inv.id}>
+                  <td className="text-center text-text-secondary">{inv.sent_at ? formatDate(inv.sent_at, 'yyyy-MM-dd') : '-'}</td>
                   <td className="font-medium text-primary-500 cursor-pointer col-truncate" onClick={() => openEditInvoice(inv)}>{inv.customer_name}</td>
                   <td className="text-center text-text-secondary">{inv.year}.{String(inv.month).padStart(2, '0')}</td>
                   <td className="text-right text-text-secondary">{formatCurrency(inv.subtotal)}</td>
