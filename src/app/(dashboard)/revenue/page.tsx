@@ -33,6 +33,10 @@ const BILL = [
   { value: '무상이용', label: '무상이용' },
   { value: '연간', label: '연간' },
 ]
+const REVENUE_TYPES = [
+  { value: '상품', label: '상품' },
+  { value: '서비스', label: '서비스' },
+]
 const MS = [1,2,3,4,5,6,7,8,9,10,11,12]
 
 function svcColor(s: string | null) { return SVC.find(o => o.value === s)?.color || 'bg-gray-200 text-gray-700' }
@@ -47,6 +51,7 @@ interface Row {
   billing_start: string | null; billing_end: string | null
   billing_method: string | null; invoice_day: number | null
   monthly_amount: number | null; status: string; notes: string | null; created_at: string
+  revenue_type: string | null  // 상품/서비스
   customer?: { id: string; company_name: string; notes: string | null }
   revenues: Rev[]
 }
@@ -298,7 +303,8 @@ export default function RevenuePage() {
     site_category2: string
     service_type: string
     billing_method: string
-  }>({ site_category: '', site_category2: '', service_type: '', billing_method: '' })
+    revenue_type: string
+  }>({ site_category: '', site_category2: '', service_type: '', billing_method: '', revenue_type: '' })
 
   const [modal, setModal] = useState(false)
   const [copyFrom, setCopyFrom] = useState<Row | null>(null)
@@ -319,7 +325,7 @@ export default function RevenuePage() {
     while (true) {
       const { data, error } = await sb
         .from('projects')
-        .select('id,customer_id,project_name,project_start,project_end,service_type,site_category,site_category2,billing_start,billing_end,billing_method,invoice_day,monthly_amount,status,notes,created_at,customer:customers(id,company_name,notes),revenues:monthly_revenues(id,month,amount,is_confirmed)')
+        .select('id,customer_id,project_name,project_start,project_end,service_type,site_category,site_category2,billing_start,billing_end,billing_method,invoice_day,monthly_amount,status,notes,created_at,revenue_type,customer:customers(id,company_name,notes),revenues:monthly_revenues(id,month,amount,is_confirmed)')
         .eq('revenues.year', year)
         .order('created_at', { ascending: true })
         .range(from, from + size - 1)
@@ -347,6 +353,7 @@ export default function RevenuePage() {
     if (colFilter.site_category2) result = result.filter(r => r.site_category2 === colFilter.site_category2)
     if (colFilter.service_type) result = result.filter(r => r.service_type === colFilter.service_type)
     if (colFilter.billing_method) result = result.filter(r => r.billing_method === colFilter.billing_method)
+    if (colFilter.revenue_type) result = result.filter(r => r.revenue_type === colFilter.revenue_type)
     if (q.trim()) {
       const s = q.trim().toLowerCase()
       result = result.filter(r => r.customer?.company_name?.toLowerCase().includes(s) || r.project_name.toLowerCase().includes(s) || r.service_type?.toLowerCase().includes(s))
@@ -447,13 +454,18 @@ export default function RevenuePage() {
         </div>
       </div>
 
-      <div className="mb-4">
-        <div className="relative max-w-sm">
+      <div className="mb-4 flex items-center gap-2 flex-wrap">
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
           <input type="text" placeholder="고객사 / 현장명 / 서비스 검색..." value={q} onChange={e => setQ(e.target.value)}
             className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
           {q && <button onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary"><X className="w-4 h-4" /></button>}
         </div>
+        <select value={colFilter.revenue_type} onChange={e => setColFilter(p => ({...p, revenue_type: e.target.value}))}
+          className="px-2 py-2 text-sm border border-gray-200 rounded-lg bg-white">
+          <option value="">매출구분 전체</option>
+          {REVENUE_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
       </div>
 
       {/* Summary */}
@@ -579,15 +591,15 @@ function ProjectModal({ open, onClose, customers, copyFrom, onSaved }: {
 }) {
   const sb = createClient()
   const [saving, setSaving] = useState(false)
-  const [f, setF] = useState({ customer_id: '', project_name: '', project_start: '', project_end: '', site_category: '', site_category2: '', service_type: '', billing_start: '', billing_end: '', billing_method: '', invoice_day: '', monthly_amount: '', notes: '' })
+  const [f, setF] = useState({ customer_id: '', project_name: '', project_start: '', project_end: '', site_category: '', site_category2: '', service_type: '', billing_start: '', billing_end: '', billing_method: '', invoice_day: '', monthly_amount: '', notes: '', revenue_type: '' })
   const u = (k: string, v: string) => setF(p => ({ ...p, [k]: v }))
 
   useEffect(() => {
     if (!open) return
     if (copyFrom) {
-      setF({ customer_id: copyFrom.customer_id || '', project_name: copyFrom.project_name || '', project_start: copyFrom.project_start || '', project_end: copyFrom.project_end || '', site_category: copyFrom.site_category || '', site_category2: copyFrom.site_category2 || '', service_type: '', billing_start: '', billing_end: '', billing_method: copyFrom.billing_method || '', invoice_day: copyFrom.invoice_day ? String(copyFrom.invoice_day) : '', monthly_amount: '', notes: '' })
+      setF({ customer_id: copyFrom.customer_id || '', project_name: copyFrom.project_name || '', project_start: copyFrom.project_start || '', project_end: copyFrom.project_end || '', site_category: copyFrom.site_category || '', site_category2: copyFrom.site_category2 || '', service_type: '', billing_start: '', billing_end: '', billing_method: copyFrom.billing_method || '', invoice_day: copyFrom.invoice_day ? String(copyFrom.invoice_day) : '', monthly_amount: '', notes: '', revenue_type: copyFrom.revenue_type || '' })
     } else {
-      setF({ customer_id: '', project_name: '', project_start: '', project_end: '', site_category: '', site_category2: '', service_type: '', billing_start: '', billing_end: '', billing_method: '', invoice_day: '', monthly_amount: '', notes: '' })
+      setF({ customer_id: '', project_name: '', project_start: '', project_end: '', site_category: '', site_category2: '', service_type: '', billing_start: '', billing_end: '', billing_method: '', invoice_day: '', monthly_amount: '', notes: '', revenue_type: '' })
     }
   }, [open, copyFrom])
 
@@ -600,6 +612,7 @@ function ProjectModal({ open, onClose, customers, copyFrom, onSaved }: {
       site_category: f.site_category || null, site_category2: f.site_category2 || null, service_type: f.service_type || null,
       billing_start: f.billing_start || null, billing_end: f.billing_end || null, billing_method: f.billing_method || null,
       invoice_day: f.invoice_day ? Number(f.invoice_day) : null, monthly_amount: f.monthly_amount ? Number(f.monthly_amount) : null,
+      revenue_type: f.revenue_type || null,
       status: 'active', source: 'manual'
     }).select('*,customer:customers(id,company_name,notes)').single()
     setSaving(false)
@@ -625,9 +638,10 @@ function ProjectModal({ open, onClose, customers, copyFrom, onSaved }: {
           <Select label="현장 구분" options={[{ value: '', label: '선택' }, ...CAT1]} value={f.site_category} onChange={e => u('site_category', e.target.value)} />
           <Select label="현장 구분2" options={[{ value: '', label: '선택' }, ...CAT2]} value={f.site_category2} onChange={e => u('site_category2', e.target.value)} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Select label="이용 서비스" options={[{ value: '', label: '선택' }, ...SVC]} value={f.service_type} onChange={e => u('service_type', e.target.value)} />
           <Select label="과금 방식" options={[{ value: '', label: '선택' }, ...BILL]} value={f.billing_method} onChange={e => u('billing_method', e.target.value)} />
+          <Select label="매출 구분" options={[{ value: '', label: '미분류' }, ...REVENUE_TYPES]} value={f.revenue_type} onChange={e => u('revenue_type', e.target.value)} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Input label="과금 시작일" type="date" value={f.billing_start} onChange={e => u('billing_start', e.target.value)} />
