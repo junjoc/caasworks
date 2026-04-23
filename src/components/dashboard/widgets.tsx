@@ -339,6 +339,79 @@ export function ConversionRateWidget({ size }: WidgetProps) {
 }
 
 // ──────────────────────────────────────────────────────────────
+// 10. 주간 할일 — 오늘~7일 내 다가오는 일정
+//   - pipeline_leads.next_action_date (내 담당 + 전체 옵션)
+//   - invoices.due_date (청구서 발행 예정 / 입금 예정)
+// ──────────────────────────────────────────────────────────────
+export function WeeklyTasksWidget({ size }: WidgetProps) {
+  const { user } = useAuth()
+  const sb = useRef(createClient()).current
+  const [items, setItems] = useState<any[] | null>(null)
+  useEffect(() => {
+    (async () => {
+      const today = new Date()
+      const todayStr = today.toISOString().substring(0, 10)
+      const weekEnd = new Date(today.getTime() + 7 * 86400000).toISOString().substring(0, 10)
+      const [{ data: leads }, { data: invs }] = await Promise.all([
+        sb.from('pipeline_leads')
+          .select('id, company_name, next_action, next_action_date, stage, assigned_to')
+          .gte('next_action_date', todayStr).lte('next_action_date', weekEnd)
+          .not('stage', 'in', '(도입완료,이탈)')
+          .order('next_action_date'),
+        sb.from('invoices')
+          .select('id, receiver_company, total, due_date, status, sent_at')
+          .gte('due_date', todayStr).lte('due_date', weekEnd)
+          .in('status', ['sent', 'overdue'])
+          .order('due_date'),
+      ])
+      const combined = [
+        ...(leads || []).map((l: any) => ({
+          type: 'action', date: l.next_action_date, href: `/pipeline/${l.id}`,
+          title: l.company_name, subtitle: l.next_action || '액션',
+          mine: l.assigned_to === user?.id,
+        })),
+        ...(invs || []).map((i: any) => ({
+          type: 'invoice', date: i.due_date, href: `/finance/invoices`,
+          title: i.receiver_company, subtitle: `청구 ₩${Number(i.total).toLocaleString()}`,
+          mine: false,
+        })),
+      ].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      setItems(combined)
+    })()
+  }, [sb, user?.id])
+  if (!items) return <EmptyState msg="로딩..." />
+  if (items.length === 0) return (
+    <div className="flex items-center justify-center h-full text-xs text-green-600">
+      ✓ 이번주 예정 없음
+    </div>
+  )
+  return (
+    <div className="space-y-1 h-full overflow-y-auto">
+      {items.slice(0, size === 'L' ? 20 : 10).map((it, i) => {
+        const daysDiff = Math.round((new Date(it.date).getTime() - new Date(new Date().toISOString().substring(0, 10)).getTime()) / 86400000)
+        const dayLabel = daysDiff === 0 ? '오늘' : daysDiff === 1 ? '내일' : `${daysDiff}일 후`
+        const dateLabel = formatDate(it.date, 'M/d')
+        return (
+          <a key={i} href={it.href}
+            className="flex items-center gap-2 py-1 px-1.5 rounded hover:bg-primary-50 text-xs">
+            <span className={`text-[10px] px-1 py-0.5 rounded flex-shrink-0 ${
+              it.type === 'action' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+            }`}>
+              {it.type === 'action' ? '💬' : '💰'}
+            </span>
+            <span className="font-medium truncate flex-1">{it.title}</span>
+            <span className="text-text-tertiary truncate max-w-[100px] text-[11px]">{it.subtitle}</span>
+            <span className={`text-[10px] flex-shrink-0 ${
+              daysDiff <= 1 ? 'text-red-500 font-semibold' : 'text-text-tertiary'
+            }`}>{dateLabel} · {dateLabel !== dayLabel ? '' : dateLabel}</span>
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
 // Placeholder widgets (not yet fully implemented; show "준비중")
 // ──────────────────────────────────────────────────────────────
 export const PlaceholderWidget =
