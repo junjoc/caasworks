@@ -327,7 +327,7 @@ export default function RevenuePage() {
         .from('projects')
         .select('id,customer_id,project_name,project_start,project_end,service_type,site_category,site_category2,billing_start,billing_end,billing_method,invoice_day,monthly_amount,status,notes,created_at,revenue_type,customer:customers(id,company_name,notes),revenues:monthly_revenues(id,month,amount,is_confirmed)')
         .eq('revenues.year', year)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .range(from, from + size - 1)
       if (error) { console.error(error); break }
       if (!data || data.length === 0) break
