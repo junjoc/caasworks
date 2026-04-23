@@ -23,12 +23,30 @@ export interface WidgetMeta {
   roles?: string[]
 }
 
-// Per-widget instance in a user's dashboard config
+// Per-widget instance in a user's dashboard config.
+// v1 had {size, order}; v2 uses explicit grid coordinates x/y/w/h.
+// Both shapes are supported — old configs auto-convert on first load.
 export interface WidgetInstance {
   id: string
-  size: WidgetSize
-  order: number
+  // v2 (grid-based, preferred)
+  x?: number     // column index (0-11)
+  y?: number     // row index
+  w?: number     // width in columns
+  h?: number     // height in rows (each row ~160px)
+  // v1 (legacy — auto-converted if present)
+  size?: WidgetSize
+  order?: number
 }
+
+// Default grid column span for each legacy size
+export const SIZE_TO_GRID: Record<WidgetSize, { w: number; h: number }> = {
+  'S': { w: 3, h: 1 },
+  'M': { w: 6, h: 1 },
+  'L': { w: 6, h: 2 },
+}
+
+export const GRID_COLS = 12
+export const GRID_ROW_HEIGHT = 80  // px — actual row height in the dashboard
 
 export interface DashboardConfig {
   widgets: WidgetInstance[]
@@ -39,5 +57,11 @@ export interface RolePreset {
   roleKey: string           // 'exec' / 'marketing' / 'sales' / 'support' / 'hardware'
   label: string
   description: string
-  widgetIds: Array<{ id: string; size: WidgetSize }>
+  widgetIds: Array<{
+    id: string
+    // Grid coords (preferred)
+    x?: number; y?: number; w?: number; h?: number
+    // Legacy
+    size?: WidgetSize
+  }>
 }

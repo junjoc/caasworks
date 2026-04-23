@@ -14,7 +14,7 @@ import {
 } from '@/components/dashboard/widgets'
 
 export interface WidgetDefinition extends WidgetMeta {
-  component: ComponentType<{ size: WidgetSize }>
+  component: ComponentType<{ size?: WidgetSize }>
 }
 
 // Widgets that are fully implemented get a real component;
