@@ -27,16 +27,9 @@ export function WidgetPicker({ open, onClose, currentIds, onAdd }: WidgetPickerP
   }
 
   const handleAdd = () => {
-    const newInstances: WidgetInstance[] = []
-    const maxOrder = Math.max(0, ...currentIds.map((_, i) => i))
-    let i = maxOrder + 1
-    selected.forEach(id => {
-      const widget = WIDGET_REGISTRY.find(w => w.id === id)
-      if (widget) {
-        newInstances.push({ id, size: widget.defaultSize, order: i++ })
-      }
-    })
-    onAdd(newInstances)
+    // Just pass ids — the parent places them in the grid.
+    const items = Array.from(selected).map(id => ({ id }))
+    onAdd(items as WidgetInstance[])
     setSelected(new Set())
     onClose()
   }

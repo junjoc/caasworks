@@ -1,52 +1,36 @@
 'use client'
 
+// Widget card shell — no longer manages its own grid size.
+// With react-grid-layout, the wrapper sets explicit width/height
+// and the card fills 100% of its assigned grid cell.
+
 import Link from 'next/link'
-import { ExternalLink, X, Loader2 } from 'lucide-react'
-import type { WidgetSize } from '@/lib/dashboard/types'
+import { ExternalLink, X, Loader2, GripVertical } from 'lucide-react'
 
 interface WidgetCardProps {
   title: string
   href?: string
-  size: WidgetSize
   loading?: boolean
   children: React.ReactNode
-  // Edit mode
   editable?: boolean
   onRemove?: () => void
-  onResize?: (size: WidgetSize) => void
-  availableSizes?: WidgetSize[]
-}
-
-// Grid span mapping — 4-column grid on desktop, stacks on mobile.
-const sizeClass: Record<WidgetSize, string> = {
-  'S': 'col-span-2 sm:col-span-1 row-span-1',
-  'M': 'col-span-2 sm:col-span-2 row-span-1',
-  'L': 'col-span-2 sm:col-span-2 row-span-2',
 }
 
 export function WidgetCard({
-  title, href, size, loading, children, editable, onRemove, onResize, availableSizes
+  title, href, loading, children, editable, onRemove,
 }: WidgetCardProps) {
   const body = (
-    <div className="card h-full flex flex-col p-4 transition-shadow hover:shadow-card-hover">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-xs font-semibold text-text-secondary tracking-tight">{title}</div>
-        <div className="flex items-center gap-1">
-          {editable && availableSizes && availableSizes.length > 1 && (
-            <div className="flex items-center gap-0.5">
-              {availableSizes.map(s => (
-                <button
-                  key={s}
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); onResize?.(s) }}
-                  className={`text-[10px] px-1.5 py-0.5 rounded ${
-                    s === size ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+    <div className="card h-full w-full flex flex-col p-3 transition-shadow hover:shadow-card-hover overflow-hidden">
+      <div className="flex items-center justify-between mb-2 flex-shrink-0">
+        <div className="flex items-center gap-1 min-w-0">
+          {editable && (
+            <span className="drag-handle cursor-move text-gray-400 hover:text-gray-600 flex-shrink-0" title="드래그하여 이동">
+              <GripVertical className="w-3.5 h-3.5" />
+            </span>
           )}
+          <div className="text-xs font-semibold text-text-secondary tracking-tight truncate">{title}</div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
           {editable && onRemove && (
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove() }}
@@ -72,14 +56,12 @@ export function WidgetCard({
     </div>
   )
 
-  const classes = `${sizeClass[size]} group`
-
   if (href && !editable) {
     return (
-      <Link href={href} className={classes}>
+      <Link href={href} className="block h-full w-full group">
         {body}
       </Link>
     )
   }
-  return <div className={classes}>{body}</div>
+  return <div className="h-full w-full">{body}</div>
 }

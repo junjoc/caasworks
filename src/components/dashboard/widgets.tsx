@@ -14,7 +14,10 @@ import type { WidgetSize } from '@/lib/dashboard/types'
 import { AlertCircle, TrendingUp, TrendingDown, Clock } from 'lucide-react'
 
 // Shared types
-export interface WidgetProps { size: WidgetSize }
+// Widget height/width is now managed by react-grid-layout externally.
+// `size` is kept optional for legacy widgets that adapt their inner list
+// length; default to 'M' when unknown.
+export interface WidgetProps { size?: WidgetSize }
 
 // Fallback: empty state message
 const EmptyState = ({ msg }: { msg: string }) => (
