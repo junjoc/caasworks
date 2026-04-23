@@ -10,6 +10,7 @@ import {
   PipelineFunnelWidget,
   TodayTasksWidget,
   ConversionRateWidget,
+  WeeklyTasksWidget,
   PlaceholderWidget,
 } from '@/components/dashboard/widgets'
 
@@ -117,6 +118,16 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     availableSizes: ['M', 'L'],
     primaryHref: '/work/today',
     component: TodayTasksWidget,
+  },
+  {
+    id: 'weekly_tasks',
+    title: '주간 할일',
+    description: '오늘 ~ 7일 내 액션 + 청구서 발행 예정',
+    category: '업무',
+    defaultSize: 'L',
+    availableSizes: ['M', 'L'],
+    primaryHref: '/work/today',
+    component: WeeklyTasksWidget,
   },
 
   // ── Placeholders (미구현 — 준비중 표시) ──────────────────────
