@@ -54,6 +54,7 @@ interface Row {
   revenue_type: string | null  // 상품/서비스
   customer?: { id: string; company_name: string; notes: string | null }
   revenues: Rev[]
+  _seqNo?: number  // 생성 순서 번호 (오래된 것=1, 최신=가장 큰 수)
 }
 interface Cust { id: string; company_name: string }
 
@@ -93,7 +94,7 @@ function isRevInRange(month: number, year: number, dateRange: DateRange) {
    ════════════════════════════════════════════════════════════════ */
 interface RowProps {
   row: Row
-  index: number
+  seqNo: number
   year: number
   cm: number
   cy: number
@@ -105,7 +106,7 @@ interface RowProps {
 }
 
 const RevenueRow = React.memo(function RevenueRow({
-  row: r, index, year, cm, cy, dateRange,
+  row: r, seqNo, year, cm, cy, dateRange,
   onSaveField, onSaveRevenue, onCopy, onDelete,
 }: RowProps) {
   // Local editing state — isolated from other rows
@@ -159,7 +160,7 @@ const RevenueRow = React.memo(function RevenueRow({
   return (
     <tr className="rev-row border-b border-gray-200 hover:bg-blue-50/30 group">
       {/* NO. */}
-      <td className={`px-1.5 py-1.5 ${B} text-center font-bold text-gray-700 sticky left-0 bg-white group-hover:bg-blue-50/30 z-10`}>{index + 1}</td>
+      <td className={`px-1.5 py-1.5 ${B} text-center font-bold text-gray-700 sticky left-0 bg-white group-hover:bg-blue-50/30 z-10`}>{seqNo}</td>
       {/* 옵션 */}
       <td className={`px-0.5 py-1 ${B} text-center sticky left-[36px] bg-white group-hover:bg-blue-50/30 z-10`}>
         <div className="flex items-center justify-center gap-0.5">
@@ -336,7 +337,9 @@ export default function RevenuePage() {
       from += size
     }
     // 해당 연도에 매출 데이터가 있는 프로젝트만 표시
-    setRows(all.filter(r => r.revenues && r.revenues.length > 0))
+    // _seqNo 부여: 최신(배열 맨 앞)이 가장 큰 번호, 오래된 것(배열 끝)이 1
+    const withRev = all.filter(r => r.revenues && r.revenues.length > 0)
+    setRows(withRev.map((r, i, arr) => ({ ...r, _seqNo: arr.length - i })))
     setLoading(false)
   }, [year, sb])
 
@@ -436,7 +439,11 @@ export default function RevenuePage() {
       status: 'active', source: 'manual',
     }).select('*,customer:customers(id,company_name,notes)').single()
     if (error) { toast.error('등록 실패'); return }
-    if (data) setRows(prev => [...prev, { ...data, revenues: [] } as Row])
+    if (data) setRows(prev => {
+      // 새 행은 맨 위(최신) → 가장 큰 seqNo 부여, 기존 seqNo는 유지
+      const maxSeq = prev.reduce((m, r) => Math.max(m, r._seqNo || 0), 0)
+      return [{ ...data, revenues: [], _seqNo: maxSeq + 1 } as Row, ...prev]
+    })
     toast.success('등록 완료')
     setNr({ customer_id: '', project_name: '', project_start: '', project_end: '', site_category: '', site_category2: '', service_type: '', billing_start: '', billing_end: '', billing_method: '', invoice_day: '' })
   }, [nr, sb])
@@ -550,11 +557,11 @@ export default function RevenuePage() {
                 <td className="px-2 py-1.5 text-right text-gray-300">-</td>
               </tr>
 
-              {filtered.map((r, i) => (
+              {filtered.map(r => (
                 <RevenueRow
                   key={r.id}
                   row={r}
-                  index={i}
+                  seqNo={r._seqNo ?? 0}
                   year={year}
                   cm={cm}
                   cy={cy}
@@ -580,7 +587,13 @@ export default function RevenuePage() {
       )}
 
       <ProjectModal open={modal} onClose={() => { setModal(false); setCopyFrom(null) }} customers={custs} copyFrom={copyFrom}
-        onSaved={p => { if (p) setRows(prev => [...prev, p]); setModal(false); setCopyFrom(null) }} />
+        onSaved={p => {
+          if (p) setRows(prev => {
+            const maxSeq = prev.reduce((m, r) => Math.max(m, r._seqNo || 0), 0)
+            return [{ ...p, _seqNo: maxSeq + 1 }, ...prev]
+          })
+          setModal(false); setCopyFrom(null)
+        }} />
     </div>
   )
 }
