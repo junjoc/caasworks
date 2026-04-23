@@ -163,7 +163,7 @@ const RevenueRow = React.memo(function RevenueRow({
       {/* 옵션 */}
       <td className={`px-0.5 py-1 ${B} text-center sticky left-[36px] bg-white group-hover:bg-blue-50/30 z-10`}>
         <div className="flex items-center justify-center gap-0.5">
-          <button onClick={() => onCopy(r)} className="p-1 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded" title="서비스 추가"><Copy className="w-3.5 h-3.5" /></button>
+          <button onClick={() => onCopy(r)} className="p-1 text-primary-500 hover:text-primary-700 hover:bg-primary-50 rounded border border-primary-300" title="같은 현장에 서비스 추가"><Plus className="w-3.5 h-3.5" /></button>
           <button onClick={() => onDelete(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
         </div>
       </td>
