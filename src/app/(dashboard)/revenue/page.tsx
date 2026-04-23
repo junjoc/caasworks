@@ -55,12 +55,20 @@ interface Cust { id: string; company_name: string }
 type Field = 'project_name'|'project_start'|'project_end'|'site_category'|'site_category2'|'service_type'|'billing_start'|'billing_end'|'billing_method'|'invoice_day'
 
 /* ──── CSS ──── */
+// content-visibility: auto — browser skips rendering rows outside
+// the viewport until they're close to scrolling into view. Biggest
+// perf win on long revenue tables (off-screen paint is ~zero).
 const CSS = `
 .rt::-webkit-scrollbar{width:14px;height:14px}
 .rt::-webkit-scrollbar-track{background:#f1f1f1;border-radius:7px}
 .rt::-webkit-scrollbar-thumb{background:#b0b0b0;border-radius:7px;border:2px solid #f1f1f1}
 .rt::-webkit-scrollbar-thumb:hover{background:#888}
 .rt::-webkit-scrollbar-corner{background:#f1f1f1}
+.rev-row{
+  content-visibility: auto;
+  contain-intrinsic-size: auto 36px;
+  contain: layout paint style;
+}
 `
 const B = 'border-r border-gray-200'
 
@@ -144,7 +152,7 @@ const RevenueRow = React.memo(function RevenueRow({
   }
 
   return (
-    <tr className="border-b border-gray-200 hover:bg-blue-50/30 group">
+    <tr className="rev-row border-b border-gray-200 hover:bg-blue-50/30 group">
       {/* NO. */}
       <td className={`px-1.5 py-1.5 ${B} text-center font-bold text-gray-700 sticky left-0 bg-white group-hover:bg-blue-50/30 z-10`}>{index + 1}</td>
       {/* 옵션 */}
