@@ -55,7 +55,7 @@ export const NAV_MENU: NavSection[] = [
       { label: '청구/계산서', href: '/finance/invoices' },
       { label: '미납 현황', href: '/finance/unpaid' },
       { label: '납부 관리', href: '/finance/payments' },
-      { label: '매입/비용', href: '/finance/costs' },
+      { label: '매입/비용', href: '/finance/purchases' },
       { label: '손익 분석', href: '/finance/analysis' },
     ],
   },
@@ -64,6 +64,8 @@ export const NAV_MENU: NavSection[] = [
     children: [
       { label: '현장 관리', href: '/operations/sites' },
       { label: '카메라 반출', href: '/operations/camera-shipments' },
+      { label: '자산 관리', href: '/operations/assets' },
+      { label: '재고 관리', href: '/operations/inventory' },
       { label: '장비 관리', href: '/operations/equipment' },
       { label: '협력사 발주', href: '/operations/orders' },
     ],
