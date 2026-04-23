@@ -284,6 +284,14 @@ export default function RevenuePage() {
   const [q, setQ] = useState('')
   const [custs, setCusts] = useState<Cust[]>([])
 
+  // 헤더별 컬럼 필터
+  const [colFilter, setColFilter] = useState<{
+    site_category: string
+    site_category2: string
+    service_type: string
+    billing_method: string
+  }>({ site_category: '', site_category2: '', service_type: '', billing_method: '' })
+
   const [modal, setModal] = useState(false)
   const [copyFrom, setCopyFrom] = useState<Row | null>(null)
 
@@ -327,6 +335,10 @@ export default function RevenuePage() {
   /* ── Filter (.filter only — preserves row references for React.memo) ── */
   const filtered = useMemo(() => {
     let result = rows
+    if (colFilter.site_category) result = result.filter(r => r.site_category === colFilter.site_category)
+    if (colFilter.site_category2) result = result.filter(r => r.site_category2 === colFilter.site_category2)
+    if (colFilter.service_type) result = result.filter(r => r.service_type === colFilter.service_type)
+    if (colFilter.billing_method) result = result.filter(r => r.billing_method === colFilter.billing_method)
     if (q.trim()) {
       const s = q.trim().toLowerCase()
       result = result.filter(r => r.customer?.company_name?.toLowerCase().includes(s) || r.project_name.toLowerCase().includes(s) || r.service_type?.toLowerCase().includes(s))
@@ -459,18 +471,65 @@ export default function RevenuePage() {
               <th className="px-1.5 py-2.5 text-center font-medium min-w-[85px] border-r border-red-500">종료일</th>
               <th className="px-1.5 py-2.5 text-left font-medium min-w-[120px] border-r border-red-500">회사명</th>
               <th className="px-1.5 py-2.5 text-left font-medium min-w-[200px] border-r border-red-500">프로젝트 명 (현장명)</th>
-              <th className="px-1.5 py-2.5 text-center font-medium min-w-[50px] border-r border-red-500">현장<br />구분</th>
-              <th className="px-1.5 py-2.5 text-center font-medium min-w-[100px] border-r border-red-500">현장<br />구분2</th>
-              <th className="px-1.5 py-2.5 text-center font-medium min-w-[85px] border-r border-red-500">이용 서비스</th>
+              <th className="px-1.5 py-1 text-center font-medium min-w-[60px] border-r border-red-500">
+                <div>현장<br/>구분</div>
+                <select value={colFilter.site_category} onChange={e => setColFilter(p => ({...p, site_category: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white border border-red-500 rounded px-0.5 py-0" onClick={e => e.stopPropagation()}>
+                  <option value="">전체</option>
+                  {CAT1.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </th>
+              <th className="px-1.5 py-1 text-center font-medium min-w-[110px] border-r border-red-500">
+                <div>현장<br/>구분2</div>
+                <select value={colFilter.site_category2} onChange={e => setColFilter(p => ({...p, site_category2: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white border border-red-500 rounded px-0.5 py-0">
+                  <option value="">전체</option>
+                  {CAT2.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </th>
+              <th className="px-1.5 py-1 text-center font-medium min-w-[95px] border-r border-red-500">
+                <div>이용 서비스</div>
+                <select value={colFilter.service_type} onChange={e => setColFilter(p => ({...p, service_type: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white border border-red-500 rounded px-0.5 py-0">
+                  <option value="">전체</option>
+                  {SVC.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </th>
               <th className="px-1.5 py-2.5 text-center font-medium min-w-[85px] border-r border-red-500">과금<br />시작일</th>
               <th className="px-1.5 py-2.5 text-center font-medium min-w-[85px] border-r border-red-500">과금<br />종료일</th>
               <th className="px-1.5 py-2.5 text-left font-medium min-w-[120px] border-r border-red-500">비고</th>
-              <th className="px-1.5 py-2.5 text-center font-medium min-w-[70px] border-r border-red-500">과금<br />방식</th>
+              <th className="px-1.5 py-1 text-center font-medium min-w-[90px] border-r border-red-500">
+                <div>과금<br/>방식</div>
+                <select value={colFilter.billing_method} onChange={e => setColFilter(p => ({...p, billing_method: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white border border-red-500 rounded px-0.5 py-0">
+                  <option value="">전체</option>
+                  {BILL.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </th>
               {MS.map(m => <th key={m} className={`px-1 py-2.5 text-center font-medium min-w-[80px] border-r border-red-500 ${m === cm && year === cy ? 'bg-red-700' : ''}`}>{m}월</th>)}
               <th className="px-2 py-2.5 text-right font-medium min-w-[90px]">합계</th>
             </tr></thead>
 
             <tbody>
+              {/* 신규 작성 행 — 최상단에 배치 (아래로 스크롤 없이 바로 입력 가능) */}
+              <tr className="border-b-2 border-primary-300 bg-primary-50/40 sticky top-[48px] z-[15]">
+                <td className={`px-1.5 py-1.5 ${B} text-center font-bold text-primary-600 sticky left-0 bg-primary-50/90 z-10`}>NEW</td>
+                <td className={`px-0.5 py-1 ${B} text-center sticky left-[36px] bg-primary-50/90 z-10`}>
+                  <button onClick={saveNew} className="p-1 text-primary-500 hover:text-primary-700 hover:bg-primary-100 rounded" title="저장"><Plus className="w-3.5 h-3.5" /></button>
+                </td>
+                <td className={`px-1.5 py-1.5 ${B}`}><input type="date" className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" value={nr.project_start} onChange={e => setNr(p => ({ ...p, project_start: e.target.value }))} /></td>
+                <td className={`px-1.5 py-1.5 ${B}`}><input type="date" className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" value={nr.project_end} onChange={e => setNr(p => ({ ...p, project_end: e.target.value }))} /></td>
+                <td className={`px-1.5 py-1.5 ${B} overflow-visible`}>
+                  <SearchSelect placeholder="회사 검색..." options={custs.map(c => ({ value: c.id, label: c.company_name }))} value={nr.customer_id} onChange={v => setNr(p => ({ ...p, customer_id: v }))} className="min-w-[120px]" />
+                </td>
+                <td className={`px-1.5 py-1.5 ${B}`}><input type="text" className="w-full text-xs border border-gray-300 rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" value={nr.project_name} onChange={e => setNr(p => ({ ...p, project_name: e.target.value }))} placeholder="현장명" onKeyDown={e => { if (e.key === 'Enter') saveNew() }} /></td>
+                <td className={`px-1.5 py-1.5 ${B}`}><select className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 bg-white" value={nr.site_category} onChange={e => setNr(p => ({ ...p, site_category: e.target.value }))}><option value="">-</option>{CAT1.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></td>
+                <td className={`px-1.5 py-1.5 ${B}`}><select className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 bg-white" value={nr.site_category2} onChange={e => setNr(p => ({ ...p, site_category2: e.target.value }))}><option value="">-</option>{CAT2.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></td>
+                <td className={`px-1.5 py-1.5 ${B}`}><select className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 bg-white" value={nr.service_type} onChange={e => setNr(p => ({ ...p, service_type: e.target.value }))}><option value="">-</option>{SVC.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></td>
+                <td className={`px-1.5 py-1.5 ${B}`}><input type="date" className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" value={nr.billing_start} onChange={e => setNr(p => ({ ...p, billing_start: e.target.value }))} /></td>
+                <td className={`px-1.5 py-1.5 ${B}`}><input type="date" className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" value={nr.billing_end} onChange={e => setNr(p => ({ ...p, billing_end: e.target.value }))} /></td>
+                <td className={`px-1.5 py-1.5 ${B} text-gray-300`}>-</td>
+                <td className={`px-1.5 py-1.5 ${B}`}><select className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 bg-white" value={nr.billing_method} onChange={e => setNr(p => ({ ...p, billing_method: e.target.value }))}><option value="">-</option>{BILL.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></td>
+                {MS.map(m => <td key={m} className={`px-1 py-1.5 ${B} text-center text-gray-300`}>-</td>)}
+                <td className="px-2 py-1.5 text-right text-gray-300">-</td>
+              </tr>
+
               {filtered.map((r, i) => (
                 <RevenueRow
                   key={r.id}
@@ -487,34 +546,6 @@ export default function RevenuePage() {
                 />
               ))}
 
-              {/* 빈 행 (new row) */}
-              <tr className="border-b border-gray-200 bg-yellow-50/30">
-                <td className={`px-1.5 py-1.5 ${B} text-center font-bold text-gray-400 sticky left-0 bg-yellow-50/30 z-10`}>{filtered.length + 1}</td>
-                <td className={`px-0.5 py-1 ${B} text-center sticky left-[36px] bg-yellow-50/30 z-10`}>
-                  <button onClick={saveNew} className="p-1 text-primary-500 hover:text-primary-700 hover:bg-primary-50 rounded" title="저장"><Plus className="w-3.5 h-3.5" /></button>
-                </td>
-                <td className={`px-1.5 py-1.5 ${B}`}><input type="date" className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" value={nr.project_start} onChange={e => setNr(p => ({ ...p, project_start: e.target.value }))} /></td>
-                <td className={`px-1.5 py-1.5 ${B}`}><input type="date" className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" value={nr.project_end} onChange={e => setNr(p => ({ ...p, project_end: e.target.value }))} /></td>
-                <td className={`px-1.5 py-1.5 ${B} overflow-visible`}>
-                  <SearchSelect
-                    placeholder="회사 검색..."
-                    options={custs.map(c => ({ value: c.id, label: c.company_name }))}
-                    value={nr.customer_id}
-                    onChange={v => setNr(p => ({ ...p, customer_id: v }))}
-                    className="min-w-[120px]"
-                  />
-                </td>
-                <td className={`px-1.5 py-1.5 ${B}`}><input type="text" className="w-full text-xs border border-gray-300 rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" value={nr.project_name} onChange={e => setNr(p => ({ ...p, project_name: e.target.value }))} placeholder="현장명" onKeyDown={e => { if (e.key === 'Enter') saveNew() }} /></td>
-                <td className={`px-1.5 py-1.5 ${B}`}><select className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 bg-white" value={nr.site_category} onChange={e => setNr(p => ({ ...p, site_category: e.target.value }))}><option value="">-</option>{CAT1.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></td>
-                <td className={`px-1.5 py-1.5 ${B}`}><select className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 bg-white" value={nr.site_category2} onChange={e => setNr(p => ({ ...p, site_category2: e.target.value }))}><option value="">-</option>{CAT2.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></td>
-                <td className={`px-1.5 py-1.5 ${B}`}><select className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 bg-white" value={nr.service_type} onChange={e => setNr(p => ({ ...p, service_type: e.target.value }))}><option value="">-</option>{SVC.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></td>
-                <td className={`px-1.5 py-1.5 ${B}`}><input type="date" className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" value={nr.billing_start} onChange={e => setNr(p => ({ ...p, billing_start: e.target.value }))} /></td>
-                <td className={`px-1.5 py-1.5 ${B}`}><input type="date" className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" value={nr.billing_end} onChange={e => setNr(p => ({ ...p, billing_end: e.target.value }))} /></td>
-                <td className={`px-1.5 py-1.5 ${B} text-gray-300`}>-</td>
-                <td className={`px-1.5 py-1.5 ${B}`}><select className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 bg-white" value={nr.billing_method} onChange={e => setNr(p => ({ ...p, billing_method: e.target.value }))}><option value="">-</option>{BILL.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></td>
-                {MS.map(m => <td key={m} className={`px-1 py-1.5 ${B} text-center text-gray-300`}>-</td>)}
-                <td className="px-2 py-1.5 text-right text-gray-300">-</td>
-              </tr>
             </tbody>
           </table>
           <div className="px-4 py-2 border-t border-gray-200 flex items-center justify-between">

@@ -83,10 +83,23 @@ export default function InvoicesPage() {
     let query = supabase
       .from('invoices')
       .select('*, customer:customers(company_name), items:invoice_items(*)')
-      .eq('year', year)
+      .order('year', { ascending: false })
       .order('month', { ascending: false })
 
-    if (!viewAll) query = query.eq('month', month)
+    // Date range mode — bypass year/month selectors entirely
+    const dateRangeActive = !!(dateRange.from && dateRange.to)
+    if (dateRangeActive) {
+      // Fetch invoices whose issue date falls in the range.
+      // We match by year/month composite since issue_date may be null.
+      const fromY = parseInt(dateRange.from.substring(0, 4))
+      const toY = parseInt(dateRange.to.substring(0, 4))
+      if (fromY === toY) query = query.eq('year', fromY)
+      else query = query.gte('year', fromY).lte('year', toY)
+    } else {
+      query = query.eq('year', year)
+      if (!viewAll) query = query.eq('month', month)
+    }
+
     if (statusFilter !== '전체') query = query.eq('status', statusFilter)
 
     const { data } = await query
@@ -96,7 +109,7 @@ export default function InvoicesPage() {
       _items: inv.items || [],
     })))
     setLoading(false)
-  }, [year, month, viewAll, statusFilter])
+  }, [year, month, viewAll, statusFilter, dateRange.from, dateRange.to])
 
   const fetchCustomers = useCallback(async () => {
     const { data } = await supabase.from('customers').select('id, company_name').eq('status', 'active').order('company_name')
