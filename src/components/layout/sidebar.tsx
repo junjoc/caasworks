@@ -31,6 +31,7 @@ import {
   LogOut,
   BarChart3,
   UserCircle,
+  MessageSquarePlus,
 } from 'lucide-react'
 
 // Icon color mapping for each nav section
@@ -44,6 +45,7 @@ const iconColors: Record<string, { color: string; bg: string }> = {
   '운영관리': { color: '#f59e0b', bg: '#fef3c7' },
   'VoC/CS': { color: '#ec4899', bg: '#fce7f3' },
   '업무': { color: '#6366f1', bg: '#eef2ff' },
+  '피드백': { color: '#0ea5e9', bg: '#e0f2fe' },
   '설정': { color: '#6b7280', bg: '#f3f4f6' },
 }
 
@@ -57,6 +59,7 @@ const iconFor: Record<string, React.ReactNode> = {
   '운영관리': <Package className="w-[16px] h-[16px]" />,
   'VoC/CS': <MessageSquare className="w-[16px] h-[16px]" />,
   '업무': <ClipboardList className="w-[16px] h-[16px]" />,
+  '피드백': <MessageSquarePlus className="w-[16px] h-[16px]" />,
   '설정': <Settings className="w-[16px] h-[16px]" />,
 }
 
