@@ -97,7 +97,10 @@ export default function InvoicesPage() {
     let query = supabase
       .from('invoices')
       .select('*, customer:customers(company_name), items:invoice_items(*)')
-      .order('created_at', { ascending: false })  // 최근 생성된 청구서를 맨 위로
+      // 청구일(sent_at) 기준 내림차순. 미발송(null)은 맨 위 (작업 중이므로 눈에 띄게).
+      // 동일 sent_at 내에서는 최근 생성일 순.
+      .order('sent_at', { ascending: false, nullsFirst: true })
+      .order('created_at', { ascending: false })
       .order('year', { ascending: false })
       .order('month', { ascending: false })
 
