@@ -277,12 +277,17 @@ const RevenueRow = React.memo(function RevenueRow({
           </td>
         ) : (
           <td key={m} className={`px-1 py-1.5 ${B} text-right cursor-pointer hover:bg-primary-50 ${cur ? 'bg-red-50/20' : ''}`} onClick={() => clickRev(m)}>
-            {v ? <span className={v.is_confirmed ? 'text-gray-700' : 'text-orange-500'}>{formatCurrency(v.amount)}{!v.is_confirmed && <span className="text-[8px]">*</span>}</span>
-              : <span className="text-gray-200">-</span>}
+            {v ? (
+              <span className={v.is_confirmed ? (v.amount < 0 ? 'text-red-600' : 'text-gray-700') : 'text-orange-500'}>
+                {formatCurrency(v.amount)}{!v.is_confirmed && <span className="text-[8px]">*</span>}
+              </span>
+            ) : <span className="text-gray-200">-</span>}
           </td>
         )
       })}
-      <td className="px-2 py-1.5 text-right font-semibold text-gray-800">{rt > 0 ? formatCurrency(rt) : '-'}</td>
+      <td className={`px-2 py-1.5 text-right font-semibold ${rt < 0 ? 'text-red-600' : 'text-gray-800'}`}>
+        {rt !== 0 ? formatCurrency(rt) : '-'}
+      </td>
     </tr>
   )
 })
@@ -408,19 +413,19 @@ export default function RevenuePage() {
     rid: string, customerId: string, month: number, amount: number, existingRev?: Rev
   ) => {
     if (existingRev) {
-      if (isNaN(amount) || amount <= 0) {
-        // Delete
+      // 빈 입력(NaN) 또는 정확히 0 일 때만 삭제. 음수는 유효한 값으로 처리(환불/조정 등).
+      if (isNaN(amount) || amount === 0) {
         setRows(prev => prev.map(r => r.id === rid ? { ...r, revenues: r.revenues.filter(v => v.id !== existingRev.id) } : r))
         await sb.from('monthly_revenues').delete().eq('id', existingRev.id)
         toast.success('삭제'); return
       }
-      // Update
+      // Update (음수 허용)
       setRows(prev => prev.map(r => r.id === rid ? { ...r, revenues: r.revenues.map(v => v.id === existingRev.id ? { ...v, amount } : v) } : r))
       const { error } = await sb.from('monthly_revenues').update({ amount }).eq('id', existingRev.id)
       if (error) { toast.error('실패'); load() }
     } else {
-      if (isNaN(amount) || amount <= 0) return
-      // Create
+      // 신규: 빈 입력 또는 0 은 무시, 음수는 저장
+      if (isNaN(amount) || amount === 0) return
       const tid = `t${Date.now()}`
       setRows(prev => prev.map(r => r.id === rid ? { ...r, revenues: [...r.revenues, { id: tid, month, amount, is_confirmed: false }] } : r))
       const { data, error } = await sb.from('monthly_revenues')
@@ -428,7 +433,7 @@ export default function RevenuePage() {
         .select('id').single()
       if (error) { toast.error('실패'); load(); return }
       if (data) setRows(prev => prev.map(r => r.id === rid ? { ...r, revenues: r.revenues.map(v => v.id === tid ? { ...v, id: data.id } : v) } : r))
-      toast.success(`${month}월 매출 등록`)
+      toast.success(`${month}월 매출 등록 (${amount < 0 ? '환불/차감' : formatCurrency(amount)})`)
     }
   }, [sb, year, load])
 
@@ -502,8 +507,11 @@ export default function RevenuePage() {
           <th className="px-2 py-2 text-right font-semibold text-gray-600 min-w-[100px]">합계</th>
         </tr></thead><tbody><tr className="font-semibold bg-gray-50">
           <td className="px-3 py-2 text-gray-700">합계</td>
-          {MS.map(m => <td key={m} className={`px-1 py-2 text-right ${m === cm && year === cy ? 'bg-red-50 text-red-700 font-bold' : ''}`}>{totals.t[m] ? formatCurrency(totals.t[m]) : '-'}</td>)}
-          <td className="px-2 py-2 text-right font-bold text-primary-600">{formatCurrency(totals.g)}</td>
+          {MS.map(m => {
+            const val = totals.t[m] || 0
+            return <td key={m} className={`px-1 py-2 text-right ${m === cm && year === cy ? 'bg-red-50 text-red-700 font-bold' : ''} ${val < 0 ? 'text-red-600' : ''}`}>{val !== 0 ? formatCurrency(val) : '-'}</td>
+          })}
+          <td className={`px-2 py-2 text-right font-bold ${totals.g < 0 ? 'text-red-600' : 'text-primary-600'}`}>{formatCurrency(totals.g)}</td>
         </tr></tbody></table>
       </div>
 
