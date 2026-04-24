@@ -325,14 +325,15 @@ export default function RevenuePage() {
     let from = 0
     const size = 1000
     while (true) {
-      // sheet_no 내림차순 (시트의 가장 큰 NO 가 맨 위), 시트에 없는 웹 추가 행은 맨 위 (nullsFirst)
-      // 같은 sheet_no 내에서는 created_at desc 로 안정 정렬
+      // 시트와 완전 동일한 순서: sheet_no ASC (1번 맨 위 → 1466 맨 아래).
+      // 웹에서 추가한 행(sheet_no NULL)은 맨 아래 (nullsLast) = 시트의 다음 번호 위치.
+      // 같은 sheet_no 내 안정 정렬은 created_at asc.
       const { data, error } = await sb
         .from('projects')
         .select('id,customer_id,project_name,project_start,project_end,service_type,site_category,site_category2,billing_start,billing_end,billing_method,invoice_day,monthly_amount,status,notes,created_at,revenue_type,sheet_no,customer:customers(id,company_name,notes),revenues:monthly_revenues(id,month,amount,is_confirmed)')
         .eq('revenues.year', year)
-        .order('sheet_no', { ascending: false, nullsFirst: true })
-        .order('created_at', { ascending: false })
+        .order('sheet_no', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
         .range(from, from + size - 1)
       if (error) { console.error(error); break }
       if (!data || data.length === 0) break
@@ -340,15 +341,14 @@ export default function RevenuePage() {
       if (data.length < size) break
       from += size
     }
-    // 해당 연도에 매출 데이터가 있는 프로젝트만 표시
-    // _seqNo: sheet_no 없는 웹 추가 행에 한해 fallback 번호 (max(sheet_no)+1, +2, ...)
-    const withRev = all.filter(r => r.revenues && r.revenues.length > 0)
-    const maxSheetNo = withRev.reduce((m, r) => {
+    // 매출 유무와 관계 없이 시트의 모든 프로젝트 표시 (팀원이 시트와 1:1 매칭 확인용).
+    // _seqNo: sheet_no 없는 웹 추가 행에 max(sheet_no)+1, +2, ... 자동 부여.
+    const maxSheetNo = all.reduce((m, r) => {
       const n = r.sheet_no != null ? Number(r.sheet_no) : 0
       return n > m ? n : m
     }, 0)
     let webAddedCount = 0
-    const withSeq = withRev.map(r => {
+    const withSeq = all.map(r => {
       if (r.sheet_no == null) {
         webAddedCount++
         return { ...r, _seqNo: Math.floor(maxSheetNo) + webAddedCount }
@@ -456,12 +456,12 @@ export default function RevenuePage() {
     }).select('*,customer:customers(id,company_name,notes)').single()
     if (error) { toast.error('등록 실패'); return }
     if (data) setRows(prev => {
-      // 새 행: sheet_no 없으므로 nullsFirst 로 맨 위. _seqNo 는 max+1.
+      // ASC + nullsLast 정렬이므로 웹 추가 행은 맨 아래. _seqNo = max(sheet_no, _seqNo) + 1
       const maxAll = prev.reduce((m, r) => {
         const n = r.sheet_no != null ? Number(r.sheet_no) : (r._seqNo || 0)
         return n > m ? n : m
       }, 0)
-      return [{ ...data, revenues: [], sheet_no: null, _seqNo: Math.floor(maxAll) + 1 } as Row, ...prev]
+      return [...prev, { ...data, revenues: [], sheet_no: null, _seqNo: Math.floor(maxAll) + 1 } as Row]
     })
     toast.success('등록 완료')
     setNr({ customer_id: '', project_name: '', project_start: '', project_end: '', site_category: '', site_category2: '', service_type: '', billing_start: '', billing_end: '', billing_method: '', invoice_day: '' })
@@ -622,7 +622,7 @@ export default function RevenuePage() {
               const n = r.sheet_no != null ? Number(r.sheet_no) : (r._seqNo || 0)
               return n > m ? n : m
             }, 0)
-            return [{ ...p, sheet_no: null, _seqNo: Math.floor(maxAll) + 1 }, ...prev]
+            return [...prev, { ...p, sheet_no: null, _seqNo: Math.floor(maxAll) + 1 }]
           })
           setModal(false); setCopyFrom(null)
         }} />
