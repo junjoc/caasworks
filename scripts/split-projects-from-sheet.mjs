@@ -165,11 +165,11 @@ for (let i = 5; i < rows.length; i++) {
   const service = col(r, COL.SERVICE) || null
   const combinedName = service ? `${project} - ${service}` : project
 
-  // month amounts
+  // month amounts — 음수(환불/차감) 도 저장. 0 만 스킵.
   const monthAmounts = []
   for (let m = 0; m < 12; m++) {
     const amt = parseMoney(col(r, MONTH_COLS[m]))
-    if (amt > 0) monthAmounts.push({ month: m + 1, amount: amt })
+    if (amt !== 0) monthAmounts.push({ month: m + 1, amount: amt })
   }
 
   parsedRows.push({
