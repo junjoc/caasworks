@@ -17,6 +17,7 @@ import type { Customer, Project, MonthlyRevenue, User } from '@/types/database'
 import { ArrowLeft, Building2, CreditCard, FolderOpen, Receipt, Pencil, Trash2, Plus, FileText, Upload, Download, Eye, X, Package, Truck, ClipboardList } from 'lucide-react'
 import CustomerPricingTab from './pricing-tab'
 import CustomerShipmentsTab from './shipments-tab'
+import { BILLING_METHOD_OPTIONS } from '@/lib/billing-methods'
 import { toast } from 'sonner'
 
 type Tab = 'info' | 'billing' | 'pricing' | 'projects' | 'shipments' | 'payments' | 'documents'
@@ -82,12 +83,8 @@ const COMPANY_TYPE_OPTIONS = [
   { value: '기타', label: '기타' },
 ]
 
-const BILLING_TYPE_OPTIONS = [
-  { value: '월과금', label: '월과금' },
-  { value: '연과금', label: '연과금' },
-  { value: '건별과금', label: '건별과금' },
-  { value: '기타', label: '기타' },
-]
+// 과금방식 통합 셋 사용
+const BILLING_TYPE_OPTIONS = BILLING_METHOD_OPTIONS
 
 const PROJECT_STATUS_OPTIONS = [
   { value: 'active', label: '진행중' },

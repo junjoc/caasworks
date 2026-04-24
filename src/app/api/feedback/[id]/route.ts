@@ -9,16 +9,17 @@ function getSupabase() {
 }
 
 // GET /api/feedback/[id] — returns feedback + comments
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const sb = getSupabase()
     const [{ data: fb, error: fbErr }, { data: comments, error: cErr }] = await Promise.all([
       sb.from('user_feedbacks')
         .select('*, created_by_user:users!user_feedbacks_created_by_fkey(id, name, avatar_url), assigned_to_user:users!user_feedbacks_assigned_to_fkey(id, name, avatar_url)')
-        .eq('id', params.id).maybeSingle(),
+        .eq('id', id).maybeSingle(),
       sb.from('feedback_comments')
         .select('*, author:users(id, name, avatar_url, role)')
-        .eq('feedback_id', params.id).order('created_at', { ascending: true }),
+        .eq('feedback_id', id).order('created_at', { ascending: true }),
     ])
     if (fbErr) return NextResponse.json({ error: fbErr.message }, { status: 500 })
     if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
@@ -30,8 +31,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 // PATCH /api/feedback/[id] — update status/assignee/dev-log fields
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const body = await request.json()
     const sb = getSupabase()
 
@@ -41,7 +43,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (body.status === 'in_progress' && !body.started_at) updates.started_at = new Date().toISOString()
     if (body.status === 'done' && !body.completed_at) updates.completed_at = new Date().toISOString()
 
-    const { data, error } = await sb.from('user_feedbacks').update(updates).eq('id', params.id).select().single()
+    const { data, error } = await sb.from('user_feedbacks').update(updates).eq('id', id).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
   } catch (e: any) {
@@ -50,10 +52,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 // DELETE
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const sb = getSupabase()
-    const { error } = await sb.from('user_feedbacks').delete().eq('id', params.id)
+    const { error } = await sb.from('user_feedbacks').delete().eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (e: any) {

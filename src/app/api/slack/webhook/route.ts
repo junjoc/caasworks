@@ -88,20 +88,25 @@ function cleanSlackMarkup(text: string | null): string | null {
 }
 
 // Parse inquiry notification from "문의알림봇" in #문의-알림 channel
-// Expected pattern:
-// caas 문의 알림
-// 이름 : 김OO
-// 이메일 : xxx@xxx.com
-// 전화번호 : 01012345678
-// 회사명 : OO건설
-// 레퍼러 주소: https://...
-// - 추가 문의 내용
+// Expected pattern (order matters for 문의내용 extraction):
+//   caas 문의 알림
+//   이름: 김OO
+//   이메일: xxx@xxx.com
+//   전화번호: 01012345678
+//   회사명: OO건설
+//   레퍼러 주소: https://caas.co.kr/inquiry?...
+//     <<< 문의내용이 여기 들어감 (레퍼러 주소 ↔ 실제 레퍼러 사이) >>>
+//     - 질문 1
+//     - 요청 사항 2
+//     (또는 자유 텍스트)
+//   실제 레퍼러: https://google.com/search?...
 function parseInquiryMessage(text: string): {
   name: string | null
   email: string | null
   phone: string | null
   company_name: string | null
   referrer: string | null
+  actual_referrer: string | null
   extra_content: string | null
 } | null {
   // "문의 알림" 또는 "문의알림" 키워드 확인
@@ -119,11 +124,42 @@ function parseInquiryMessage(text: string): {
   // 이름이 없으면 문의 메시지가 아님
   if (!name) return null
 
-  // 추가 문의 내용 추출 (- 로 시작하는 라인들)
-  const extraLines = text.split('\n')
-    .filter(line => line.trim().startsWith('-'))
-    .map(line => line.trim().substring(1).trim())
-    .filter(Boolean)
+  // 문의내용 추출: "레퍼러 주소" 줄 다음부터 "실제 레퍼러" 줄 이전까지
+  // (사용자 지정: "레퍼러주소와 실제 레퍼러 사이에 내용이 문의내용")
+  const lines = text.split('\n')
+  let startIdx = -1
+  let endIdx = -1
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (startIdx === -1 && /\*?레퍼러\s*주소\*?\s*[:：]/i.test(line)) {
+      startIdx = i + 1
+    } else if (startIdx !== -1 && endIdx === -1 && /\*?실제\s*레퍼러\*?\s*[:：]/i.test(line)) {
+      endIdx = i
+      break
+    }
+  }
+
+  let extra_content: string | null = null
+  if (startIdx !== -1) {
+    const sliceEnd = endIdx === -1 ? lines.length : endIdx
+    const between = lines.slice(startIdx, sliceEnd)
+      .map(l => l.replace(/^\s*[-•·]\s*/, '').trim())  // 불릿 제거
+      .map(l => cleanSlackMarkup(l) || l)
+      .filter(Boolean)
+    if (between.length > 0) {
+      extra_content = between.join('\n')
+    }
+  }
+
+  // 폴백: 사이에 아무것도 없으면 기존 "- " 접두사 라인들 사용
+  if (!extra_content) {
+    const dashLines = lines
+      .filter(l => l.trim().startsWith('-') && !/레퍼러/.test(l))
+      .map(l => l.trim().substring(1).trim())
+      .map(l => cleanSlackMarkup(l) || l)
+      .filter(Boolean)
+    if (dashLines.length > 0) extra_content = dashLines.join('\n')
+  }
 
   return {
     name,
@@ -131,7 +167,8 @@ function parseInquiryMessage(text: string): {
     phone: cleanSlackMarkup(getField('전화번호') || getField('연락처') || getField('휴대폰')),
     company_name: cleanSlackMarkup(getField('회사명') || getField('회사') || getField('업체명')),
     referrer: cleanSlackMarkup(getField('레퍼러 주소') || getField('레퍼러') || getField('유입경로')),
-    extra_content: extraLines.length > 0 ? extraLines.map(l => cleanSlackMarkup(l) || l).join('\n') : null,
+    actual_referrer: cleanSlackMarkup(getField('실제 레퍼러') || getField('실제레퍼러')),
+    extra_content,
   }
 }
 
@@ -298,8 +335,9 @@ export async function POST(request: NextRequest) {
           inquiry_channel: inquiryChannel,
           inquiry_source: inquirySource,
           inquiry_content: [
-            inquiry.extra_content,
-            inquiry.referrer ? `레퍼러: ${inquiry.referrer}` : null,
+            inquiry.extra_content,  // 레퍼러 주소 ↔ 실제 레퍼러 사이의 실제 문의 내용 (최우선)
+            inquiry.referrer ? `레퍼러 주소: ${inquiry.referrer}` : null,
+            inquiry.actual_referrer ? `실제 레퍼러: ${inquiry.actual_referrer}` : null,
           ].filter(Boolean).join('\n') || null,
           stage: '신규리드',
           priority: '중간',

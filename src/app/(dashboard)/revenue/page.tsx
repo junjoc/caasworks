@@ -12,6 +12,7 @@ import { Modal } from '@/components/ui/modal'
 import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Plus, Search, X, Copy, Trash2 } from 'lucide-react'
+import { BILLING_METHOD_OPTIONS } from '@/lib/billing-methods'
 
 /* ──── Constants ──── */
 const SVC = [
@@ -28,11 +29,7 @@ const CAT2 = [
   { value: '리모델링·인테리어', label: '리모델링·인테리어' },
   { value: '해체·철거공사', label: '해체·철거공사' },
 ]
-const BILL = [
-  { value: '구독(월간)', label: '구독(월간)' },
-  { value: '무상이용', label: '무상이용' },
-  { value: '연간', label: '연간' },
-]
+const BILL = BILLING_METHOD_OPTIONS.map(o => ({ value: o.value, label: o.label }))
 const REVENUE_TYPES = [
   { value: '상품', label: '상품' },
   { value: '서비스', label: '서비스' },

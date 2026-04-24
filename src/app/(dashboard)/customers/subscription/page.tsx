@@ -12,6 +12,7 @@ import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Users, RefreshCw, AlertTriangle, TrendingUp, Search, Pencil, Plus, CreditCard, Calendar, Camera } from 'lucide-react'
+import { BILLING_METHOD_OPTIONS } from '@/lib/billing-methods'
 import { toast } from 'sonner'
 import Link from 'next/link'
 
@@ -41,13 +42,7 @@ interface SubscriptionCustomer {
   cameraCount: number
 }
 
-const PLAN_OPTIONS = [
-  { value: '월과금', label: '월과금' },
-  { value: '연과금', label: '연과금' },
-  { value: '건별과금', label: '건별과금' },
-  { value: '무제한', label: '무제한' },
-  { value: '맞춤', label: '맞춤형' },
-]
+const PLAN_OPTIONS = BILLING_METHOD_OPTIONS.map(o => ({ value: o.value, label: o.label }))
 
 const RISK_COLORS: Record<string, string> = {
   low: 'bg-status-green-bg text-status-green',
