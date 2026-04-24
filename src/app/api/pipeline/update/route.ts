@@ -77,21 +77,32 @@ export async function POST(request: NextRequest) {
         .select()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-      // Auto stage change based on activity type
+      // Lead 업데이트 — stage 자동 변경 + 다음 액션 자동 정리
+      const leadUpdates: Record<string, unknown> = {}
       if (payload.auto_stage) {
-        const updates: Record<string, unknown> = { stage: payload.auto_stage }
+        leadUpdates.stage = payload.auto_stage
         if (payload.auto_stage === '도입직전' || payload.auto_stage === '도입완료') {
-          updates.converted_at = new Date().toISOString()
+          leadUpdates.converted_at = new Date().toISOString()
         }
-        await supabase.from('pipeline_leads').update(updates).eq('id', lead_id)
-        // Record stage change in history
-        if (payload.current_stage && payload.current_stage !== payload.auto_stage) {
-          await supabase.from('pipeline_history').insert({
-            lead_id, field_changed: 'stage',
-            old_value: payload.current_stage, new_value: payload.auto_stage,
-            changed_by: payload.performed_by,
-          })
-        }
+      }
+      // 활동이 기록되면 이 lead 의 "다음 액션" 은 완료된 것으로 간주 → 자동 clear.
+      // (사용자 피드백: "다음액션일 지정하고 그 액션 했는데 계속 업무처리 안했다고 나온다")
+      // payload.keep_next_action 이 true 면 clear 안함.
+      if (!payload.keep_next_action) {
+        leadUpdates.next_action = null
+        leadUpdates.next_action_date = null
+      }
+      if (Object.keys(leadUpdates).length > 0) {
+        await supabase.from('pipeline_leads').update(leadUpdates).eq('id', lead_id)
+      }
+
+      // stage 변경 history
+      if (payload.auto_stage && payload.current_stage && payload.current_stage !== payload.auto_stage) {
+        await supabase.from('pipeline_history').insert({
+          lead_id, field_changed: 'stage',
+          old_value: payload.current_stage, new_value: payload.auto_stage,
+          changed_by: payload.performed_by,
+        })
       }
 
       return NextResponse.json({ success: true, data })
