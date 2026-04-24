@@ -76,6 +76,8 @@ export default function InvoicesPage() {
   const [defaultBankInfo, setDefaultBankInfo] = useState<string>('')
   // 세금계산서 발행 날짜 선택 모달
   const [taxIssueModal, setTaxIssueModal] = useState<any>(null)
+  // 수납일(paid_at) 수정 모달 — 주말 입금 → 월요일 체크 케이스 대응
+  const [paidAtModal, setPaidAtModal] = useState<any>(null)
 
   // Form state
   const [form, setForm] = useState({
@@ -413,6 +415,17 @@ export default function InvoicesPage() {
     fetchInvoices()
   }
 
+  // 수납 처리 + 실제 입금일 지정 (주말 입금 → 월요일 체크 케이스)
+  const handleMarkPaid = async (inv: any, paidAtDate: string | null) => {
+    const updateData: any = { status: paidAtDate ? 'paid' : 'sent' }
+    updateData.paid_at = paidAtDate ? new Date(paidAtDate + 'T00:00:00').toISOString() : null
+    const { error } = await supabase.from('invoices').update(updateData).eq('id', inv.id)
+    if (error) { toast.error('수납 처리 실패: ' + error.message); return }
+    toast.success(paidAtDate ? `수납 완료 (${paidAtDate})` : '수납 취소됨')
+    setPaidAtModal(null)
+    fetchInvoices()
+  }
+
   // 세금계산서 발행일 마킹 (또는 해제)
   const handleMarkTaxIssued = async (inv: any, issuedDate: string | null) => {
     const { error } = await supabase
@@ -614,19 +627,20 @@ export default function InvoicesPage() {
         <EmptyState icon={FileText} title="등록된 청구서가 없습니다" description="상단의 '청구서 생성' 버튼으로 새 청구서를 만들 수 있습니다." />
       ) : (
         <div className="table-container">
-          <table className="data-table" style={{ minWidth: '1080px' }}>
+          <table className="data-table" style={{ minWidth: '1160px' }}>
             <thead>
               <tr>
+                <th style={{ width: '8%' }} className="text-center">액션</th>
                 <th style={{ width: '9%' }} className="text-center">청구일</th>
-                <th style={{ width: '18%' }}>고객사</th>
+                <th style={{ width: '16%' }}>고객사</th>
                 <th style={{ width: '7%' }} className="text-center">청구월</th>
-                <th style={{ width: '11%' }} className="text-right">공급가</th>
-                <th style={{ width: '9%' }} className="text-right">VAT</th>
-                <th style={{ width: '11%' }} className="text-right">합계</th>
+                <th style={{ width: '10%' }} className="text-right">공급가</th>
+                <th style={{ width: '8%' }} className="text-right">VAT</th>
+                <th style={{ width: '10%' }} className="text-right">합계</th>
                 <th style={{ width: '7%' }} className="text-center">상태</th>
                 <th style={{ width: '7%' }} className="text-center">납기일</th>
-                <th style={{ width: '9%' }} className="text-center">세금계산서</th>
-                <th style={{ width: '12%' }} className="text-center">관리</th>
+                <th style={{ width: '8%' }} className="text-center">세금계산서</th>
+                <th style={{ width: '10%' }} className="text-center">관리</th>
               </tr>
             </thead>
             <tbody>
@@ -641,7 +655,7 @@ export default function InvoicesPage() {
                         className="bg-gray-50 hover:bg-gray-100 cursor-pointer border-t-2 border-gray-300"
                         onClick={() => toggleGroup(key)}
                       >
-                        <td colSpan={10} className="px-3 py-2">
+                        <td colSpan={11} className="px-3 py-2">
                           <div className="flex items-center gap-3">
                             <ChevronDown className={`w-4 h-4 text-text-secondary transition-transform ${collapsed ? '-rotate-90' : ''}`} />
                             <Calendar className="w-4 h-4 text-primary-500" />
@@ -654,6 +668,9 @@ export default function InvoicesPage() {
                       </tr>
                       {!collapsed && g.invoices.map(inv => (
                         <tr key={inv.id}>
+                          <td className="text-center">
+                            <ActionButtons inv={inv} onSend={() => handleStatusChange(inv, 'sent')} onPaid={() => setPaidAtModal(inv)} />
+                          </td>
                           <td className="text-center text-text-secondary">{inv.sent_at ? formatDate(inv.sent_at, 'yyyy-MM-dd') : '-'}</td>
                           <td className="font-medium text-primary-500 cursor-pointer col-truncate" onClick={() => openEditInvoice(inv)}>{inv.customer_name}</td>
                           <td className="text-center text-text-secondary">{inv.year}.{String(inv.month).padStart(2, '0')}</td>
@@ -689,16 +706,6 @@ export default function InvoicesPage() {
                               <button onClick={() => openEditInvoice(inv)} className="icon-btn" title="수정">
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
-                              {inv.status === 'draft' && (
-                                <button onClick={() => handleStatusChange(inv, 'sent')} className="p-1 text-text-tertiary hover:text-status-blue rounded" title="발송처리">
-                                  <FileText className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                              {inv.status === 'sent' && (
-                                <button onClick={() => handleStatusChange(inv, 'paid')} className="p-1 text-text-tertiary hover:text-status-green rounded" title="수납처리">
-                                  <Check className="w-3.5 h-3.5" />
-                                </button>
-                              )}
                               <InvoicePDFButton invoice={inv} items={inv._items || []} className="!p-1 !px-1" />
                               <button onClick={() => setDeleteModal(inv)} className="p-1 text-text-tertiary hover:text-status-red rounded" title="삭제">
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -713,6 +720,9 @@ export default function InvoicesPage() {
               ) : (
                 filtered.map((inv) => (
                   <tr key={inv.id}>
+                    <td className="text-center">
+                      <ActionButtons inv={inv} onSend={() => handleStatusChange(inv, 'sent')} onPaid={() => setPaidAtModal(inv)} />
+                    </td>
                     <td className="text-center text-text-secondary">{inv.sent_at ? formatDate(inv.sent_at, 'yyyy-MM-dd') : '-'}</td>
                     <td className="font-medium text-primary-500 cursor-pointer col-truncate" onClick={() => openEditInvoice(inv)}>{inv.customer_name}</td>
                     <td className="text-center text-text-secondary">{inv.year}.{String(inv.month).padStart(2, '0')}</td>
@@ -748,16 +758,6 @@ export default function InvoicesPage() {
                         <button onClick={() => openEditInvoice(inv)} className="icon-btn" title="수정">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        {inv.status === 'draft' && (
-                          <button onClick={() => handleStatusChange(inv, 'sent')} className="p-1 text-text-tertiary hover:text-status-blue rounded" title="발송처리">
-                            <FileText className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {inv.status === 'sent' && (
-                          <button onClick={() => handleStatusChange(inv, 'paid')} className="p-1 text-text-tertiary hover:text-status-green rounded" title="수납처리">
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-                        )}
                         <InvoicePDFButton invoice={inv} items={inv._items || []} className="!p-1 !px-1" />
                         <button onClick={() => setDeleteModal(inv)} className="p-1 text-text-tertiary hover:text-status-red rounded" title="삭제">
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1022,6 +1022,11 @@ export default function InvoicesPage() {
         <TaxIssueForm invoice={taxIssueModal} onCancel={() => setTaxIssueModal(null)} onSave={handleMarkTaxIssued} />
       </Modal>
 
+      {/* 수납 처리 모달 — 실제 입금일 수동 지정 */}
+      <Modal open={!!paidAtModal} onClose={() => setPaidAtModal(null)} title="수납 처리 (입금일 지정)">
+        <PaidAtForm invoice={paidAtModal} onCancel={() => setPaidAtModal(null)} onSave={handleMarkPaid} />
+      </Modal>
+
       {/* Delete Modal */}
       <Modal open={!!deleteModal} onClose={() => setDeleteModal(null)} title="청구서 삭제">
         <p className="text-sm text-gray-600 mb-4">
@@ -1075,6 +1080,93 @@ function TaxIssueForm({
           <Button size="sm" onClick={() => onSave(invoice, date)}>저장</Button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// 수납 처리 폼 — 실제 입금일 지정 + 해제
+function PaidAtForm({
+  invoice,
+  onCancel,
+  onSave,
+}: {
+  invoice: any
+  onCancel: () => void
+  onSave: (inv: any, paidAtDate: string | null) => void
+}) {
+  const [date, setDate] = useState<string>(
+    invoice?.paid_at ? String(invoice.paid_at).substring(0, 10) : new Date().toISOString().substring(0, 10)
+  )
+  if (!invoice) return null
+  return (
+    <div className="space-y-4">
+      <div className="text-sm text-text-secondary">
+        <strong>{invoice.customer_name}</strong> · {invoice.invoice_number}
+        {invoice.total && <span className="ml-2 text-primary-600 font-semibold">{formatCurrency(invoice.total)}</span>}
+      </div>
+      <Input
+        label="실제 입금일"
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+      />
+      <p className="text-xs text-text-tertiary">
+        ※ 주말에 입금된 경우, 월요일에 확인하셔도 <strong>실제 입금된 날짜(금/토/일)</strong>로 지정하세요.
+      </p>
+      <div className="flex justify-between pt-2">
+        {invoice.paid_at ? (
+          <Button variant="secondary" size="sm" onClick={() => onSave(invoice, null)}>
+            수납 취소
+          </Button>
+        ) : <span />}
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={onCancel}>닫기</Button>
+          <Button size="sm" onClick={() => onSave(invoice, date)}>수납 처리</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 액션 버튼 (발송/수납) — 리스트 맨 앞 열
+function ActionButtons({
+  inv,
+  onSend,
+  onPaid,
+}: {
+  inv: any
+  onSend: () => void
+  onPaid: () => void
+}) {
+  return (
+    <div className="flex items-center justify-center gap-1">
+      {inv.status === 'draft' && (
+        <button
+          onClick={onSend}
+          className="px-2 py-1 text-[11px] font-medium bg-status-blue-bg text-status-blue rounded hover:brightness-95"
+          title="청구서 발송 처리"
+        >
+          발송
+        </button>
+      )}
+      {(inv.status === 'sent' || inv.status === 'overdue') && (
+        <button
+          onClick={onPaid}
+          className="px-2 py-1 text-[11px] font-medium bg-status-green-bg text-status-green rounded hover:brightness-95"
+          title="수납 처리 (입금일 지정)"
+        >
+          수납
+        </button>
+      )}
+      {inv.status === 'paid' && (
+        <button
+          onClick={onPaid}
+          className="px-2 py-1 text-[11px] font-medium bg-status-gray-bg text-text-secondary rounded hover:brightness-95"
+          title={`수납 완료 · 입금일 ${inv.paid_at ? String(inv.paid_at).substring(0,10) : ''}`}
+        >
+          ✓ 완료
+        </button>
+      )}
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { INDUSTRY_OPTIONS } from '@/lib/utils'
+import { BILLING_METHOD_OPTIONS } from '@/lib/billing-methods'
 import type { User } from '@/types/database'
 import { toast } from 'sonner'
 import { ArrowLeft } from 'lucide-react'
@@ -35,12 +36,8 @@ const COMPANY_TYPE_OPTIONS = [
   { value: '기타', label: '기타' },
 ]
 
-const BILLING_TYPE_OPTIONS = [
-  { value: '월과금', label: '월과금' },
-  { value: '연과금', label: '연과금' },
-  { value: '건별과금', label: '건별과금' },
-  { value: '기타', label: '기타' },
-]
+// 과금방식 — 매출현황/고객관리 전체에서 동일한 셋 사용 (@/lib/billing-methods)
+const BILLING_TYPE_OPTIONS = BILLING_METHOD_OPTIONS
 
 export default function NewCustomerPage() {
   const router = useRouter()
