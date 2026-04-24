@@ -304,14 +304,25 @@ export default function RevenuePage() {
   const [q, setQ] = useState('')
   const [custs, setCusts] = useState<Cust[]>([])
 
-  // 헤더별 컬럼 필터
+  // 헤더별 컬럼 필터 (모든 컬럼에 해당)
   const [colFilter, setColFilter] = useState<{
+    customer: string       // 회사명 (부분일치)
+    project_name: string   // 현장명 (부분일치)
     site_category: string
     site_category2: string
     service_type: string
     billing_method: string
     revenue_type: string
-  }>({ site_category: '', site_category2: '', service_type: '', billing_method: '', revenue_type: '' })
+    project_start: string  // yyyy-mm-dd 이후 (>=)
+    project_end: string    // yyyy-mm-dd 이전 (<=)
+    billing_start: string
+    billing_end: string
+    notes: string          // 비고 부분일치
+  }>({
+    customer: '', project_name: '',
+    site_category: '', site_category2: '', service_type: '', billing_method: '', revenue_type: '',
+    project_start: '', project_end: '', billing_start: '', billing_end: '', notes: '',
+  })
 
   const [modal, setModal] = useState(false)
   const [copyFrom, setCopyFrom] = useState<Row | null>(null)
@@ -330,15 +341,14 @@ export default function RevenuePage() {
     let from = 0
     const size = 1000
     while (true) {
-      // 시트와 완전 동일한 순서: sheet_no ASC (1번 맨 위 → 1466 맨 아래).
-      // 웹에서 추가한 행(sheet_no NULL)은 맨 아래 (nullsLast) = 시트의 다음 번호 위치.
-      // 같은 sheet_no 내 안정 정렬은 created_at asc.
+      // 시트 NO 내림차순: 가장 큰 NO(최신)가 맨 위, NO 1 이 맨 아래.
+      // 웹 추가 행(sheet_no NULL)은 nullsFirst 로 맨 위에 표시 (시트 다음 번호).
       const { data, error } = await sb
         .from('projects')
         .select('id,customer_id,project_name,project_start,project_end,service_type,site_category,site_category2,billing_start,billing_end,billing_method,invoice_day,monthly_amount,status,notes,created_at,revenue_type,sheet_no,customer:customers(id,company_name,notes),revenues:monthly_revenues(id,month,amount,is_confirmed)')
         .eq('revenues.year', year)
-        .order('sheet_no', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: true })
+        .order('sheet_no', { ascending: false, nullsFirst: true })
+        .order('created_at', { ascending: false })
         .range(from, from + size - 1)
       if (error) { console.error(error); break }
       if (!data || data.length === 0) break
@@ -373,22 +383,51 @@ export default function RevenuePage() {
   /* ── Filter (.filter only — preserves row references for React.memo) ── */
   const filtered = useMemo(() => {
     let result = rows
+    // Select 필터 (정확 일치)
     if (colFilter.site_category) result = result.filter(r => r.site_category === colFilter.site_category)
     if (colFilter.site_category2) result = result.filter(r => r.site_category2 === colFilter.site_category2)
     if (colFilter.service_type) result = result.filter(r => r.service_type === colFilter.service_type)
     if (colFilter.billing_method) result = result.filter(r => r.billing_method === colFilter.billing_method)
     if (colFilter.revenue_type) result = result.filter(r => r.revenue_type === colFilter.revenue_type)
+    // 텍스트 필터 (부분 일치)
+    if (colFilter.customer) {
+      const s = colFilter.customer.toLowerCase()
+      result = result.filter(r => r.customer?.company_name?.toLowerCase().includes(s))
+    }
+    if (colFilter.project_name) {
+      const s = colFilter.project_name.toLowerCase()
+      result = result.filter(r => r.project_name.toLowerCase().includes(s))
+    }
+    if (colFilter.notes) {
+      const s = colFilter.notes.toLowerCase()
+      result = result.filter(r => (r.customer?.notes || '').toLowerCase().includes(s))
+    }
+    // 날짜 필터 (각 날짜 컬럼에 대한 >= / <=)
+    if (colFilter.project_start) {
+      result = result.filter(r => r.project_start && r.project_start >= colFilter.project_start)
+    }
+    if (colFilter.project_end) {
+      result = result.filter(r => r.project_end && r.project_end <= colFilter.project_end)
+    }
+    if (colFilter.billing_start) {
+      result = result.filter(r => r.billing_start && r.billing_start >= colFilter.billing_start)
+    }
+    if (colFilter.billing_end) {
+      result = result.filter(r => r.billing_end && r.billing_end <= colFilter.billing_end)
+    }
+    // 기존 전역 검색 (상단 검색창)
     if (q.trim()) {
       const s = q.trim().toLowerCase()
       result = result.filter(r => r.customer?.company_name?.toLowerCase().includes(s) || r.project_name.toLowerCase().includes(s) || r.service_type?.toLowerCase().includes(s))
     }
+    // 월별 매출 dateRange 필터
     if (dateRange.from && dateRange.to) {
       result = result.filter(r =>
         (r.revenues || []).some(v => isRevInRange(v.month, year, dateRange))
       )
     }
     return result
-  }, [rows, q, dateRange, year])
+  }, [rows, q, dateRange, year, colFilter])
 
   /* ── Totals (dateRange-aware) ── */
   const totals = useMemo(() => {
@@ -461,12 +500,12 @@ export default function RevenuePage() {
     }).select('*,customer:customers(id,company_name,notes)').single()
     if (error) { toast.error('등록 실패'); return }
     if (data) setRows(prev => {
-      // ASC + nullsLast 정렬이므로 웹 추가 행은 맨 아래. _seqNo = max(sheet_no, _seqNo) + 1
+      // DESC + nullsFirst 정렬이므로 웹 추가 행은 맨 위. _seqNo = max+1
       const maxAll = prev.reduce((m, r) => {
         const n = r.sheet_no != null ? Number(r.sheet_no) : (r._seqNo || 0)
         return n > m ? n : m
       }, 0)
-      return [...prev, { ...data, revenues: [], sheet_no: null, _seqNo: Math.floor(maxAll) + 1 } as Row]
+      return [{ ...data, revenues: [], sheet_no: null, _seqNo: Math.floor(maxAll) + 1 } as Row, ...prev]
     })
     toast.success('등록 완료')
     setNr({ customer_id: '', project_name: '', project_start: '', project_end: '', site_category: '', site_category2: '', service_type: '', billing_start: '', billing_end: '', billing_method: '', invoice_day: '' })
@@ -497,6 +536,15 @@ export default function RevenuePage() {
           <option value="">매출구분 전체</option>
           {REVENUE_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
+        {Object.values(colFilter).some(v => v) && (
+          <button
+            onClick={() => setColFilter({ customer: '', project_name: '', site_category: '', site_category2: '', service_type: '', billing_method: '', revenue_type: '', project_start: '', project_end: '', billing_start: '', billing_end: '', notes: '' })}
+            className="px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:bg-gray-50 text-gray-600"
+            title="모든 헤더 필터 초기화"
+          >
+            필터 초기화
+          </button>
+        )}
       </div>
 
       {/* Summary */}
@@ -521,10 +569,22 @@ export default function RevenuePage() {
             <thead className="bg-red-600 text-white sticky top-0 z-20"><tr>
               <th className={`px-1.5 py-2.5 text-center font-medium w-[36px] sticky left-0 bg-red-600 z-30 border-r border-red-500`}>NO.</th>
               <th className={`px-1 py-2.5 text-center font-medium w-[60px] sticky left-[36px] bg-red-600 z-30 border-r border-red-500`}>옵션</th>
-              <th className="px-1.5 py-2.5 text-center font-medium min-w-[85px] border-r border-red-500">시작일</th>
-              <th className="px-1.5 py-2.5 text-center font-medium min-w-[85px] border-r border-red-500">종료일</th>
-              <th className="px-1.5 py-2.5 text-left font-medium min-w-[120px] border-r border-red-500">회사명</th>
-              <th className="px-1.5 py-2.5 text-left font-medium min-w-[200px] border-r border-red-500">프로젝트 명 (현장명)</th>
+              <th className="px-1.5 py-1 text-center font-medium min-w-[95px] border-r border-red-500">
+                <div>시작일</div>
+                <input type="date" value={colFilter.project_start} onChange={e => setColFilter(p => ({...p, project_start: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white border border-red-500 rounded px-0.5 py-0" title="이후(>=)" />
+              </th>
+              <th className="px-1.5 py-1 text-center font-medium min-w-[95px] border-r border-red-500">
+                <div>종료일</div>
+                <input type="date" value={colFilter.project_end} onChange={e => setColFilter(p => ({...p, project_end: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white border border-red-500 rounded px-0.5 py-0" title="이전(<=)" />
+              </th>
+              <th className="px-1.5 py-1 text-left font-medium min-w-[130px] border-r border-red-500">
+                <div>회사명</div>
+                <input type="text" placeholder="검색..." value={colFilter.customer} onChange={e => setColFilter(p => ({...p, customer: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white placeholder-red-200 border border-red-500 rounded px-1 py-0" />
+              </th>
+              <th className="px-1.5 py-1 text-left font-medium min-w-[220px] border-r border-red-500">
+                <div>프로젝트 명 (현장명)</div>
+                <input type="text" placeholder="검색..." value={colFilter.project_name} onChange={e => setColFilter(p => ({...p, project_name: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white placeholder-red-200 border border-red-500 rounded px-1 py-0" />
+              </th>
               <th className="px-1.5 py-1 text-center font-medium min-w-[60px] border-r border-red-500">
                 <div>현장<br/>구분</div>
                 <select value={colFilter.site_category} onChange={e => setColFilter(p => ({...p, site_category: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white border border-red-500 rounded px-0.5 py-0" onClick={e => e.stopPropagation()}>
@@ -546,9 +606,18 @@ export default function RevenuePage() {
                   {SVC.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </th>
-              <th className="px-1.5 py-2.5 text-center font-medium min-w-[85px] border-r border-red-500">과금<br />시작일</th>
-              <th className="px-1.5 py-2.5 text-center font-medium min-w-[85px] border-r border-red-500">과금<br />종료일</th>
-              <th className="px-1.5 py-2.5 text-left font-medium min-w-[120px] border-r border-red-500">비고</th>
+              <th className="px-1.5 py-1 text-center font-medium min-w-[95px] border-r border-red-500">
+                <div>과금<br />시작일</div>
+                <input type="date" value={colFilter.billing_start} onChange={e => setColFilter(p => ({...p, billing_start: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white border border-red-500 rounded px-0.5 py-0" title="이후(>=)" />
+              </th>
+              <th className="px-1.5 py-1 text-center font-medium min-w-[95px] border-r border-red-500">
+                <div>과금<br />종료일</div>
+                <input type="date" value={colFilter.billing_end} onChange={e => setColFilter(p => ({...p, billing_end: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white border border-red-500 rounded px-0.5 py-0" title="이전(<=)" />
+              </th>
+              <th className="px-1.5 py-1 text-left font-medium min-w-[130px] border-r border-red-500">
+                <div>비고</div>
+                <input type="text" placeholder="검색..." value={colFilter.notes} onChange={e => setColFilter(p => ({...p, notes: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white placeholder-red-200 border border-red-500 rounded px-1 py-0" />
+              </th>
               <th className="px-1.5 py-1 text-center font-medium min-w-[90px] border-r border-red-500">
                 <div>과금<br/>방식</div>
                 <select value={colFilter.billing_method} onChange={e => setColFilter(p => ({...p, billing_method: e.target.value}))} className="mt-1 w-full text-[10px] bg-red-700 text-white border border-red-500 rounded px-0.5 py-0">
@@ -630,7 +699,7 @@ export default function RevenuePage() {
               const n = r.sheet_no != null ? Number(r.sheet_no) : (r._seqNo || 0)
               return n > m ? n : m
             }, 0)
-            return [...prev, { ...p, sheet_no: null, _seqNo: Math.floor(maxAll) + 1 }]
+            return [{ ...p, sheet_no: null, _seqNo: Math.floor(maxAll) + 1 }, ...prev]
           })
           setModal(false); setCopyFrom(null)
         }} />
