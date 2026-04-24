@@ -830,7 +830,8 @@ export default function LeadDetailPage() {
                     const icon = ACTIVITY_TYPE_ICONS[item.activity_type || 'NOTE'] || '💬'
                     const color = ACTIVITY_TYPE_COLORS[item.activity_type || 'NOTE'] || ''
                     const label = ACTIVITY_TYPE_LABELS[item.activity_type || 'NOTE'] || item.activity_type
-                    const isOwner = user && item.performed_by === user.id
+                    // 수정/삭제 권한: 본인 소유 또는 관리자
+                    const canEdit = !!user && (item.performed_by === user.id || user.role === 'admin')
                     const isEditingItem = editingActivityId === item.id
 
                     if (isEditingItem) {
@@ -860,10 +861,10 @@ export default function LeadDetailPage() {
                               <span className="text-[11px] font-medium opacity-70">{label}</span>
                               <span className="text-[11px] opacity-40">{item.performer_name}</span>
                               <span className="text-[11px] opacity-30 ml-auto">{formatDate(item.timestamp, 'M/d HH:mm')}</span>
-                              {isOwner && (
-                                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={() => startEditActivity(item)} className="p-0.5 rounded hover:bg-black/5"><Pencil className="w-3 h-3 text-text-tertiary" /></button>
-                                  <button onClick={() => deleteActivity(item.id)} className="p-0.5 rounded hover:bg-red-50"><Trash2 className="w-3 h-3 text-text-tertiary hover:text-red-500" /></button>
+                              {canEdit && (
+                                <div className="flex items-center gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => startEditActivity(item)} className="p-1 rounded hover:bg-black/5" title="수정"><Pencil className="w-3 h-3 text-text-tertiary" /></button>
+                                  <button onClick={() => deleteActivity(item.id)} className="p-1 rounded hover:bg-red-50" title="삭제"><Trash2 className="w-3 h-3 text-text-tertiary hover:text-red-500" /></button>
                                 </div>
                               )}
                             </div>
