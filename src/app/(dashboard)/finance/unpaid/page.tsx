@@ -21,6 +21,14 @@ import {
    - 추가 뷰: 월별 (세금계산서 발행 월), 고객사별
    ══════════════════════════════════════════════════════ */
 
+interface InvoiceItem {
+  id?: string
+  project_name: string | null
+  service_type: string | null
+  amount: number
+  notes?: string | null
+}
+
 interface UnpaidInvoice {
   id: string
   invoice_number: string
@@ -36,6 +44,7 @@ interface UnpaidInvoice {
   contact_person: string
   contact_phone: string
   notes: string | null
+  items: InvoiceItem[]
 }
 
 type ViewMode = 'aging' | 'monthly' | 'customer'
@@ -84,7 +93,7 @@ export default function UnpaidPage() {
       // 미납 기준: 세금계산서 발행 + 미수납 + 취소 아님
       const { data } = await supabase
         .from('invoices')
-        .select('*, customer:customers(company_name, contact_person, contact_phone)')
+        .select('*, customer:customers(company_name, contact_person, contact_phone), items:invoice_items(id, project_name, service_type, amount, notes)')
         .not('tax_invoice_issued_at', 'is', null)
         .is('paid_at', null)
         .neq('status', 'cancelled')
@@ -104,6 +113,13 @@ export default function UnpaidPage() {
         contact_person: inv.customer?.contact_person || '',
         contact_phone: inv.customer?.contact_phone || '',
         notes: inv.notes || null,
+        items: (inv.items || []).map((it: any) => ({
+          id: it.id,
+          project_name: it.project_name,
+          service_type: it.service_type,
+          amount: Number(it.amount || 0),
+          notes: it.notes || null,
+        })),
       })))
       setLoading(false)
     }
@@ -396,40 +412,70 @@ function ViewTabBtn({ active, onClick, icon, label }: { active: boolean; onClick
 function InvoiceTable({ invoices, showCustomer = true }: { invoices: UnpaidInvoice[]; showCustomer?: boolean }) {
   return (
     <div className="overflow-x-auto border-t border-border-light">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm" style={{ minWidth: '1100px' }}>
         <thead className="bg-gray-50 text-xs text-text-tertiary">
           <tr>
-            <th className="px-3 py-2 text-left font-medium">청구번호</th>
-            {showCustomer && <th className="px-3 py-2 text-left font-medium">고객사</th>}
-            <th className="px-3 py-2 text-center font-medium">세금계산서 발행일</th>
-            <th className="px-3 py-2 text-center font-medium">납기일</th>
-            <th className="px-3 py-2 text-center font-medium">연체일</th>
-            <th className="px-3 py-2 text-right font-medium">금액</th>
+            <th className="px-3 py-2 text-left font-medium whitespace-nowrap">청구번호</th>
+            {showCustomer && <th className="px-3 py-2 text-left font-medium whitespace-nowrap">고객사</th>}
+            <th className="px-3 py-2 text-left font-medium whitespace-nowrap">담당자</th>
+            <th className="px-3 py-2 text-left font-medium">현장 / 금액</th>
+            <th className="px-3 py-2 text-center font-medium whitespace-nowrap">계산서<br/>발행일</th>
+            <th className="px-3 py-2 text-center font-medium whitespace-nowrap">납기일</th>
+            <th className="px-3 py-2 text-center font-medium whitespace-nowrap">연체일</th>
+            <th className="px-3 py-2 text-right font-medium whitespace-nowrap">합계</th>
+            <th className="px-3 py-2 text-left font-medium">비고</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border-light">
           {invoices.map(inv => {
             const days = getDaysOverdue(inv.due_date)
+            const hasItems = inv.items && inv.items.length > 0
             return (
-              <tr key={inv.id} className="hover:bg-gray-50/50">
+              <tr key={inv.id} className="hover:bg-gray-50/50 align-top">
                 <td className="px-3 py-2 text-text-secondary font-mono text-xs">{inv.invoice_number || '-'}</td>
                 {showCustomer && (
                   <td className="px-3 py-2">
                     <div className="font-medium">{inv.customer_name}</div>
-                    {inv.contact_person && (
-                      <div className="text-[11px] text-text-tertiary mt-0.5">
-                        {inv.contact_person} {inv.contact_phone && <span className="ml-1">· {inv.contact_phone}</span>}
-                      </div>
-                    )}
                   </td>
                 )}
-                <td className="px-3 py-2 text-center text-text-secondary text-xs">
+                <td className="px-3 py-2">
+                  {inv.contact_person ? (
+                    <div className="text-sm">
+                      <div className="font-medium text-text-primary">{inv.contact_person}</div>
+                      {inv.contact_phone && (
+                        <a href={`tel:${inv.contact_phone}`} className="text-[11px] text-text-tertiary hover:text-primary-500 inline-flex items-center gap-1 mt-0.5">
+                          <Phone className="w-2.5 h-2.5" />{inv.contact_phone}
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-text-placeholder">-</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  {hasItems ? (
+                    <ul className="space-y-0.5">
+                      {inv.items.map((it, i) => (
+                        <li key={it.id || i} className="flex items-baseline gap-2 text-xs">
+                          <span className="flex-1 text-text-secondary truncate" title={`${it.project_name || '-'}${it.service_type ? ` · ${it.service_type}` : ''}`}>
+                            {it.project_name || '-'}
+                            {it.service_type && <span className="text-text-tertiary ml-1">· {it.service_type}</span>}
+                          </span>
+                          <span className="font-medium text-text-primary whitespace-nowrap">{formatCurrency(it.amount)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span className="text-xs text-text-placeholder">(항목 없음)</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-center text-text-secondary text-xs whitespace-nowrap">
                   {inv.tax_invoice_issued_at ? formatDate(inv.tax_invoice_issued_at, 'yyyy-MM-dd') : '-'}
                 </td>
-                <td className="px-3 py-2 text-center text-text-secondary text-xs">
+                <td className="px-3 py-2 text-center text-text-secondary text-xs whitespace-nowrap">
                   {inv.due_date ? formatDate(inv.due_date, 'yyyy-MM-dd') : '-'}
                 </td>
-                <td className="px-3 py-2 text-center">
+                <td className="px-3 py-2 text-center whitespace-nowrap">
                   {days > 0 ? (
                     <Badge className={
                       days > 90 ? 'bg-red-100 text-red-700' :
@@ -445,7 +491,12 @@ function InvoiceTable({ invoices, showCustomer = true }: { invoices: UnpaidInvoi
                     </span>
                   )}
                 </td>
-                <td className="px-3 py-2 text-right font-semibold">{formatCurrency(inv.total)}</td>
+                <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{formatCurrency(inv.total)}</td>
+                <td className="px-3 py-2 text-[11px] text-text-tertiary max-w-[260px]">
+                  {inv.notes ? (
+                    <span className="whitespace-pre-wrap line-clamp-3" title={inv.notes}>{inv.notes}</span>
+                  ) : '-'}
+                </td>
               </tr>
             )
           })}
