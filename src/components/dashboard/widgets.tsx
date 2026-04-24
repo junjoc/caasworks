@@ -367,9 +367,11 @@ export function WeeklyTasksWidget({ size }: WidgetProps) {
         }
       }
 
-      const leadsPromise = canSeePipeline
+      // 파이프라인: 본인 담당(assigned_to = user.id)만. 남의 lead 는 안 보임.
+      const leadsPromise = canSeePipeline && user?.id
         ? sb.from('pipeline_leads')
             .select('id, company_name, next_action, next_action_date, stage, assigned_to')
+            .eq('assigned_to', user.id)
             .gte('next_action_date', todayStr).lte('next_action_date', weekEnd)
             .not('stage', 'in', '(도입완료,이탈)')
             .order('next_action_date')
