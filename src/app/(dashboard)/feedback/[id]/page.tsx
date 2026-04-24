@@ -37,10 +37,25 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
 
   const isAdmin = user?.role === 'admin'
 
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
   const reload = async () => {
-    const r = await fetch(`/api/feedback/${id}`).then(r => r.json())
-    setItem(r.data)
-    setLoading(false)
+    setFetchError(null)
+    try {
+      const res = await fetch(`/api/feedback/${id}`)
+      const r = await res.json()
+      if (!res.ok || r.error) {
+        setFetchError(r.error || `HTTP ${res.status}`)
+        setItem(null)
+      } else {
+        setItem(r.data || null)
+      }
+    } catch (e: any) {
+      setFetchError(e?.message || '네트워크 오류')
+      setItem(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { reload() }, [id])
@@ -74,7 +89,27 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
   }
 
   if (loading) return <Loading />
+  if (fetchError) {
+    return (
+      <div className="max-w-xl mx-auto p-8">
+        <Link href="/feedback" className="inline-flex items-center gap-1 text-text-tertiary hover:text-text-primary mb-4">
+          <ArrowLeft className="w-4 h-4" /> 목록으로
+        </Link>
+        <div className="card p-6 border-l-4 border-l-status-red">
+          <h2 className="text-base font-semibold mb-2">피드백을 불러오지 못했습니다</h2>
+          <p className="text-sm text-text-secondary mb-4">{fetchError}</p>
+          <button onClick={() => { setLoading(true); reload() }} className="px-3 py-1.5 text-xs font-medium bg-primary-500 text-white rounded hover:bg-primary-600">
+            다시 시도
+          </button>
+        </div>
+      </div>
+    )
+  }
   if (!item) return <div className="p-8 text-center text-text-tertiary">피드백을 찾을 수 없습니다.</div>
+
+  // 상태/카테고리/우선순위가 예상 밖 값인 경우 fallback
+  const statusLabel = STATUS_LABELS[item.status as FeedbackStatus] || item.status || '-'
+  const statusColor = STATUS_COLORS[item.status as FeedbackStatus] || 'bg-gray-100 text-gray-600'
 
   return (
     <div>
@@ -85,11 +120,11 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
           </Link>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Badge className={STATUS_COLORS[item.status]}>{STATUS_LABELS[item.status]}</Badge>
-              <Badge className="bg-gray-100 text-gray-600">{item.category}</Badge>
-              <Badge className="bg-gray-100 text-gray-600">{item.priority}</Badge>
+              <Badge className={statusColor}>{statusLabel}</Badge>
+              {item.category && <Badge className="bg-gray-100 text-gray-600">{item.category}</Badge>}
+              {item.priority && <Badge className="bg-gray-100 text-gray-600">{item.priority}</Badge>}
             </div>
-            <h1 className="page-title">{item.title}</h1>
+            <h1 className="page-title">{item.title || '(제목 없음)'}</h1>
           </div>
         </div>
       </div>
@@ -188,12 +223,12 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
             <div className="text-xs text-text-tertiary font-medium mb-2">상태</div>
             {isAdmin ? (
               <Select
-                value={item.status}
+                value={item.status || 'submitted'}
                 onChange={e => changeStatus(e.target.value as FeedbackStatus)}
                 options={Object.entries(STATUS_LABELS).map(([v, l]) => ({ value: v, label: l }))}
               />
             ) : (
-              <Badge className={STATUS_COLORS[item.status]}>{STATUS_LABELS[item.status]}</Badge>
+              <Badge className={statusColor}>{statusLabel}</Badge>
             )}
           </div>
 
