@@ -7,12 +7,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatDate(date: string | Date, fmt: string = 'yyyy-MM-dd') {
-  const d = typeof date === 'string' ? parseISO(date) : date
-  return format(d, fmt, { locale: ko })
+export function formatDate(date: string | Date | null | undefined, fmt: string = 'yyyy-MM-dd') {
+  if (!date) return ''
+  try {
+    const d = typeof date === 'string' ? parseISO(date) : date
+    if (isNaN(d.getTime())) return ''
+    return format(d, fmt, { locale: ko })
+  } catch {
+    return ''
+  }
 }
 
-export function formatDateTime(date: string | Date) {
+export function formatDateTime(date: string | Date | null | undefined) {
   return formatDate(date, 'yyyy-MM-dd HH:mm')
 }
 

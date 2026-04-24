@@ -352,18 +352,37 @@ export function WeeklyTasksWidget({ size }: WidgetProps) {
       const today = new Date()
       const todayStr = today.toISOString().substring(0, 10)
       const weekEnd = new Date(today.getTime() + 7 * 86400000).toISOString().substring(0, 10)
-      const [{ data: leads }, { data: invs }] = await Promise.all([
-        sb.from('pipeline_leads')
-          .select('id, company_name, next_action, next_action_date, stage, assigned_to')
-          .gte('next_action_date', todayStr).lte('next_action_date', weekEnd)
-          .not('stage', 'in', '(도입완료,이탈)')
-          .order('next_action_date'),
-        sb.from('invoices')
-          .select('id, receiver_company, total, due_date, status, sent_at')
-          .gte('due_date', todayStr).lte('due_date', weekEnd)
-          .in('status', ['sent', 'overdue'])
-          .order('due_date'),
-      ])
+
+      // 역할 기반 할일 노출 — roles.allowed_paths 에 해당 경로가 있으면 포함.
+      // admin 역할(*)이거나, 특정 경로 권한이 있으면 해당 카테고리 task 표시.
+      let canSeePipeline = true
+      let canSeeInvoice = true
+      if (user?.role) {
+        const { data: role } = await sb.from('roles').select('allowed_paths').eq('name', user.role).maybeSingle()
+        const paths: string[] = role?.allowed_paths || []
+        const isAdmin = paths.includes('*') || user.role === 'admin'
+        if (!isAdmin) {
+          canSeePipeline = paths.some((p: string) => p.startsWith('/pipeline'))
+          canSeeInvoice = paths.includes('/finance/invoices') || paths.includes('/finance/unpaid')
+        }
+      }
+
+      const leadsPromise = canSeePipeline
+        ? sb.from('pipeline_leads')
+            .select('id, company_name, next_action, next_action_date, stage, assigned_to')
+            .gte('next_action_date', todayStr).lte('next_action_date', weekEnd)
+            .not('stage', 'in', '(도입완료,이탈)')
+            .order('next_action_date')
+        : Promise.resolve({ data: [] as any[] })
+      const invsPromise = canSeeInvoice
+        ? sb.from('invoices')
+            .select('id, receiver_company, total, due_date, status, sent_at')
+            .gte('due_date', todayStr).lte('due_date', weekEnd)
+            .in('status', ['sent', 'overdue'])
+            .order('due_date')
+        : Promise.resolve({ data: [] as any[] })
+      const [{ data: leads }, { data: invs }] = await Promise.all([leadsPromise, invsPromise])
+
       const combined = [
         ...(leads || []).map((l: any) => ({
           type: 'action', date: l.next_action_date, href: `/pipeline/${l.id}`,
@@ -378,7 +397,7 @@ export function WeeklyTasksWidget({ size }: WidgetProps) {
       ].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
       setItems(combined)
     })()
-  }, [sb, user?.id])
+  }, [sb, user?.id, user?.role])
   if (!items) return <EmptyState msg="로딩..." />
   if (items.length === 0) return (
     <div className="flex items-center justify-center h-full text-xs text-green-600">
