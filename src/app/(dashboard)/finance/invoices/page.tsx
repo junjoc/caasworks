@@ -32,7 +32,7 @@ interface InvoiceItem {
   id?: string
   project_name: string
   service_type: string
-  period: string
+  period: string  // 개월수 자연수 문자열 (e.g. "1", "2", "3") — 자유 기입도 허용
   quantity: number
   unit_price: number
   amount: number
@@ -40,8 +40,14 @@ interface InvoiceItem {
 }
 
 const emptyItem = (): InvoiceItem => ({
-  project_name: '', service_type: '', period: '', quantity: 1, unit_price: 0, amount: 0, notes: '',
+  project_name: '', service_type: '', period: '1', quantity: 1, unit_price: 0, amount: 0, notes: '',
 })
+
+// period 문자열 → 개월수(자연수). 숫자가 아니면 1 반환 (자유 기입 하위 호환)
+function parsePeriod(v: any): number {
+  const n = parseInt(String(v ?? '').trim(), 10)
+  return isNaN(n) || n < 1 ? 1 : n
+}
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<any[]>([])
@@ -66,6 +72,10 @@ export default function InvoicesPage() {
   // Payment due rules for auto-calculation
   const [dueRules, setDueRules] = useState<any[]>([])
   const [customerInvoiceGrouping, setCustomerInvoiceGrouping] = useState<string>('combined')
+  // 회사 설정에서 가져오는 입금계좌 (company_settings.bank_info)
+  const [defaultBankInfo, setDefaultBankInfo] = useState<string>('')
+  // 세금계산서 발행 날짜 선택 모달
+  const [taxIssueModal, setTaxIssueModal] = useState<any>(null)
 
   // Form state
   const [form, setForm] = useState({
@@ -77,6 +87,8 @@ export default function InvoicesPage() {
     due_date: '',
     bank_info: '',
     notes: '',
+    tax_invoice_issued_at: '' as string,  // 세금계산서 발행일 (YYYY-MM-DD)
+    tax_invoice_number: '',
   })
   const [items, setItems] = useState<InvoiceItem[]>([emptyItem()])
 
@@ -85,7 +97,7 @@ export default function InvoicesPage() {
     let query = supabase
       .from('invoices')
       .select('*, customer:customers(company_name), items:invoice_items(*)')
-      .order('sent_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })  // 최근 생성된 청구서를 맨 위로
       .order('year', { ascending: false })
       .order('month', { ascending: false })
 
@@ -119,8 +131,19 @@ export default function InvoicesPage() {
     setCustomers(data || [])
   }, [])
 
+  // 회사 설정(company_settings)에서 입금계좌 불러오기
+  const fetchBankInfo = useCallback(async () => {
+    const { data } = await supabase.from('company_settings').select('value').eq('key', 'bank_info').maybeSingle()
+    if (data?.value) {
+      // value가 문자열 JSON일 수도 있고 직접 문자열일 수도 있음
+      const v = typeof data.value === 'string' ? data.value : String(data.value)
+      setDefaultBankInfo(v)
+    }
+  }, [])
+
   useEffect(() => { fetchInvoices() }, [fetchInvoices])
   useEffect(() => { fetchCustomers() }, [fetchCustomers])
+  useEffect(() => { fetchBankInfo() }, [fetchBankInfo])
 
   // When customer changes, fetch their projects
   const fetchProjectsForCustomer = async (customerId: string) => {
@@ -230,8 +253,10 @@ export default function InvoicesPage() {
       month: now.getMonth() + 1,
       status: 'draft',
       due_date: '',
-      bank_info: '카스웍스(주) 기업은행 000-000000-00-000',
+      bank_info: defaultBankInfo || '카스웍스(주) 기업은행 000-000000-00-000',
       notes: '',
+      tax_invoice_issued_at: '',
+      tax_invoice_number: '',
     })
     setItems([emptyItem()])
     setProjects([])
@@ -247,8 +272,10 @@ export default function InvoicesPage() {
       month: inv.month,
       status: inv.status || 'draft',
       due_date: inv.due_date || '',
-      bank_info: inv.bank_info || '',
+      bank_info: inv.bank_info || defaultBankInfo || '',
       notes: inv.notes || '',
+      tax_invoice_issued_at: inv.tax_invoice_issued_at ? String(inv.tax_invoice_issued_at).substring(0, 10) : '',
+      tax_invoice_number: inv.tax_invoice_number || '',
     })
     // Fetch items
     const { data: itemsData } = await supabase
@@ -278,9 +305,10 @@ export default function InvoicesPage() {
     setItems(prev => {
       const updated = [...prev]
       updated[index] = { ...updated[index], [field]: value }
-      // Auto-calculate amount
-      if (field === 'quantity' || field === 'unit_price') {
-        updated[index].amount = Number(updated[index].quantity || 0) * Number(updated[index].unit_price || 0)
+      // Auto-calculate amount: unit_price × quantity × period(개월)
+      if (field === 'quantity' || field === 'unit_price' || field === 'period') {
+        const months = parsePeriod(updated[index].period)
+        updated[index].amount = Number(updated[index].quantity || 0) * Number(updated[index].unit_price || 0) * months
       }
       return updated
     })
@@ -298,7 +326,7 @@ export default function InvoicesPage() {
 
     setSaving(true)
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         customer_id: form.customer_id,
         invoice_number: form.invoice_number,
         year: form.year,
@@ -310,6 +338,8 @@ export default function InvoicesPage() {
         due_date: form.due_date || null,
         bank_info: form.bank_info || null,
         notes: form.notes || null,
+        tax_invoice_issued_at: form.tax_invoice_issued_at || null,
+        tax_invoice_number: form.tax_invoice_number || null,
       }
 
       let invoiceId: string
@@ -380,6 +410,27 @@ export default function InvoicesPage() {
     fetchInvoices()
   }
 
+  // 세금계산서 발행일 마킹 (또는 해제)
+  const handleMarkTaxIssued = async (inv: any, issuedDate: string | null) => {
+    const { error } = await supabase
+      .from('invoices')
+      .update({ tax_invoice_issued_at: issuedDate || null })
+      .eq('id', inv.id)
+    if (error) { toast.error('세금계산서 발행 처리 실패: ' + error.message); return }
+    toast.success(issuedDate ? '세금계산서 발행 완료 처리됨' : '세금계산서 발행 취소됨')
+    setTaxIssueModal(null)
+    fetchInvoices()
+  }
+
+  // 미납 판단: 세금계산서가 발행되었고, 아직 수납 안됐고, 납기일이 지난 경우
+  const isOverdue = (inv: any): boolean => {
+    if (inv.status === 'paid' || inv.status === 'cancelled') return false
+    if (!inv.tax_invoice_issued_at) return false  // 세금계산서 미발행이면 미납 아님
+    if (!inv.due_date) return false
+    const today = new Date().toISOString().substring(0, 10)
+    return inv.due_date < today
+  }
+
   const dateFiltered = useMemo(() => {
     if (!dateRange.from || !dateRange.to) return invoices
     return invoices.filter(inv => {
@@ -426,8 +477,12 @@ export default function InvoicesPage() {
 
   const totalAmount = invoices.reduce((s, i) => s + Number(i.total || 0), 0)
   const paidAmount = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total || 0), 0)
-  const unpaidAmount = invoices.filter(i => ['sent', 'overdue'].includes(i.status)).reduce((s, i) => s + Number(i.total || 0), 0)
-  const overdueCount = invoices.filter(i => i.status === 'overdue').length
+  // 미수금 = 세금계산서 발행됐는데 수납 안된 건
+  const unpaidAmount = invoices.filter(i =>
+    i.tax_invoice_issued_at && i.status !== 'paid' && i.status !== 'cancelled'
+  ).reduce((s, i) => s + Number(i.total || 0), 0)
+  // 연체 = 세금계산서 발행 + 납기일 경과 + 미수납
+  const overdueCount = invoices.filter(i => isOverdue(i)).length
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => ({ value: String(new Date().getFullYear() - i), label: `${new Date().getFullYear() - i}년` }))
   const statusOptions = [
@@ -556,17 +611,18 @@ export default function InvoicesPage() {
         <EmptyState icon={FileText} title="등록된 청구서가 없습니다" description="상단의 '청구서 생성' 버튼으로 새 청구서를 만들 수 있습니다." />
       ) : (
         <div className="table-container">
-          <table className="data-table" style={{ minWidth: '900px' }}>
+          <table className="data-table" style={{ minWidth: '1080px' }}>
             <thead>
               <tr>
-                <th style={{ width: '10%' }} className="text-center">청구일</th>
-                <th style={{ width: '20%' }}>고객사</th>
-                <th style={{ width: '8%' }} className="text-center">청구월</th>
-                <th style={{ width: '12%' }} className="text-right">공급가</th>
-                <th style={{ width: '10%' }} className="text-right">VAT</th>
-                <th style={{ width: '12%' }} className="text-right">합계</th>
-                <th style={{ width: '8%' }} className="text-center">상태</th>
-                <th style={{ width: '8%' }} className="text-center">납기일</th>
+                <th style={{ width: '9%' }} className="text-center">청구일</th>
+                <th style={{ width: '18%' }}>고객사</th>
+                <th style={{ width: '7%' }} className="text-center">청구월</th>
+                <th style={{ width: '11%' }} className="text-right">공급가</th>
+                <th style={{ width: '9%' }} className="text-right">VAT</th>
+                <th style={{ width: '11%' }} className="text-right">합계</th>
+                <th style={{ width: '7%' }} className="text-center">상태</th>
+                <th style={{ width: '7%' }} className="text-center">납기일</th>
+                <th style={{ width: '9%' }} className="text-center">세금계산서</th>
                 <th style={{ width: '12%' }} className="text-center">관리</th>
               </tr>
             </thead>
@@ -582,7 +638,7 @@ export default function InvoicesPage() {
                         className="bg-gray-50 hover:bg-gray-100 cursor-pointer border-t-2 border-gray-300"
                         onClick={() => toggleGroup(key)}
                       >
-                        <td colSpan={9} className="px-3 py-2">
+                        <td colSpan={10} className="px-3 py-2">
                           <div className="flex items-center gap-3">
                             <ChevronDown className={`w-4 h-4 text-text-secondary transition-transform ${collapsed ? '-rotate-90' : ''}`} />
                             <Calendar className="w-4 h-4 text-primary-500" />
@@ -605,6 +661,26 @@ export default function InvoicesPage() {
                             <Badge className={STATUS_COLORS[inv.status] || 'badge-gray'}>{STATUS_LABELS[inv.status] || inv.status}</Badge>
                           </td>
                           <td className="text-center text-text-tertiary">{inv.due_date ? formatDate(inv.due_date, 'M/d') : '-'}</td>
+                          <td className="text-center">
+                            {inv.tax_invoice_issued_at ? (
+                              <button
+                                onClick={() => setTaxIssueModal(inv)}
+                                className="text-xs text-status-green hover:underline"
+                                title={`발행일: ${String(inv.tax_invoice_issued_at).substring(0,10)}${inv.tax_invoice_number ? ` · ${inv.tax_invoice_number}` : ''}`}
+                              >
+                                ✓ {String(inv.tax_invoice_issued_at).substring(5,10)}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setTaxIssueModal(inv)}
+                                className="text-xs text-text-placeholder hover:text-primary-500"
+                                title="세금계산서 발행 마킹"
+                              >
+                                미발행
+                              </button>
+                            )}
+                            {isOverdue(inv) && <div className="text-[10px] text-status-red font-semibold mt-0.5">미납</div>}
+                          </td>
                           <td className="text-center">
                             <div className="flex items-center justify-center gap-1">
                               <button onClick={() => openEditInvoice(inv)} className="icon-btn" title="수정">
@@ -644,6 +720,26 @@ export default function InvoicesPage() {
                       <Badge className={STATUS_COLORS[inv.status] || 'badge-gray'}>{STATUS_LABELS[inv.status] || inv.status}</Badge>
                     </td>
                     <td className="text-center text-text-tertiary">{inv.due_date ? formatDate(inv.due_date, 'M/d') : '-'}</td>
+                    <td className="text-center">
+                      {inv.tax_invoice_issued_at ? (
+                        <button
+                          onClick={() => setTaxIssueModal(inv)}
+                          className="text-xs text-status-green hover:underline"
+                          title={`발행일: ${String(inv.tax_invoice_issued_at).substring(0,10)}${inv.tax_invoice_number ? ` · ${inv.tax_invoice_number}` : ''}`}
+                        >
+                          ✓ {String(inv.tax_invoice_issued_at).substring(5,10)}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setTaxIssueModal(inv)}
+                          className="text-xs text-text-placeholder hover:text-primary-500"
+                          title="세금계산서 발행 마킹"
+                        >
+                          미발행
+                        </button>
+                      )}
+                      {isOverdue(inv) && <div className="text-[10px] text-status-red font-semibold mt-0.5">미납</div>}
+                    </td>
                     <td className="text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => openEditInvoice(inv)} className="icon-btn" title="수정">
@@ -719,7 +815,28 @@ export default function InvoicesPage() {
               label="입금계좌"
               value={form.bank_info}
               onChange={(e) => setForm(f => ({ ...f, bank_info: e.target.value }))}
+              placeholder={defaultBankInfo || '설정 > 회사정보에서 등록'}
             />
+          </div>
+
+          {/* 세금계산서 발행 정보 — 실제 세금계산서가 발행되면 체크 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-lg bg-amber-50 border border-amber-100">
+            <Input
+              label="세금계산서 발행일"
+              type="date"
+              value={form.tax_invoice_issued_at}
+              onChange={(e) => setForm(f => ({ ...f, tax_invoice_issued_at: e.target.value }))}
+              placeholder="미발행"
+            />
+            <Input
+              label="세금계산서 번호 (선택)"
+              value={form.tax_invoice_number}
+              onChange={(e) => setForm(f => ({ ...f, tax_invoice_number: e.target.value }))}
+              placeholder="예: 2026-001"
+            />
+            <p className="col-span-full text-[11px] text-amber-700">
+              ※ 청구서는 미리 작성되는 문서이고, <strong>세금계산서 발행일</strong>이 입력되면 실제 미납 기준이 됩니다.
+            </p>
           </div>
 
           {/* 납기일 가이드 + 청구 방식 */}
@@ -767,11 +884,12 @@ export default function InvoicesPage() {
                   <tr>
                     <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 w-8">#</th>
                     <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">프로젝트명</th>
-                    <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 w-28">서비스유형</th>
-                    <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 w-24">기간</th>
-                    <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 w-16">수량</th>
-                    <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 w-28">단가</th>
-                    <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 w-28">금액</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 w-24">서비스유형</th>
+                    <th className="text-center px-3 py-2 text-xs font-medium text-gray-500 w-16" title="개월수 — 금액이 자동으로 (단가 × 수량 × 개월) 로 계산됩니다">기간<br/><span className="text-[10px] text-gray-400">(개월)</span></th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 w-14">수량</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 w-24">단가</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 w-24">금액</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 w-36">비고</th>
                     <th className="w-8"></th>
                   </tr>
                 </thead>
@@ -822,10 +940,13 @@ export default function InvoicesPage() {
                       </td>
                       <td className="px-1 py-1">
                         <input
-                          className="w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-primary-200"
+                          type="number"
+                          min={1}
+                          className="w-full px-2 py-1.5 text-sm border rounded text-center focus:outline-none focus:ring-1 focus:ring-primary-200"
                           value={item.period}
                           onChange={(e) => updateItem(idx, 'period', e.target.value)}
-                          placeholder="2026.03"
+                          placeholder="1"
+                          title="개월수 입력 (예: 2 입력 시 단가×수량×2)"
                         />
                       </td>
                       <td className="px-1 py-1">
@@ -846,6 +967,14 @@ export default function InvoicesPage() {
                         />
                       </td>
                       <td className="px-3 py-2 text-right font-medium text-sm">{formatCurrency(item.amount)}</td>
+                      <td className="px-1 py-1">
+                        <input
+                          className="w-full px-2 py-1.5 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-primary-200"
+                          value={item.notes}
+                          onChange={(e) => updateItem(idx, 'notes', e.target.value)}
+                          placeholder="항목 비고"
+                        />
+                      </td>
                       <td className="px-1 py-1">
                         {items.length > 1 && (
                           <button onClick={() => removeItem(idx)} className="p-1 text-gray-300 hover:text-red-500">
@@ -885,6 +1014,11 @@ export default function InvoicesPage() {
         </div>
       </Modal>
 
+      {/* 세금계산서 발행 마킹 모달 */}
+      <Modal open={!!taxIssueModal} onClose={() => setTaxIssueModal(null)} title="세금계산서 발행 처리">
+        <TaxIssueForm invoice={taxIssueModal} onCancel={() => setTaxIssueModal(null)} onSave={handleMarkTaxIssued} />
+      </Modal>
+
       {/* Delete Modal */}
       <Modal open={!!deleteModal} onClose={() => setDeleteModal(null)} title="청구서 삭제">
         <p className="text-sm text-gray-600 mb-4">
@@ -895,6 +1029,49 @@ export default function InvoicesPage() {
           <Button variant="danger" size="sm" loading={deleting} onClick={handleDelete}>삭제</Button>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+// 세금계산서 발행일 마킹 폼 (inline 사용)
+function TaxIssueForm({
+  invoice,
+  onCancel,
+  onSave,
+}: {
+  invoice: any
+  onCancel: () => void
+  onSave: (inv: any, issuedDate: string | null) => void
+}) {
+  const [date, setDate] = useState<string>(
+    invoice?.tax_invoice_issued_at ? String(invoice.tax_invoice_issued_at).substring(0, 10) : new Date().toISOString().substring(0, 10)
+  )
+  if (!invoice) return null
+  return (
+    <div className="space-y-4">
+      <div className="text-sm text-text-secondary">
+        <strong>{invoice.customer_name}</strong> · {invoice.invoice_number}
+      </div>
+      <Input
+        label="세금계산서 발행일"
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+      />
+      <p className="text-xs text-text-tertiary">
+        발행일이 입력되면 이 건은 실제로 발행된 세금계산서로 집계되고, 납기일 경과 시 <strong>미납</strong>으로 표시됩니다.
+      </p>
+      <div className="flex justify-between pt-2">
+        {invoice.tax_invoice_issued_at ? (
+          <Button variant="secondary" size="sm" onClick={() => onSave(invoice, null)}>
+            발행 취소
+          </Button>
+        ) : <span />}
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={onCancel}>취소</Button>
+          <Button size="sm" onClick={() => onSave(invoice, date)}>저장</Button>
+        </div>
+      </div>
     </div>
   )
 }
