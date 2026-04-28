@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -106,49 +106,59 @@ export default function PipelineBoardPage() {
     setLoading(false)
   }
 
-  const getLeadsByStage = (stage: string) => {
-    let filtered = leads.filter((l) => l.stage === stage)
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase().replace(/-/g, '')
-      filtered = filtered.filter(l =>
-        l.company_name.toLowerCase().includes(q) ||
-        (l.contact_person || '').toLowerCase().includes(q) ||
-        (l.contact_phone || '').replace(/-/g, '').includes(q) ||
-        (l.next_action || '').toLowerCase().includes(q) ||
-        (l.industry || '').toLowerCase().includes(q)
-      )
-    }
-    // Assignee filter
-    if (assigneeFilter !== '전체') {
-      if (assigneeFilter === '미배정') filtered = filtered.filter(l => !l.assigned_to)
-      else filtered = filtered.filter(l => l.assigned_to === assigneeFilter)
-    }
-    // DateRangePicker 필터
-    if (dateRange.from && dateRange.to) {
-      filtered = filtered.filter(l => {
+  // 단계별 leads 를 한 번만 계산 (filter + sort 를 stage 별 8번 → 1번 패스로)
+  // 이전: 매 렌더마다 8 stages × O(n filter + n log n sort) = 큰 비용
+  // 현재: 의존성 변할 때만 한번에 group + sort
+  const leadsByStage = useMemo(() => {
+    const q = searchQuery.toLowerCase().replace(/-/g, '')
+    const hasSearch = !!searchQuery
+    const hasAssignee = assigneeFilter !== '전체'
+    const hasDateRange = !!(dateRange.from && dateRange.to)
+
+    // 1) 한 번만 필터링
+    const visible = leads.filter(l => {
+      if (hasSearch) {
+        const ok = l.company_name.toLowerCase().includes(q) ||
+          (l.contact_person || '').toLowerCase().includes(q) ||
+          (l.contact_phone || '').replace(/-/g, '').includes(q) ||
+          (l.next_action || '').toLowerCase().includes(q) ||
+          (l.industry || '').toLowerCase().includes(q)
+        if (!ok) return false
+      }
+      if (hasAssignee) {
+        if (assigneeFilter === '미배정') { if (l.assigned_to) return false }
+        else { if (l.assigned_to !== assigneeFilter) return false }
+      }
+      if (hasDateRange) {
         const ld = l.inquiry_date || l.created_at?.substring(0, 10)
-        if (!ld) return false
-        return ld >= dateRange.from && ld <= dateRange.to
-      })
+        if (!ld || ld < dateRange.from || ld > dateRange.to) return false
+      }
+      return true
+    })
+
+    // 2) stage 별 그룹화
+    const grouped: Record<string, PipelineLead[]> = {}
+    for (const s of STAGES) grouped[s] = []
+    for (const l of visible) {
+      if (grouped[l.stage]) grouped[l.stage].push(l)
     }
-    // 정렬: 다음 액션 예정일 있는 카드가 먼저 (빠른 날짜 순),
-    // 액션일 없는 카드는 유입일 기준 최신순
-    filtered.sort((a, b) => {
+
+    // 3) 각 stage 내부에서 정렬 (액션일 있음 우선, 빠른 순; 그 외 유입일 최신순)
+    const cmp = (a: PipelineLead, b: PipelineLead) => {
       const aHasAction = !!a.next_action_date
       const bHasAction = !!b.next_action_date
-      if (aHasAction && bHasAction) {
-        // 둘 다 액션일 있음: 빠른 날짜가 먼저
-        return a.next_action_date!.localeCompare(b.next_action_date!)
-      }
-      if (aHasAction) return -1  // a만 액션일 있음 → a 먼저
-      if (bHasAction) return 1   // b만 액션일 있음 → b 먼저
-      // 둘 다 액션일 없음: 유입일 기준 최신순
+      if (aHasAction && bHasAction) return a.next_action_date!.localeCompare(b.next_action_date!)
+      if (aHasAction) return -1
+      if (bHasAction) return 1
       const aDate = a.inquiry_date || a.created_at?.substring(0, 10) || ''
       const bDate = b.inquiry_date || b.created_at?.substring(0, 10) || ''
       return bDate.localeCompare(aDate)
-    })
-    return filtered
-  }
+    }
+    for (const s of STAGES) grouped[s].sort(cmp)
+    return grouped
+  }, [leads, searchQuery, assigneeFilter, dateRange.from, dateRange.to])
+
+  const getLeadsByStage = (stage: string) => leadsByStage[stage] || []
 
   // Selection handlers
   const toggleSelect = useCallback((leadId: string, e?: React.MouseEvent) => {
