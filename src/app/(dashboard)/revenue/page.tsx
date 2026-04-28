@@ -13,16 +13,11 @@ import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Plus, Search, X, Copy, Trash2 } from 'lucide-react'
 import { BILLING_METHOD_OPTIONS } from '@/lib/billing-methods'
+import { SERVICE_TYPE_OPTIONS, serviceColor } from '@/lib/service-types'
 
 /* ──── Constants ──── */
-const SVC = [
-  { value: '플랫폼', label: '플랫폼', color: 'bg-gray-800 text-white' },
-  { value: 'AI CCTV', label: 'AI CCTV', color: 'bg-red-500 text-white' },
-  { value: 'Wearable', label: 'Wearable', color: 'bg-orange-500 text-white' },
-  { value: 'LTE/인터넷', label: 'LTE/인터넷', color: 'bg-yellow-500 text-white' },
-  { value: 'Mobile AP', label: 'Mobile AP', color: 'bg-purple-500 text-white' },
-  { value: 'Story Book', label: 'Story Book', color: 'bg-blue-500 text-white' },
-]
+// 이용 서비스: 시트와 1:1 (총 22종) — src/lib/service-types.ts
+const SVC = SERVICE_TYPE_OPTIONS
 const CAT1 = [{ value: '민간', label: '민간' }, { value: '공공', label: '공공' }]
 const CAT2 = [
   { value: '신축공사', label: '신축공사' },
@@ -36,7 +31,7 @@ const REVENUE_TYPES = [
 ]
 const MS = [1,2,3,4,5,6,7,8,9,10,11,12]
 
-function svcColor(s: string | null) { return SVC.find(o => o.value === s)?.color || 'bg-gray-200 text-gray-700' }
+const svcColor = serviceColor
 function fmtDate(d: string | null) { return d ? d.substring(2) : '' }
 
 /* ──── Types ──── */
@@ -301,25 +296,36 @@ export default function RevenuePage() {
   const [q, setQ] = useState('')
   const [custs, setCusts] = useState<Cust[]>([])
 
-  // 헤더별 컬럼 필터 (모든 컬럼에 해당)
+  // 헤더별 컬럼 필터 — input 값 (즉시 반영)
   const [colFilter, setColFilter] = useState<{
-    customer: string       // 회사명 (부분일치)
-    project_name: string   // 현장명 (부분일치)
+    customer: string
+    project_name: string
     site_category: string
     site_category2: string
     service_type: string
     billing_method: string
     revenue_type: string
-    project_start: string  // yyyy-mm-dd 이후 (>=)
-    project_end: string    // yyyy-mm-dd 이전 (<=)
+    project_start: string
+    project_end: string
     billing_start: string
     billing_end: string
-    notes: string          // 비고 부분일치
+    notes: string
   }>({
     customer: '', project_name: '',
     site_category: '', site_category2: '', service_type: '', billing_method: '', revenue_type: '',
     project_start: '', project_end: '', billing_start: '', billing_end: '', notes: '',
   })
+  // 디바운스 — 1654 행 필터링이 매 키스트로크마다 돌면 끊겨서 250ms 대기
+  const [debouncedFilter, setDebouncedFilter] = useState(colFilter)
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedFilter(colFilter), 250)
+    return () => clearTimeout(handle)
+  }, [colFilter])
+  const [debouncedQ, setDebouncedQ] = useState(q)
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQ(q), 250)
+    return () => clearTimeout(handle)
+  }, [q])
 
   const [modal, setModal] = useState(false)
   const [copyFrom, setCopyFrom] = useState<Row | null>(null)
@@ -377,54 +383,44 @@ export default function RevenuePage() {
       .then(({ data }) => setCusts((data || []) as Cust[]))
   }, [sb])
 
-  /* ── Filter (.filter only — preserves row references for React.memo) ── */
+  /* ── Filter — 디바운스된 값 사용 (성능: 1654 행 × 매 키스트로크 방지) ── */
   const filtered = useMemo(() => {
     let result = rows
-    // Select 필터 (정확 일치)
-    if (colFilter.site_category) result = result.filter(r => r.site_category === colFilter.site_category)
-    if (colFilter.site_category2) result = result.filter(r => r.site_category2 === colFilter.site_category2)
-    if (colFilter.service_type) result = result.filter(r => r.service_type === colFilter.service_type)
-    if (colFilter.billing_method) result = result.filter(r => r.billing_method === colFilter.billing_method)
-    if (colFilter.revenue_type) result = result.filter(r => r.revenue_type === colFilter.revenue_type)
+    const f = debouncedFilter
+    // Select / 날짜 필터는 즉시 반영해도 빠름 (raw colFilter 의 select/date 사용은 굳이 안 해도 250ms 가 큰 영향 없음)
+    if (f.site_category) result = result.filter(r => r.site_category === f.site_category)
+    if (f.site_category2) result = result.filter(r => r.site_category2 === f.site_category2)
+    if (f.service_type) result = result.filter(r => r.service_type === f.service_type)
+    if (f.billing_method) result = result.filter(r => r.billing_method === f.billing_method)
+    if (f.revenue_type) result = result.filter(r => r.revenue_type === f.revenue_type)
     // 텍스트 필터 (부분 일치)
-    if (colFilter.customer) {
-      const s = colFilter.customer.toLowerCase()
+    if (f.customer) {
+      const s = f.customer.toLowerCase()
       result = result.filter(r => r.customer?.company_name?.toLowerCase().includes(s))
     }
-    if (colFilter.project_name) {
-      const s = colFilter.project_name.toLowerCase()
+    if (f.project_name) {
+      const s = f.project_name.toLowerCase()
       result = result.filter(r => r.project_name.toLowerCase().includes(s))
     }
-    if (colFilter.notes) {
-      const s = colFilter.notes.toLowerCase()
+    if (f.notes) {
+      const s = f.notes.toLowerCase()
       result = result.filter(r => (r.customer?.notes || '').toLowerCase().includes(s))
     }
-    // 날짜 필터 (각 날짜 컬럼에 대한 >= / <=)
-    if (colFilter.project_start) {
-      result = result.filter(r => r.project_start && r.project_start >= colFilter.project_start)
-    }
-    if (colFilter.project_end) {
-      result = result.filter(r => r.project_end && r.project_end <= colFilter.project_end)
-    }
-    if (colFilter.billing_start) {
-      result = result.filter(r => r.billing_start && r.billing_start >= colFilter.billing_start)
-    }
-    if (colFilter.billing_end) {
-      result = result.filter(r => r.billing_end && r.billing_end <= colFilter.billing_end)
-    }
-    // 기존 전역 검색 (상단 검색창)
-    if (q.trim()) {
-      const s = q.trim().toLowerCase()
+    if (f.project_start) result = result.filter(r => r.project_start && r.project_start >= f.project_start)
+    if (f.project_end) result = result.filter(r => r.project_end && r.project_end <= f.project_end)
+    if (f.billing_start) result = result.filter(r => r.billing_start && r.billing_start >= f.billing_start)
+    if (f.billing_end) result = result.filter(r => r.billing_end && r.billing_end <= f.billing_end)
+    if (debouncedQ.trim()) {
+      const s = debouncedQ.trim().toLowerCase()
       result = result.filter(r => r.customer?.company_name?.toLowerCase().includes(s) || r.project_name.toLowerCase().includes(s) || r.service_type?.toLowerCase().includes(s))
     }
-    // 월별 매출 dateRange 필터
     if (dateRange.from && dateRange.to) {
       result = result.filter(r =>
         (r.revenues || []).some(v => isRevInRange(v.month, year, dateRange))
       )
     }
     return result
-  }, [rows, q, dateRange, year, colFilter])
+  }, [rows, debouncedQ, dateRange, year, debouncedFilter])
 
   /* ── Totals (dateRange-aware) ── */
   const totals = useMemo(() => {
