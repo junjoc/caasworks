@@ -13,17 +13,25 @@ import type { UserFeedback, FeedbackStatus } from '@/types/database'
 import { ArrowLeft, Zap, Bot, CheckCircle2, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 
-const STATUS_LABELS: Record<FeedbackStatus, string> = {
+const STATUS_LABELS: Record<string, string> = {
   submitted: '접수', reviewing: '검토중', planned: '예정',
   in_progress: '진행중', done: '완료', wont_do: '반려',
 }
-const STATUS_COLORS: Record<FeedbackStatus, string> = {
+const STATUS_COLORS: Record<string, string> = {
   submitted: 'bg-gray-100 text-gray-700',
   reviewing: 'bg-blue-100 text-blue-700',
   planned: 'bg-purple-100 text-purple-700',
   in_progress: 'bg-amber-100 text-amber-700',
   done: 'bg-green-100 text-green-700',
   wont_do: 'bg-red-100 text-red-700',
+}
+
+// 모든 값을 안전하게 문자열로 변환 — 객체/배열이면 JSON 으로
+function safeString(v: unknown): string {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  try { return JSON.stringify(v) } catch { return String(v) }
 }
 
 export default function FeedbackDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,10 +42,9 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
   const [newComment, setNewComment] = useState('')
   const [isDirective, setIsDirective] = useState(false)
   const [posting, setPosting] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   const isAdmin = user?.role === 'admin'
-
-  const [fetchError, setFetchError] = useState<string | null>(null)
 
   const reload = async () => {
     setFetchError(null)
@@ -45,13 +52,13 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
       const res = await fetch(`/api/feedback/${id}`)
       const r = await res.json()
       if (!res.ok || r.error) {
-        setFetchError(r.error || `HTTP ${res.status}`)
+        setFetchError(safeString(r.error) || `HTTP ${res.status}`)
         setItem(null)
       } else {
         setItem(r.data || null)
       }
     } catch (e: any) {
-      setFetchError(e?.message || '네트워크 오류')
+      setFetchError(safeString(e?.message) || '네트워크 오류')
       setItem(null)
     } finally {
       setLoading(false)
@@ -66,7 +73,7 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     }).then(r => r.json())
-    if (r.error) toast.error(r.error)
+    if (r.error) toast.error(safeString(r.error))
     else { toast.success('상태가 변경되었습니다.'); reload() }
   }
 
@@ -81,7 +88,7 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
       }),
     }).then(r => r.json())
     setPosting(false)
-    if (r.error) { toast.error(r.error); return }
+    if (r.error) { toast.error(safeString(r.error)); return }
     setNewComment('')
     setIsDirective(false)
     await reload()
@@ -107,9 +114,27 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
   }
   if (!item) return <div className="p-8 text-center text-text-tertiary">피드백을 찾을 수 없습니다.</div>
 
-  // 상태/카테고리/우선순위가 예상 밖 값인 경우 fallback
-  const statusLabel = STATUS_LABELS[item.status as FeedbackStatus] || item.status || '-'
-  const statusColor = STATUS_COLORS[item.status as FeedbackStatus] || 'bg-gray-100 text-gray-600'
+  // 모든 표시 값을 안전한 문자열로 명시 변환
+  const status = safeString(item.status)
+  const statusLabel = STATUS_LABELS[status] || status || '-'
+  const statusColor = STATUS_COLORS[status] || 'bg-gray-100 text-gray-600'
+  const title = safeString(item.title) || '(제목 없음)'
+  const description = safeString(item.description)
+  const category = safeString(item.category)
+  const priority = safeString(item.priority)
+  const targetPage = safeString(item.target_page)
+  const resolutionSummary = safeString(item.resolution_summary)
+  const createdAt = formatDateTime(item.created_at)
+  const plannedAt = formatDateTime(item.planned_at)
+  const startedAt = formatDateTime(item.started_at)
+  const completedAt = formatDateTime(item.completed_at)
+  const createdByName = safeString((item as any).created_by_user?.name)
+  // 댓글 정규화
+  const comments: any[] = Array.isArray((item as any).comments) ? (item as any).comments : []
+  // pr_urls 정규화
+  const prUrls: string[] = Array.isArray(item.pr_urls)
+    ? item.pr_urls.filter((u): u is string => typeof u === 'string')
+    : []
 
   return (
     <div>
@@ -121,10 +146,10 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Badge className={statusColor}>{statusLabel}</Badge>
-              {item.category && <Badge className="bg-gray-100 text-gray-600">{item.category}</Badge>}
-              {item.priority && <Badge className="bg-gray-100 text-gray-600">{item.priority}</Badge>}
+              {category && <Badge className="bg-gray-100 text-gray-600">{category}</Badge>}
+              {priority && <Badge className="bg-gray-100 text-gray-600">{priority}</Badge>}
             </div>
-            <h1 className="page-title">{item.title || '(제목 없음)'}</h1>
+            <h1 className="page-title">{title}</h1>
           </div>
         </div>
       </div>
@@ -132,10 +157,10 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
           {/* Description */}
-          {item.description && (
+          {description && (
             <div className="card p-4">
               <div className="text-xs text-text-tertiary font-medium mb-1">설명</div>
-              <p className="text-sm text-text-primary whitespace-pre-wrap">{item.description}</p>
+              <p className="text-sm text-text-primary whitespace-pre-wrap">{description}</p>
             </div>
           )}
 
@@ -143,33 +168,34 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
           <div className="card p-4">
             <div className="text-xs text-text-tertiary font-medium mb-3">타임라인</div>
             <div className="space-y-3">
-              {(item.comments || []).map(c => {
-                const accent = c.is_admin_directive
+              {comments.map(c => {
+                const accent = c?.is_admin_directive
                   ? 'border-l-4 border-l-purple-400 bg-purple-50/50'
-                  : c.is_claude_report
+                  : c?.is_claude_report
                     ? 'border-l-4 border-l-blue-400 bg-blue-50/50'
                     : 'border-l-2 border-l-gray-200'
+                const authorName = safeString(c?.author?.name) || (c?.author_type === 'claude' ? 'Claude' : '익명')
+                const commentTime = formatDateTime(c?.created_at)
+                const commentText = safeString(c?.comment)
                 return (
-                  <div key={c.id} className={`pl-3 py-2 ${accent} rounded`}>
+                  <div key={safeString(c?.id) || Math.random()} className={`pl-3 py-2 ${accent} rounded`}>
                     <div className="flex items-center gap-2 text-[11px] mb-1">
-                      {c.is_admin_directive && <Zap className="w-3 h-3 text-purple-500" />}
-                      {c.is_claude_report && <Bot className="w-3 h-3 text-blue-500" />}
-                      <span className="font-semibold text-text-primary">
-                        {c.author?.name || (c.author_type === 'claude' ? 'Claude' : '익명')}
-                      </span>
-                      <span className="text-text-tertiary">{formatDateTime(c.created_at)}</span>
-                      {c.is_admin_directive && (
+                      {c?.is_admin_directive && <Zap className="w-3 h-3 text-purple-500" />}
+                      {c?.is_claude_report && <Bot className="w-3 h-3 text-blue-500" />}
+                      <span className="font-semibold text-text-primary">{authorName}</span>
+                      <span className="text-text-tertiary">{commentTime}</span>
+                      {c?.is_admin_directive && (
                         <Badge className="bg-purple-100 text-purple-700 text-[10px]">⚡ 지시사항</Badge>
                       )}
-                      {c.is_claude_report && (
+                      {c?.is_claude_report && (
                         <Badge className="bg-blue-100 text-blue-700 text-[10px]">🤖 Claude 작업</Badge>
                       )}
                     </div>
-                    <p className="text-sm text-text-primary whitespace-pre-wrap">{c.comment}</p>
+                    <p className="text-sm text-text-primary whitespace-pre-wrap">{commentText}</p>
                   </div>
                 )
               })}
-              {(!item.comments || item.comments.length === 0) && (
+              {comments.length === 0 && (
                 <p className="text-sm text-text-tertiary text-center py-4">아직 댓글이 없습니다.</p>
               )}
             </div>
@@ -199,17 +225,19 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
           </div>
 
           {/* Resolution (for done items) */}
-          {item.resolution_summary && (
+          {resolutionSummary && (
             <div className="card p-4 bg-green-50/50 border-green-200">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle2 className="w-4 h-4 text-green-600" />
                 <span className="text-xs font-semibold text-green-800">해결 내역</span>
               </div>
-              <p className="text-sm text-text-primary whitespace-pre-wrap mb-2">{item.resolution_summary}</p>
-              {item.pr_urls && item.pr_urls.length > 0 && (
+              <p className="text-sm text-text-primary whitespace-pre-wrap mb-2">{resolutionSummary}</p>
+              {prUrls.length > 0 && (
                 <div className="text-xs text-text-secondary">
-                  PR: {item.pr_urls.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline mr-2">#{url.split('/').pop()}</a>
+                  PR: {prUrls.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline mr-2">
+                      #{safeString(url.split('/').pop())}
+                    </a>
                   ))}
                 </div>
               )}
@@ -223,7 +251,7 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
             <div className="text-xs text-text-tertiary font-medium mb-2">상태</div>
             {isAdmin ? (
               <Select
-                value={item.status || 'submitted'}
+                value={status || 'submitted'}
                 onChange={e => changeStatus(e.target.value as FeedbackStatus)}
                 options={Object.entries(STATUS_LABELS).map(([v, l]) => ({ value: v, label: l }))}
               />
@@ -233,33 +261,35 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ id: s
           </div>
 
           <div className="card p-4 space-y-2 text-xs">
-            <div className="flex items-center gap-2 text-text-tertiary">
-              <Clock className="w-3 h-3" /> 등록 {formatDateTime(item.created_at)}
-            </div>
-            {item.planned_at && (
+            {createdAt && (
+              <div className="flex items-center gap-2 text-text-tertiary">
+                <Clock className="w-3 h-3" /> 등록 {createdAt}
+              </div>
+            )}
+            {plannedAt && (
               <div className="flex items-center gap-2 text-purple-600">
-                <Clock className="w-3 h-3" /> 계획 {formatDateTime(item.planned_at)}
+                <Clock className="w-3 h-3" /> 계획 {plannedAt}
               </div>
             )}
-            {item.started_at && (
+            {startedAt && (
               <div className="flex items-center gap-2 text-amber-600">
-                <Clock className="w-3 h-3" /> 시작 {formatDateTime(item.started_at)}
+                <Clock className="w-3 h-3" /> 시작 {startedAt}
               </div>
             )}
-            {item.completed_at && (
+            {completedAt && (
               <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle2 className="w-3 h-3" /> 완료 {formatDateTime(item.completed_at)}
+                <CheckCircle2 className="w-3 h-3" /> 완료 {completedAt}
               </div>
             )}
-            {item.target_page && (
+            {targetPage && (
               <div className="pt-2 border-t border-border-light">
                 <span className="text-text-tertiary">관련 페이지:</span>{' '}
-                <Link href={item.target_page} className="text-blue-600 hover:underline">{item.target_page}</Link>
+                <Link href={targetPage} className="text-blue-600 hover:underline">{targetPage}</Link>
               </div>
             )}
-            {item.created_by_user && (
+            {createdByName && (
               <div>
-                <span className="text-text-tertiary">등록자:</span> {item.created_by_user.name}
+                <span className="text-text-tertiary">등록자:</span> {createdByName}
               </div>
             )}
           </div>
