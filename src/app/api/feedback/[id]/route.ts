@@ -9,9 +9,9 @@ function getSupabase() {
 }
 
 // GET /api/feedback/[id] — returns feedback + comments
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = await params
+    const id = params.id
     const sb = getSupabase()
     const [{ data: fb, error: fbErr }, { data: comments, error: cErr }] = await Promise.all([
       sb.from('user_feedbacks')
@@ -30,14 +30,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
-// PATCH /api/feedback/[id] — update status/assignee/dev-log fields
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+// PATCH /api/feedback/[id]
+export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = await params
+    const id = params.id
     const body = await request.json()
     const sb = getSupabase()
 
-    // Auto-set timestamps based on status transitions
     const updates: any = { ...body }
     if (body.status === 'planned' && !body.planned_at) updates.planned_at = new Date().toISOString()
     if (body.status === 'in_progress' && !body.started_at) updates.started_at = new Date().toISOString()
@@ -52,9 +51,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 // DELETE
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = await params
+    const id = params.id
     const sb = getSupabase()
     const { error } = await sb.from('user_feedbacks').delete().eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

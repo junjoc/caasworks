@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { Loading } from '@/components/ui/loading'
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
-import { formatDate, formatDateTime } from '@/lib/utils'
+import { formatDateTime } from '@/lib/utils'
 import type { UserFeedback, FeedbackStatus } from '@/types/database'
 import { ArrowLeft, Zap, Bot, CheckCircle2, Clock } from 'lucide-react'
 import { toast } from 'sonner'
@@ -34,8 +34,8 @@ function safeString(v: unknown): string {
   try { return JSON.stringify(v) } catch { return String(v) }
 }
 
-export default function FeedbackDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+export default function FeedbackDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params
   const { user } = useAuth()
   const [item, setItem] = useState<UserFeedback | null>(null)
   const [loading, setLoading] = useState(true)
