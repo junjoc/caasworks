@@ -10,9 +10,9 @@ function getSupabase() {
 
 // POST /api/feedback/[id]/comments
 // Body: { comment, author_id, is_admin_directive?, is_claude_report? }
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = await params
+    const id = params.id
     const body = await request.json()
     if (!body.comment) return NextResponse.json({ error: 'comment required' }, { status: 400 })
     const sb = getSupabase()
