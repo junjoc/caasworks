@@ -166,6 +166,50 @@ export async function syncLeadToAdPerformance(
 }
 
 /**
+ * 도입완료 → 다른 stage 로 빠질 때 광고 성과의 adoption 카운트/리스트에서 제거.
+ * inquiry_companies 는 유지 (문의 사실은 변경 안됨), adoption 부분만 되돌림.
+ */
+export async function revertLeadFromAdPerformance(
+  supabase: SupabaseClient,
+  lead: {
+    inquiry_date: string | null
+    inquiry_channel: string
+    inquiry_source: string
+    company_name: string
+  }
+) {
+  if (!lead.inquiry_date || !lead.inquiry_channel) return
+
+  const mapping = mapLeadChannelToAds(lead.inquiry_channel, lead.inquiry_source)
+  if (!mapping) return
+
+  const { data: existing } = await supabase
+    .from('ad_performance')
+    .select('id, adoptions, adoption_companies')
+    .eq('date', lead.inquiry_date)
+    .eq('channel', mapping.channel)
+    .eq('campaign_name', mapping.campaign_name)
+    .limit(1)
+
+  if (!existing || existing.length === 0) return
+
+  const row = existing[0]
+  const list = row.adoption_companies ? row.adoption_companies.split(',').map((s: string) => s.trim()) : []
+  const idx = list.indexOf(lead.company_name)
+  if (idx === -1) return  // 이미 없음
+
+  list.splice(idx, 1)
+  const newAdoptions = Math.max(0, (row.adoptions || 0) - 1)
+  await supabase
+    .from('ad_performance')
+    .update({
+      adoptions: newAdoptions,
+      adoption_companies: list.length > 0 ? list.join(', ') : null,
+    })
+    .eq('id', row.id)
+}
+
+/**
  * 해당 날짜의 모든 리드를 기반으로 ad_performance를 재계산
  * (동기화 후 정합성 보장용)
  */
