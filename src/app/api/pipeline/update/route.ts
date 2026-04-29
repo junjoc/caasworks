@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { syncLeadToAdPerformance } from '@/lib/sync-lead-to-ads'
+import { syncLeadToAdPerformance, revertLeadFromAdPerformance } from '@/lib/sync-lead-to-ads'
 
 function getSupabase() {
   return createClient(
@@ -21,27 +21,40 @@ export async function POST(request: NextRequest) {
 
     // 1. Update lead fields (stage, priority, assigned_to, etc.)
     if (action === 'update_lead') {
+      // stage 변경 감지를 위해 이전 stage 조회
+      let oldStage: string | undefined
+      if (payload.updates?.stage !== undefined) {
+        const { data: prev } = await supabase
+          .from('pipeline_leads').select('stage').eq('id', lead_id).single()
+        oldStage = prev?.stage
+      }
       const { data, error } = await supabase
         .from('pipeline_leads')
         .update(payload.updates)
         .eq('id', lead_id)
         .select()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      // 도입완료 stage 로 직접 업데이트한 경우 광고 성과 동기화
-      if (payload.updates?.stage === '도입완료') {
+      // stage 가 도입완료를 진입/이탈할 때 광고 성과 양방향 동기화
+      const newStage = payload.updates?.stage
+      if (newStage !== undefined && newStage !== oldStage) {
         try {
           const { data: lead } = await supabase
             .from('pipeline_leads')
             .select('company_name, inquiry_date, inquiry_channel, inquiry_source')
             .eq('id', lead_id).single()
           if (lead) {
-            await syncLeadToAdPerformance(supabase, {
+            const adLead = {
               inquiry_date: lead.inquiry_date || null,
               inquiry_channel: lead.inquiry_channel || '',
               inquiry_source: lead.inquiry_source || '',
               company_name: lead.company_name,
-              stage: '도입완료',
-            })
+            }
+            if (newStage === '도입완료' && oldStage !== '도입완료') {
+              await syncLeadToAdPerformance(supabase, { ...adLead, stage: '도입완료' })
+            }
+            if (oldStage === '도입완료' && newStage !== '도입완료') {
+              await revertLeadFromAdPerformance(supabase, adLead)
+            }
           }
         } catch (e) { console.error('[update_lead] ad sync failed', e) }
       }
@@ -65,25 +78,30 @@ export async function POST(request: NextRequest) {
       const { error } = await supabase.from('pipeline_leads').update(updates).eq('id', lead_id)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-      // 도입완료 → 광고 성과(ad_performance) 자동 동기화 (인바운드 리드만 영향)
-      if (new_stage === '도입완료') {
-        try {
-          const { data: lead } = await supabase
-            .from('pipeline_leads')
-            .select('company_name, inquiry_date, inquiry_channel, inquiry_source')
-            .eq('id', lead_id).single()
-          if (lead) {
-            await syncLeadToAdPerformance(supabase, {
-              inquiry_date: lead.inquiry_date || null,
-              inquiry_channel: lead.inquiry_channel || '',
-              inquiry_source: lead.inquiry_source || '',
-              company_name: lead.company_name,
-              stage: '도입완료',
-            })
+      // 광고 성과 양방향 동기화
+      try {
+        const { data: lead } = await supabase
+          .from('pipeline_leads')
+          .select('company_name, inquiry_date, inquiry_channel, inquiry_source')
+          .eq('id', lead_id).single()
+        if (lead) {
+          const adLead = {
+            inquiry_date: lead.inquiry_date || null,
+            inquiry_channel: lead.inquiry_channel || '',
+            inquiry_source: lead.inquiry_source || '',
+            company_name: lead.company_name,
           }
-        } catch (e) {
-          console.error('[change_stage] ad sync failed', e)
+          // 도입완료 → 추가
+          if (new_stage === '도입완료' && old_stage !== '도입완료') {
+            await syncLeadToAdPerformance(supabase, { ...adLead, stage: '도입완료' })
+          }
+          // 도입완료 → 다른 stage (취소/이탈/예정 등): 차감
+          if (old_stage === '도입완료' && new_stage !== '도입완료') {
+            await revertLeadFromAdPerformance(supabase, adLead)
+          }
         }
+      } catch (e) {
+        console.error('[change_stage] ad sync failed', e)
       }
       return NextResponse.json({ success: true })
     }
@@ -150,26 +168,38 @@ export async function POST(request: NextRequest) {
 
     // 5. Edit lead (full form save)
     if (action === 'edit_lead') {
+      // stage 변경 감지
+      let oldStage: string | undefined
+      if (payload.form?.stage !== undefined) {
+        const { data: prev } = await supabase
+          .from('pipeline_leads').select('stage').eq('id', lead_id).single()
+        oldStage = prev?.stage
+      }
       const { data, error } = await supabase.from('pipeline_leads')
         .update(payload.form)
         .eq('id', lead_id)
         .select()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      // 폼에서 stage 를 도입완료로 저장한 경우도 광고 성과 동기화
-      if (payload.form?.stage === '도입완료') {
+      const newStage = payload.form?.stage
+      if (newStage !== undefined && newStage !== oldStage) {
         try {
           const { data: lead } = await supabase
             .from('pipeline_leads')
             .select('company_name, inquiry_date, inquiry_channel, inquiry_source')
             .eq('id', lead_id).single()
           if (lead) {
-            await syncLeadToAdPerformance(supabase, {
+            const adLead = {
               inquiry_date: lead.inquiry_date || null,
               inquiry_channel: lead.inquiry_channel || '',
               inquiry_source: lead.inquiry_source || '',
               company_name: lead.company_name,
-              stage: '도입완료',
-            })
+            }
+            if (newStage === '도입완료' && oldStage !== '도입완료') {
+              await syncLeadToAdPerformance(supabase, { ...adLead, stage: '도입완료' })
+            }
+            if (oldStage === '도입완료' && newStage !== '도입완료') {
+              await revertLeadFromAdPerformance(supabase, adLead)
+            }
           }
         } catch (e) { console.error('[edit_lead] ad sync failed', e) }
       }
@@ -253,7 +283,12 @@ export async function POST(request: NextRequest) {
     // 11. Bulk move stage (board view)
     if (action === 'bulk_move_stage') {
       const { lead_ids, new_stage, history_records } = payload
-      // Insert history records
+      // history_records 에서 old_value 매핑 (각 lead 별 이전 stage)
+      const oldStageById = new Map<string, string>()
+      ;(history_records || []).forEach((h: any) => {
+        if (h.lead_id && h.old_value) oldStageById.set(h.lead_id, h.old_value)
+      })
+
       if (history_records && history_records.length > 0) {
         await supabase.from('pipeline_history').insert(history_records)
       }
@@ -264,21 +299,27 @@ export async function POST(request: NextRequest) {
       const { error } = await supabase.from('pipeline_leads').update(updates).in('id', lead_ids)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-      // 도입완료 일괄 이동 → 광고 성과 동기화 (각 lead 마다)
-      if (new_stage === '도입완료' && lead_ids?.length) {
+      // 광고 성과 양방향 동기화 (각 lead 마다)
+      if (lead_ids?.length) {
         try {
           const { data: bulkLeads } = await supabase
             .from('pipeline_leads')
             .select('id, company_name, inquiry_date, inquiry_channel, inquiry_source')
             .in('id', lead_ids)
           for (const l of bulkLeads || []) {
-            await syncLeadToAdPerformance(supabase, {
+            const adLead = {
               inquiry_date: l.inquiry_date || null,
               inquiry_channel: l.inquiry_channel || '',
               inquiry_source: l.inquiry_source || '',
               company_name: l.company_name,
-              stage: '도입완료',
-            })
+            }
+            const oldStage = oldStageById.get(l.id)
+            if (new_stage === '도입완료' && oldStage !== '도입완료') {
+              await syncLeadToAdPerformance(supabase, { ...adLead, stage: '도입완료' })
+            }
+            if (oldStage === '도입완료' && new_stage !== '도입완료') {
+              await revertLeadFromAdPerformance(supabase, adLead)
+            }
           }
         } catch (e) {
           console.error('[bulk_move_stage] ad sync failed', e)
