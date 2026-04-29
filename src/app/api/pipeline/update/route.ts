@@ -27,6 +27,24 @@ export async function POST(request: NextRequest) {
         .eq('id', lead_id)
         .select()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      // 도입완료 stage 로 직접 업데이트한 경우 광고 성과 동기화
+      if (payload.updates?.stage === '도입완료') {
+        try {
+          const { data: lead } = await supabase
+            .from('pipeline_leads')
+            .select('company_name, inquiry_date, inquiry_channel, inquiry_source')
+            .eq('id', lead_id).single()
+          if (lead) {
+            await syncLeadToAdPerformance(supabase, {
+              inquiry_date: lead.inquiry_date || null,
+              inquiry_channel: lead.inquiry_channel || '',
+              inquiry_source: lead.inquiry_source || '',
+              company_name: lead.company_name,
+              stage: '도입완료',
+            })
+          }
+        } catch (e) { console.error('[update_lead] ad sync failed', e) }
+      }
       return NextResponse.json({ success: true, data })
     }
 
@@ -137,6 +155,24 @@ export async function POST(request: NextRequest) {
         .eq('id', lead_id)
         .select()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      // 폼에서 stage 를 도입완료로 저장한 경우도 광고 성과 동기화
+      if (payload.form?.stage === '도입완료') {
+        try {
+          const { data: lead } = await supabase
+            .from('pipeline_leads')
+            .select('company_name, inquiry_date, inquiry_channel, inquiry_source')
+            .eq('id', lead_id).single()
+          if (lead) {
+            await syncLeadToAdPerformance(supabase, {
+              inquiry_date: lead.inquiry_date || null,
+              inquiry_channel: lead.inquiry_channel || '',
+              inquiry_source: lead.inquiry_source || '',
+              company_name: lead.company_name,
+              stage: '도입완료',
+            })
+          }
+        } catch (e) { console.error('[edit_lead] ad sync failed', e) }
+      }
       return NextResponse.json({ success: true, data })
     }
 

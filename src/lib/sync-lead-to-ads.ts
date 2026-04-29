@@ -100,23 +100,22 @@ export async function syncLeadToAdPerformance(
     .limit(1)
 
   if (existing && existing.length > 0) {
-    // 기존 행에 문의 추가
+    // 기존 행에 문의 추가 (이미 있으면 inquiries 카운트만 skip, adoption 처리는 계속 진행)
     const row = existing[0]
     const currentCompanies = row.inquiry_companies || ''
     const companyList = currentCompanies ? currentCompanies.split(',').map((s: string) => s.trim()) : []
 
-    // 이미 추가된 회사면 스킵
-    if (companyList.includes(lead.company_name)) return
-
-    companyList.push(lead.company_name)
-
-    await supabase
-      .from('ad_performance')
-      .update({
-        inquiries: (row.inquiries || 0) + 1,
-        inquiry_companies: companyList.join(', '),
-      })
-      .eq('id', row.id)
+    // 새로운 회사일 때만 inquiry 카운트/리스트 업데이트
+    if (!companyList.includes(lead.company_name)) {
+      companyList.push(lead.company_name)
+      await supabase
+        .from('ad_performance')
+        .update({
+          inquiries: (row.inquiries || 0) + 1,
+          inquiry_companies: companyList.join(', '),
+        })
+        .eq('id', row.id)
+    }
   } else {
     // 해당 날짜/채널에 행이 없으면 새로 생성 (수동/리드연동이므로 data_source='manual')
     await supabase
