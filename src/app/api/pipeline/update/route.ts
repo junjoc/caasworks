@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { syncLeadToAdPerformance } from '@/lib/sync-lead-to-ads'
 
 function getSupabase() {
   return createClient(
@@ -45,6 +46,27 @@ export async function POST(request: NextRequest) {
       }
       const { error } = await supabase.from('pipeline_leads').update(updates).eq('id', lead_id)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+      // 도입완료 → 광고 성과(ad_performance) 자동 동기화 (인바운드 리드만 영향)
+      if (new_stage === '도입완료') {
+        try {
+          const { data: lead } = await supabase
+            .from('pipeline_leads')
+            .select('company_name, inquiry_date, inquiry_channel, inquiry_source')
+            .eq('id', lead_id).single()
+          if (lead) {
+            await syncLeadToAdPerformance(supabase, {
+              inquiry_date: lead.inquiry_date || null,
+              inquiry_channel: lead.inquiry_channel || '',
+              inquiry_source: lead.inquiry_source || '',
+              company_name: lead.company_name,
+              stage: '도입완료',
+            })
+          }
+        } catch (e) {
+          console.error('[change_stage] ad sync failed', e)
+        }
+      }
       return NextResponse.json({ success: true })
     }
 
@@ -205,6 +227,27 @@ export async function POST(request: NextRequest) {
       }
       const { error } = await supabase.from('pipeline_leads').update(updates).in('id', lead_ids)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+      // 도입완료 일괄 이동 → 광고 성과 동기화 (각 lead 마다)
+      if (new_stage === '도입완료' && lead_ids?.length) {
+        try {
+          const { data: bulkLeads } = await supabase
+            .from('pipeline_leads')
+            .select('id, company_name, inquiry_date, inquiry_channel, inquiry_source')
+            .in('id', lead_ids)
+          for (const l of bulkLeads || []) {
+            await syncLeadToAdPerformance(supabase, {
+              inquiry_date: l.inquiry_date || null,
+              inquiry_channel: l.inquiry_channel || '',
+              inquiry_source: l.inquiry_source || '',
+              company_name: l.company_name,
+              stage: '도입완료',
+            })
+          }
+        } catch (e) {
+          console.error('[bulk_move_stage] ad sync failed', e)
+        }
+      }
       return NextResponse.json({ success: true })
     }
 
