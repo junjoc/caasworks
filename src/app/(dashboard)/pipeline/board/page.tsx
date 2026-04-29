@@ -12,7 +12,6 @@ import { STAGE_COLORS, PRIORITY_COLORS, CONVERSION_PROB_COLORS, SITE_CATEGORY_CO
 import type { PipelineLead } from '@/types/database'
 import { toast } from 'sonner'
 import { Plus, Clock, AlertCircle, Search, CheckSquare, Square, X, ArrowRight, UserPlus } from 'lucide-react'
-import { syncLeadToAdPerformance } from '@/lib/sync-lead-to-ads'
 
 const STAGES = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
 
@@ -316,16 +315,7 @@ export default function PipelineBoardPage() {
       toast.error('단계 변경에 실패했습니다.')
       fetchLeads()
     } else {
-      // 도입완료 시 광고성과에 도입 데이터 반영
-      if (newStage === '도입완료') {
-        await syncLeadToAdPerformance(supabase, {
-          inquiry_date: lead.inquiry_date || null,
-          inquiry_channel: lead.inquiry_channel || '',
-          inquiry_source: lead.inquiry_source || '',
-          company_name: lead.company_name,
-          stage: '도입완료',
-        })
-      }
+      // 도입완료 광고성과 동기화는 server-side(/api/pipeline/update)에서 자동 처리
       toast.success(`"${lead.company_name}" → ${newStage}`)
     }
   }
