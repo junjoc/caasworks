@@ -164,10 +164,10 @@ for (let i = 8; i < s26.length; i++) {
 
   seq26++
 
-  // 1~6월만
+  // 1~6월만 (2026 시트는 현장구분2 컬럼 추가로 col 22부터 시작)
   const monthly = []
   for (let m = 0; m < 6; m++) {
-    const amt = toMoney(row[21 + m])
+    const amt = toMoney(row[22 + m])  // ← 21 → 22 fix
     if (amt !== 0) monthly.push({ month: m + 1, amount: amt })
   }
 
