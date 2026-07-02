@@ -690,7 +690,7 @@ export default function AnalyticsDashboardPage() {
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-semibold">{p.total}건</div>
-                  <div className="text-xs text-text-tertiary">전환율 {p.total > 0 ? Math.round(p.converted / p.total * 100) : 0}%</div>
+                  <div className="text-xs text-text-tertiary">도입률 {p.total > 0 ? Math.round(p.converted / p.total * 100) : 0}%</div>
                 </div>
               </div>
             ))}

@@ -91,13 +91,25 @@ export async function POST(request: NextRequest) {
       active_users: Number(row.metricValues?.[2]?.value) || 0,
     }))
 
+    // 앱(app.caas.works) 경로 제외 필터 (P0-4). 마케팅 사이트 콘텐츠만 저장.
+    // GA4 프로퍼티 하나로 마케팅+앱이 잡혀서 그대로 저장 시 방문자 여정/콘텐츠 통계 오염됨.
+    const APP_PATH_PATTERNS = [
+      /^\/cctv\//i, /^\/companies\//i, /^\/proxy\//i,
+      /^\/control-dashboard/i, /^\/chat/i,
+      /^\/users\//i, /^\/signup/i, /^\/login/i,
+      /^\/fire-detections\//i, /^\/action\//i,
+    ]
+    const isAppPath = (p: string) => APP_PATH_PATTERNS.some(re => re.test(p))
+
     // Supabase에 upsert (page_path 기준)
     const supabase = createClient(supabaseUrl, supabaseKey)
     let savedCount = 0
+    let skippedApp = 0
     const errors: string[] = []
 
     for (const item of contentData) {
       if (!item.page_path) continue
+      if (isAppPath(item.page_path)) { skippedApp++; continue }
       const { error } = await supabase
         .from('content_performance')
         .upsert({
@@ -123,10 +135,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `GA4 콘텐츠 ${savedCount}/${contentData.length}건 저장 완료`,
+      message: `GA4 콘텐츠 ${savedCount}/${contentData.length}건 저장 완료 (앱 경로 ${skippedApp}건 제외)`,
       count: savedCount,
+      skipped_app: skippedApp,
       errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
-      data: contentData,
+      data: contentData.filter(d => !isAppPath(d.page_path)),
     })
   } catch (error: unknown) {
     console.error('GA4 content sync error:', error)

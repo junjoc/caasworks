@@ -237,7 +237,8 @@ export default function PipelineAnalyticsPage() {
       const converted = stages['도입완료'] || 0
       const lost = stages['이탈'] || 0
       const active = total - converted - lost
-      const convRate = (converted + lost) > 0 ? Math.round(converted / (converted + lost) * 100) : 0
+      // 도입률 (METRICS 2.4): 도입완료 / 전체 리드. 팀 결정 2026-07-02 로 화면 통일.
+      const convRate = total > 0 ? Math.round(converted / total * 100) : 0
       return { name, total, converted, lost, active, convRate, stages }
     }).sort((a, b) => b.total - a.total)
   }, [filtered, users])
@@ -256,7 +257,8 @@ export default function PipelineAnalyticsPage() {
       const total = Object.values(stages).reduce((s, v) => s + v, 0)
       const converted = stages['도입완료'] || 0
       const lost = stages['이탈'] || 0
-      const convRate = (converted + lost) > 0 ? Math.round(converted / (converted + lost) * 100) : 0
+      // 도입률 (METRICS 2.4): 도입완료 / 전체 리드. 팀 결정 2026-07-02 로 화면 통일.
+      const convRate = total > 0 ? Math.round(converted / total * 100) : 0
       return { industry, total, converted, lost, convRate, stages }
     }).sort((a, b) => b.total - a.total)
   }, [filtered])
@@ -276,7 +278,8 @@ export default function PipelineAnalyticsPage() {
       const converted = stages['도입완료'] || 0
       const lost = stages['이탈'] || 0
       const active = total - converted - lost
-      const convRate = (converted + lost) > 0 ? Math.round(converted / (converted + lost) * 100) : 0
+      // 도입률 (METRICS 2.4): 도입완료 / 전체 리드. 팀 결정 2026-07-02 로 화면 통일.
+      const convRate = total > 0 ? Math.round(converted / total * 100) : 0
       return { channel, total, converted, lost, active, convRate }
     }).sort((a, b) => b.total - a.total)
   }, [filtered])
@@ -388,20 +391,20 @@ export default function PipelineAnalyticsPage() {
     const lost = filtered.filter(l => l.stage === '이탈')
     const now = new Date()
 
-    // 1. 전체 전환율
+    // 1. 전체 도입률
     const closed = converted.length + lost.length
     if (closed > 10) {
       const rate = Math.round(converted.length / closed * 100)
       if (rate >= 30) {
         result.push({
           type: 'success', icon: <CheckCircle2 className="w-4 h-4" />,
-          title: `전환율 ${rate}% — 양호`,
+          title: `도입률 ${rate}% — 양호`,
           description: `종료된 ${formatNumber(closed)}건 중 ${formatNumber(converted.length)}건 도입완료. 세일즈 프로세스가 잘 동작하고 있습니다.`,
         })
       } else if (rate < 15) {
         result.push({
           type: 'danger', icon: <AlertTriangle className="w-4 h-4" />,
-          title: `전환율 ${rate}% — 점검 필요`,
+          title: `도입률 ${rate}% — 점검 필요`,
           description: `종료 ${formatNumber(closed)}건 중 도입완료 ${formatNumber(converted.length)}건. 이탈 원인 분석과 초기 리드 스크리닝 강화를 검토하세요.`,
         })
       }
@@ -463,7 +466,7 @@ export default function PipelineAnalyticsPage() {
       }
     }
 
-    // 6. 최고 전환율 채널
+    // 6. 최고 도입률 채널
     const chWithConv = channelData.filter(c => (c.converted + c.lost) >= 5)
     if (chWithConv.length > 0) {
       const best = chWithConv.reduce((m, c) => c.convRate > m.convRate ? c : m, chWithConv[0])
@@ -471,27 +474,27 @@ export default function PipelineAnalyticsPage() {
       if (best.convRate > 0) {
         result.push({
           type: 'success', icon: <Target className="w-4 h-4" />,
-          title: `'${best.channel}' 전환율 ${best.convRate}% — 최고 채널`,
+          title: `'${best.channel}' 도입률 ${best.convRate}% — 최고 채널`,
           description: `${formatNumber(best.converted + best.lost)}건 중 ${formatNumber(best.converted)}건 도입. 이 채널의 인바운드를 늘리는 전략을 고려하세요.`,
         })
       }
       if (worst.convRate < best.convRate && worst.convRate < 15 && worst.total >= 20) {
         result.push({
           type: 'warning', icon: <TrendingDown className="w-4 h-4" />,
-          title: `'${worst.channel}' 전환율 ${worst.convRate}% — 최저 채널`,
+          title: `'${worst.channel}' 도입률 ${worst.convRate}% — 최저 채널`,
           description: `유입은 ${formatNumber(worst.total)}건으로 많지만 전환이 낮습니다. 리드 품질 또는 대응 프로세스를 점검하세요.`,
         })
       }
     }
 
-    // 7. 최고 전환율 업종
+    // 7. 최고 도입률 업종
     const indWithConv = industryData.filter(d => (d.converted + d.lost) >= 5)
     if (indWithConv.length > 0) {
       const best = indWithConv.reduce((m, d) => d.convRate > m.convRate ? d : m, indWithConv[0])
       if (best.convRate > 0) {
         result.push({
           type: 'success', icon: <CheckCircle2 className="w-4 h-4" />,
-          title: `'${best.industry}' 업종 전환율 ${best.convRate}% — 핵심 타깃`,
+          title: `'${best.industry}' 업종 도입률 ${best.convRate}% — 핵심 타깃`,
           description: `이 업종에서의 세일즈 성과가 가장 높습니다. 유사 업종 타깃팅을 강화하세요.`,
         })
       }
@@ -616,7 +619,7 @@ export default function PipelineAnalyticsPage() {
           { label: '진행중', value: formatNumber(kpis.active), color: 'text-blue-600' },
           { label: '도입완료', value: formatNumber(kpis.converted), color: 'text-green-600' },
           { label: '이탈', value: formatNumber(kpis.lost), color: 'text-red-500' },
-          { label: '전환율', value: `${kpis.convRate}%`, color: kpis.convRate >= 25 ? 'text-green-600' : kpis.convRate >= 15 ? 'text-yellow-600' : 'text-red-500' },
+          { label: '도입률', value: `${kpis.convRate}%`, color: kpis.convRate >= 25 ? 'text-green-600' : kpis.convRate >= 15 ? 'text-yellow-600' : 'text-red-500' },
         ].map(kpi => (
           <div key={kpi.label} className="card text-center py-4">
             <p className="text-micro text-text-tertiary">{kpi.label}</p>
@@ -712,7 +715,7 @@ export default function PipelineAnalyticsPage() {
                     <th className="text-center py-2 px-2 text-text-tertiary font-medium">진행중</th>
                     <th className="text-center py-2 px-2 text-text-tertiary font-medium">도입</th>
                     <th className="text-center py-2 px-2 text-text-tertiary font-medium">이탈</th>
-                    <th className="text-center py-2 px-2 text-text-tertiary font-medium">전환율</th>
+                    <th className="text-center py-2 px-2 text-text-tertiary font-medium">도입률</th>
                     <th className="text-left py-2 px-2 text-text-tertiary font-medium w-1/3">단계 분포</th>
                   </tr>
                 </thead>
@@ -787,7 +790,7 @@ export default function PipelineAnalyticsPage() {
                       <th className="text-left py-1.5 px-2 text-text-tertiary font-medium">업종</th>
                       <th className="text-center py-1.5 px-2 text-text-tertiary font-medium">전체</th>
                       <th className="text-center py-1.5 px-2 text-text-tertiary font-medium">도입</th>
-                      <th className="text-center py-1.5 px-2 text-text-tertiary font-medium">전환율</th>
+                      <th className="text-center py-1.5 px-2 text-text-tertiary font-medium">도입률</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -840,7 +843,7 @@ export default function PipelineAnalyticsPage() {
                     <th className="text-center py-1.5 px-2 text-text-tertiary font-medium">진행중</th>
                     <th className="text-center py-1.5 px-2 text-text-tertiary font-medium">도입</th>
                     <th className="text-center py-1.5 px-2 text-text-tertiary font-medium">이탈</th>
-                    <th className="text-center py-1.5 px-2 text-text-tertiary font-medium">전환율</th>
+                    <th className="text-center py-1.5 px-2 text-text-tertiary font-medium">도입률</th>
                   </tr>
                 </thead>
                 <tbody>

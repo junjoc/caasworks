@@ -433,7 +433,146 @@ export function WeeklyTasksWidget({ size }: WidgetProps) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Placeholder widgets (not yet fully implemented; show "준비중")
+// P2-1: 실 구현 위젯 4개 (팀 요청 2026-07-02)
+// ──────────────────────────────────────────────────────────────
+
+// 이번달 광고비 — ad_performance_daily 합계
+export function AdSpendWidget({ size: _size }: WidgetProps) {
+  const sb = useRef(createClient()).current
+  const [data, setData] = useState<{ total: number; byChannel: { channel: string; cost: number }[] } | null>(null)
+  useEffect(() => {
+    (async () => {
+      const today = new Date()
+      const first = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+      const { data: rows } = await sb.from('ad_performance_daily')
+        .select('channel, cost').gte('date', first)
+      const byChannel: Record<string, number> = {}
+      let total = 0
+      for (const r of rows || []) {
+        byChannel[r.channel] = (byChannel[r.channel] || 0) + (r.cost || 0)
+        total += r.cost || 0
+      }
+      setData({ total, byChannel: Object.entries(byChannel).map(([channel, cost]) => ({ channel, cost })).sort((a, b) => b.cost - a.cost) })
+    })()
+  }, [sb])
+  if (!data) return <EmptyState msg="로딩..." />
+  return (
+    <div className="flex flex-col h-full">
+      <div className="text-2xl font-bold text-text-primary">₩{formatNumber(data.total)}</div>
+      <div className="text-[11px] text-text-tertiary mt-1">이번달 광고비 합계</div>
+      <div className="mt-2 space-y-0.5 text-[11px]">
+        {data.byChannel.slice(0, 4).map(c => (
+          <div key={c.channel} className="flex justify-between">
+            <span className="text-text-tertiary truncate">{c.channel}</span>
+            <span className="text-text-secondary">₩{formatNumber(c.cost)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// 유입 채널 Top 5 — pipeline_leads 이번달 inquiry_channel 별 카운트
+export function ChannelTop5Widget({ size: _size }: WidgetProps) {
+  const sb = useRef(createClient()).current
+  const [data, setData] = useState<{ channel: string; count: number }[] | null>(null)
+  useEffect(() => {
+    (async () => {
+      const today = new Date()
+      const first = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+      const { data: rows } = await sb.from('pipeline_leads')
+        .select('inquiry_channel').gte('inquiry_date', first)
+      const cnt: Record<string, number> = {}
+      for (const r of rows || []) {
+        const ch = r.inquiry_channel || '미분류'
+        cnt[ch] = (cnt[ch] || 0) + 1
+      }
+      setData(Object.entries(cnt).map(([channel, count]) => ({ channel, count })).sort((a, b) => b.count - a.count).slice(0, 5))
+    })()
+  }, [sb])
+  if (!data) return <EmptyState msg="로딩..." />
+  if (data.length === 0) return <EmptyState msg="이번달 리드 없음" />
+  const max = Math.max(...data.map(d => d.count))
+  return (
+    <div className="flex flex-col h-full gap-1.5 pt-1">
+      {data.map(d => (
+        <div key={d.channel} className="flex items-center gap-2 text-[11px]">
+          <span className="text-text-secondary truncate w-24">{d.channel}</span>
+          <div className="flex-1 bg-gray-100 rounded h-2 overflow-hidden">
+            <div className="bg-primary-500 h-full" style={{ width: `${(d.count / max) * 100}%` }} />
+          </div>
+          <span className="text-text-primary font-semibold w-8 text-right">{d.count}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// CPL — 이번달 광고비 / 이번달 신규 리드 수
+export function CPLWidget({ size: _size }: WidgetProps) {
+  const sb = useRef(createClient()).current
+  const [data, setData] = useState<{ cpl: number; cost: number; leads: number } | null>(null)
+  useEffect(() => {
+    (async () => {
+      const today = new Date()
+      const first = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+      const [ads, leads] = await Promise.all([
+        sb.from('ad_performance_daily').select('cost').gte('date', first),
+        sb.from('pipeline_leads').select('id', { count: 'exact', head: true }).gte('inquiry_date', first),
+      ])
+      const cost = (ads.data || []).reduce((s: number, r: any) => s + (r.cost || 0), 0)
+      const cnt = leads.count ?? 0
+      setData({ cpl: cnt > 0 ? Math.round(cost / cnt) : 0, cost, leads: cnt })
+    })()
+  }, [sb])
+  if (!data) return <EmptyState msg="로딩..." />
+  return (
+    <div className="flex flex-col h-full justify-center">
+      <div className="text-3xl font-bold text-text-primary">₩{formatNumber(data.cpl)}</div>
+      <div className="text-[11px] text-text-tertiary mt-1">리드당 광고비 (CPL)</div>
+      <div className="text-[10px] text-text-placeholder mt-1">
+        광고비 ₩{formatNumber(data.cost)} / 리드 {data.leads}건
+      </div>
+    </div>
+  )
+}
+
+// 월별 매출 트렌드 — v_revenue_monthly (mig 013) 최근 12개월
+export function MonthlyTrendWidget({ size: _size }: WidgetProps) {
+  const sb = useRef(createClient()).current
+  const [data, setData] = useState<{ label: string; total: number }[] | null>(null)
+  useEffect(() => {
+    (async () => {
+      const { data: rows } = await sb.from('v_revenue_monthly').select('year, month, total')
+      // 최근 12개월만
+      const sorted = (rows || []).sort((a: any, b: any) => (a.year - b.year) || (a.month - b.month))
+      const last12 = sorted.slice(-12)
+      setData(last12.map((r: any) => ({ label: `${String(r.year).slice(2)}.${r.month}`, total: r.total })))
+    })()
+  }, [sb])
+  if (!data) return <EmptyState msg="로딩..." />
+  if (data.length === 0) return <EmptyState msg="매출 없음" />
+  const max = Math.max(...data.map(d => d.total))
+  return (
+    <div className="flex flex-col h-full pt-2">
+      <div className="flex items-end gap-1 flex-1 min-h-[60px]">
+        {data.map(d => (
+          <div key={d.label} className="flex-1 flex flex-col items-center justify-end">
+            <div className="w-full bg-primary-500 rounded-t" style={{ height: `${(d.total / max) * 100}%` }} title={`${d.label} · ₩${formatNumber(d.total)}`} />
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-1 mt-1">
+        {data.map(d => (
+          <div key={d.label} className="flex-1 text-center text-[9px] text-text-placeholder">{d.label}</div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
+// Placeholder widgets (다른 미구현 위젯용)
 // ──────────────────────────────────────────────────────────────
 export const PlaceholderWidget =
   (title: string) =>

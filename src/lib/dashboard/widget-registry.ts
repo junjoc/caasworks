@@ -12,6 +12,10 @@ import {
   ConversionRateWidget,
   WeeklyTasksWidget,
   PlaceholderWidget,
+  AdSpendWidget,
+  ChannelTop5Widget,
+  CPLWidget,
+  MonthlyTrendWidget,
 } from '@/components/dashboard/widgets'
 
 export interface WidgetDefinition extends WidgetMeta {
@@ -139,7 +143,7 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     defaultSize: 'L',
     availableSizes: ['M', 'L'],
     primaryHref: '/revenue',
-    component: PlaceholderWidget('월별 매출 트렌드'),
+    component: MonthlyTrendWidget,
   },
   {
     id: 'top_customers',
@@ -159,7 +163,7 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     defaultSize: 'M',
     availableSizes: ['S', 'M'],
     primaryHref: '/marketing/ads',
-    component: PlaceholderWidget('이번달 광고비'),
+    component: AdSpendWidget,
   },
   {
     id: 'channel_top5',
@@ -169,7 +173,7 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     defaultSize: 'M',
     availableSizes: ['M', 'L'],
     primaryHref: '/marketing/analytics',
-    component: PlaceholderWidget('유입 채널 Top 5'),
+    component: ChannelTop5Widget,
   },
   {
     id: 'cpl',
@@ -179,7 +183,7 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     defaultSize: 'S',
     availableSizes: ['S'],
     primaryHref: '/marketing/analytics',
-    component: PlaceholderWidget('CPL'),
+    component: CPLWidget,
   },
   {
     id: 'monthly_billing',

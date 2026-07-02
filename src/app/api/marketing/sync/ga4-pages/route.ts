@@ -133,16 +133,27 @@ export async function POST(request: NextRequest) {
       pageViews: Number(row.metricValues?.[5]?.value) || 0,
     }))
 
-    const pages = (pageReport.data.rows || []).map(row => ({
-      pagePath: row.dimensionValues?.[0]?.value || '',
-      pageViews: Number(row.metricValues?.[0]?.value) || 0,
-      sessions: Number(row.metricValues?.[1]?.value) || 0,
-      activeUsers: Number(row.metricValues?.[2]?.value) || 0,
-      avgDuration: Number(row.metricValues?.[3]?.value) || 0,
-      bounceRate: Number(row.metricValues?.[4]?.value) || 0,
-      engagedSessions: Number(row.metricValues?.[5]?.value) || 0,
-      entrances: 0,
-    }))
+    // 앱(app.caas.works) 경로 제외 필터 (P0-4). 방문자 여정에 앱 트래픽 혼입 방지.
+    const APP_PATH_PATTERNS = [
+      /^\/cctv\//i, /^\/companies\//i, /^\/proxy\//i,
+      /^\/control-dashboard/i, /^\/chat/i,
+      /^\/users\//i, /^\/signup/i, /^\/login/i,
+      /^\/fire-detections\//i, /^\/action\//i,
+    ]
+    const isAppPath = (p: string) => APP_PATH_PATTERNS.some(re => re.test(p))
+
+    const pages = (pageReport.data.rows || [])
+      .map(row => ({
+        pagePath: row.dimensionValues?.[0]?.value || '',
+        pageViews: Number(row.metricValues?.[0]?.value) || 0,
+        sessions: Number(row.metricValues?.[1]?.value) || 0,
+        activeUsers: Number(row.metricValues?.[2]?.value) || 0,
+        avgDuration: Number(row.metricValues?.[3]?.value) || 0,
+        bounceRate: Number(row.metricValues?.[4]?.value) || 0,
+        engagedSessions: Number(row.metricValues?.[5]?.value) || 0,
+        entrances: 0,
+      }))
+      .filter(p => !isAppPath(p.pagePath))
 
     const channels = (channelReport.data.rows || []).map(row => ({
       channel: row.dimensionValues?.[0]?.value || '',
