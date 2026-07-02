@@ -338,26 +338,33 @@ export default function RevenuePage() {
   const cy = new Date().getFullYear()
 
   /* ── Fetch via server RPC get_revenue_page (STEP 4-B).
-     이전: batch 1000 loop + 클라이언트 filter(revenues.length>0).
-     현재: 서버가 이미 그 연도 매출 있는 프로젝트만 리턴, sheet_no DESC 정렬 완료. ── */
+     Supabase postgrest 의 db-max-rows=1000 서버 제한 때문에 batch 로 반복 호출.
+     서버가 매출 있는 프로젝트만 리턴 + sheet_no DESC 정렬은 여전히 서버가 처리. ── */
   const load = useCallback(async () => {
     setLoading(true)
     const t0 = performance.now()
-    // Supabase JS client 는 응답을 기본 1000 rows 로 자름 → .range() 로 명시 해제.
-    // RPC 함수 자체의 p_limit 5000 과 별도.
-    const { data, error } = await sb.rpc('get_revenue_page', {
-      p_year: year,
-      p_limit: 5000,
-      p_offset: 0,
-    }).select('*').range(0, 4999)
-    if (error) {
-      console.error('[revenue.load rpc]', error)
-      setRows([])
-      setLoading(false)
-      return
+    const BATCH = 1000
+    let offset = 0
+    let flatAll: any[] = []
+    while (true) {
+      const { data, error } = await sb.rpc('get_revenue_page', {
+        p_year: year,
+        p_limit: BATCH,
+        p_offset: offset,
+      })
+      if (error) {
+        console.error('[revenue.load rpc]', error)
+        setRows([])
+        setLoading(false)
+        return
+      }
+      const chunk = data || []
+      flatAll = flatAll.concat(chunk)
+      if (chunk.length < BATCH) break
+      offset += BATCH
     }
     // RPC flat rows → 기존 Row shape (customer nested) 로 재조립.
-    const withRev: Row[] = (data || []).map((r: any) => ({
+    const withRev: Row[] = flatAll.map((r: any) => ({
       id: r.project_id,
       customer_id: r.customer_id,
       project_name: r.project_name,
