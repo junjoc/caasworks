@@ -94,7 +94,7 @@ CREATE TRIGGER audit_pipeline_leads
 -- 인덱스 보강 (조회 성능)
 -- ----------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action, performed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_performed ON audit_logs(performed_at DESC);
 
 COMMENT ON FUNCTION audit_trigger_fn IS 'Auto-log INSERT/UPDATE/DELETE to audit_logs. Silent-fail so audit does not block operations.';
