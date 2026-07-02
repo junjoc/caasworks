@@ -343,11 +343,13 @@ export default function RevenuePage() {
   const load = useCallback(async () => {
     setLoading(true)
     const t0 = performance.now()
+    // Supabase JS client 는 응답을 기본 1000 rows 로 자름 → .range() 로 명시 해제.
+    // RPC 함수 자체의 p_limit 5000 과 별도.
     const { data, error } = await sb.rpc('get_revenue_page', {
       p_year: year,
       p_limit: 5000,
       p_offset: 0,
-    })
+    }).select('*').range(0, 4999)
     if (error) {
       console.error('[revenue.load rpc]', error)
       setRows([])
