@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { normalizeInquiryChannel, buildFirstTouch } from '@/lib/attribution'
 
 // Use service role for server-side operations
 function getSupabase() {
@@ -332,8 +333,19 @@ export async function POST(request: NextRequest) {
           contact_email: inquiry.email,
           contact_phone: inquiry.phone,
           inquiry_date: today,
-          inquiry_channel: inquiryChannel,
+          inquiry_channel: normalizeInquiryChannel({
+            referrer: inquiry.referrer,
+            inquiry_source: inquirySource,
+            inquiry_channel: inquiryChannel,
+          }),
           inquiry_source: inquirySource,
+          // STEP 3: attribution 캡처 (referrer 만 있음, session_id 는 폼-CRM 연결 후 backfill)
+          referrer: inquiry.referrer,
+          first_touch: buildFirstTouch({
+            referrer: inquiry.referrer,
+            inquiry_source: inquirySource,
+            inquiry_channel: inquiryChannel,
+          }) as any,
           inquiry_content: [
             inquiry.extra_content,  // 레퍼러 주소 ↔ 실제 레퍼러 사이의 실제 문의 내용 (최우선)
             inquiry.referrer ? `레퍼러 주소: ${inquiry.referrer}` : null,
