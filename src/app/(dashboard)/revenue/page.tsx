@@ -338,58 +338,51 @@ export default function RevenuePage() {
   const cm = new Date().getMonth() + 1
   const cy = new Date().getFullYear()
 
-  /* ── Fetch: 그 연도 시트 프로젝트 전체 (sheet_year=year) + 웹 추가 프로젝트 (sheet_year=null AND 그 연도 매출 있음).
-     매출 없는 연간계약도 표시 → 시트-CRM 완전 매칭.
-     batch 병렬화로 성능 유지. ── */
+  /* ── Fetch via get_revenue_page RPC (mig 016 v3).
+     서버가 sheet_year=year OR 그 연도 매출 있는 프로젝트를 리턴, revenues 는 그 연도만 JSONB.
+     Postgrest 1000-row 제한 우회 위해 batch 병렬 호출. ── */
   const load = useCallback(async () => {
     setLoading(true)
     const t0 = performance.now()
-    const size = 1000
-    const SELECT = 'id,customer_id,project_name,project_start,project_end,service_type,site_category,site_category2,billing_start,billing_end,billing_method,invoice_day,monthly_amount,status,notes,created_at,revenue_type,sheet_no,sheet_year,customer:customers(id,company_name,notes),revenues:monthly_revenues(id,month,amount,is_confirmed,year)'
-    // A: sheet_year=year 인 프로젝트 (매출 유무 무관, 매출은 nested 필터 없이 다 가져와 클라이언트에서 그 연도만 필터)
-    const promA = Array.from({ length: 4 }, (_, i) =>
-      sb.from('projects').select(SELECT)
-        .eq('sheet_year', year)
-        .order('sheet_no', { ascending: false, nullsFirst: true })
-        .order('created_at', { ascending: false })
-        .range(i * size, i * size + size - 1)
+    const BATCH = 1000
+    const maxBatches = 5  // 5000 rows 커버 (현재 실 데이터: 2024/1455, 2025/2414, 2026/2218)
+    const promises = Array.from({ length: maxBatches }, (_, i) =>
+      sb.rpc('get_revenue_page', {
+        p_year: year,
+        p_limit: BATCH,
+        p_offset: i * BATCH,
+      })
     )
-    // B: sheet_year IS NULL AND 그 연도 매출 있는 프로젝트 (웹 추가 등)
-    const promB = Array.from({ length: 2 }, (_, i) =>
-      sb.from('projects').select(SELECT)
-        .is('sheet_year', null)
-        .eq('revenues.year', year)
-        .order('sheet_no', { ascending: false, nullsFirst: true })
-        .order('created_at', { ascending: false })
-        .range(i * size, i * size + size - 1)
-    )
-    const results = await Promise.all([...promA, ...promB])
-    let all: Row[] = []
+    const results = await Promise.all(promises)
+    let flat: any[] = []
     for (const r of results) {
-      if (r.error) { console.error(r.error); continue }
-      if (r.data) all = all.concat(r.data as unknown as Row[])
+      if (r.error) { console.error('[revenue.load rpc]', r.error); continue }
+      if (r.data) flat = flat.concat(r.data)
     }
-    // dedup by id (A/B 중복 방지)
-    const seen = new Set<string>()
-    all = all.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true })
-    // 각 프로젝트 revenues 를 그 연도만 남기기 (SELECT 에서 year 필터 안 함).
-    // sheet_year 프로젝트는 다른 연도 매출도 함께 올 수 있음.
-    for (const r of all) {
-      if (r.revenues) r.revenues = r.revenues.filter((x: any) => x.year === year)
-    }
-    // Filter: sheet_year=year 인 것 OR 그 연도 매출 있는 것
-    const withRev = all.filter(r => (r as any).sheet_year === year || (r.revenues && r.revenues.length > 0))
-    // A/B 두 fetch union 후 정렬이 섞이므로 클라이언트에서 재정렬.
-    // 서버 정렬 순서를 재현: sheet_no DESC (nullsFirst) → created_at DESC
-    withRev.sort((a, b) => {
-      const na = a.sheet_no != null ? Number(a.sheet_no) : null
-      const nb = b.sheet_no != null ? Number(b.sheet_no) : null
-      if (na == null && nb == null) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      if (na == null) return -1  // nulls first
-      if (nb == null) return 1
-      if (nb !== na) return nb - na  // sheet_no DESC
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    })
+    // RPC flat rows → Row shape (customer nested) 재조립. 서버에서 이미 sheet_no DESC 정렬됨.
+    const withRev: Row[] = flat.map((r: any) => ({
+      id: r.project_id,
+      customer_id: r.customer_id,
+      project_name: r.project_name,
+      project_start: r.project_start,
+      project_end: r.project_end,
+      service_type: r.service_type,
+      site_category: r.site_category,
+      site_category2: r.site_category2,
+      billing_start: r.billing_start,
+      billing_end: r.billing_end,
+      billing_method: r.billing_method,
+      invoice_day: r.invoice_day,
+      monthly_amount: r.monthly_amount,
+      status: r.status,
+      notes: r.notes,
+      created_at: r.created_at,
+      revenue_type: r.revenue_type,
+      sheet_no: r.sheet_no,
+      sheet_year: r.sheet_year,
+      customer: { id: r.customer_id, company_name: r.customer_name, notes: r.customer_notes },
+      revenues: r.revenues || [],
+    }))
     // _seqNo: sheet_no 없는 웹 추가 행에 max(sheet_no)+1, +2, ... 자동 부여.
     const maxSheetNo = withRev.reduce((m, r) => {
       const n = r.sheet_no != null ? Number(r.sheet_no) : 0
