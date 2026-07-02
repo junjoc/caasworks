@@ -379,6 +379,17 @@ export default function RevenuePage() {
     }
     // Filter: sheet_year=year 인 것 OR 그 연도 매출 있는 것
     const withRev = all.filter(r => (r as any).sheet_year === year || (r.revenues && r.revenues.length > 0))
+    // A/B 두 fetch union 후 정렬이 섞이므로 클라이언트에서 재정렬.
+    // 서버 정렬 순서를 재현: sheet_no DESC (nullsFirst) → created_at DESC
+    withRev.sort((a, b) => {
+      const na = a.sheet_no != null ? Number(a.sheet_no) : null
+      const nb = b.sheet_no != null ? Number(b.sheet_no) : null
+      if (na == null && nb == null) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      if (na == null) return -1  // nulls first
+      if (nb == null) return 1
+      if (nb !== na) return nb - na  // sheet_no DESC
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
     // _seqNo: sheet_no 없는 웹 추가 행에 max(sheet_no)+1, +2, ... 자동 부여.
     const maxSheetNo = withRev.reduce((m, r) => {
       const n = r.sheet_no != null ? Number(r.sheet_no) : 0
