@@ -359,14 +359,16 @@ export default function RevenuePage() {
       if (data.length < size) break
       from += size
     }
-    // 매출 유무와 관계 없이 시트의 모든 프로젝트 표시 (팀원이 시트와 1:1 매칭 확인용).
+    // 해당 연도에 매출 있는 프로젝트만 표시 (매년 독립 넘버링을 위해).
+    // 각 연도 view 에서 sheet_no 는 그 연도의 프로젝트 넘버링을 의미.
+    const withRev = all.filter(r => r.revenues && r.revenues.length > 0)
     // _seqNo: sheet_no 없는 웹 추가 행에 max(sheet_no)+1, +2, ... 자동 부여.
-    const maxSheetNo = all.reduce((m, r) => {
+    const maxSheetNo = withRev.reduce((m, r) => {
       const n = r.sheet_no != null ? Number(r.sheet_no) : 0
       return n > m ? n : m
     }, 0)
     let webAddedCount = 0
-    const withSeq = all.map(r => {
+    const withSeq = withRev.map(r => {
       if (r.sheet_no == null) {
         webAddedCount++
         return { ...r, _seqNo: Math.floor(maxSheetNo) + webAddedCount }
