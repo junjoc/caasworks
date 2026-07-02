@@ -548,6 +548,7 @@ export default function RevenuePage() {
           <th className="px-3 py-2 text-left font-semibold text-gray-600 w-20">구분</th>
           {MS.map(m => <th key={m} className={`px-1 py-2 text-center font-medium min-w-[80px] ${m === cm && year === cy ? 'bg-red-50 text-red-700 font-bold' : 'text-gray-600'}`}>{m}월</th>)}
           <th className="px-2 py-2 text-right font-semibold text-gray-600 min-w-[100px]">합계</th>
+          <th className="px-2 py-2 text-right font-semibold text-gray-600 min-w-[110px]">부가세 포함</th>
         </tr></thead><tbody><tr className="font-semibold bg-gray-50">
           <td className="px-3 py-2 text-gray-700">합계</td>
           {MS.map(m => {
@@ -555,6 +556,7 @@ export default function RevenuePage() {
             return <td key={m} className={`px-1 py-2 text-right ${m === cm && year === cy ? 'bg-red-50 text-red-700 font-bold' : ''} ${val < 0 ? 'text-red-600' : ''}`}>{val !== 0 ? formatCurrency(val) : '-'}</td>
           })}
           <td className={`px-2 py-2 text-right font-bold ${totals.g < 0 ? 'text-red-600' : 'text-primary-600'}`}>{formatCurrency(totals.g)}</td>
+          <td className={`px-2 py-2 text-right font-bold ${totals.g < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(Math.round(totals.g * 1.1))}</td>
         </tr></tbody></table>
       </div>
 
