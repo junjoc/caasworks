@@ -2,3 +2,6 @@ node_modules/
 .next/
 .env.local
 .vercel
+
+# STEP 1 백업 (로컬 보관용, 큼)
+backups/
