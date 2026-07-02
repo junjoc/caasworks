@@ -168,9 +168,11 @@ export async function POST(request: NextRequest) {
     // ─── Supabase traffic_analytics에 페이지별 데이터 저장 ───
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // 기존 데이터 삭제 (해당 기간)
+    // 기존 sync 데이터만 삭제 (수동 입력 data_source='manual' 은 보존)
+    // STEP 2-B 안전 동기화: 다른 sync 라우트와 동일한 보호 패턴
     await supabase.from('traffic_analytics')
       .delete()
+      .neq('data_source', 'manual')
       .gte('analytics_date', startDate)
       .lte('analytics_date', endDate)
 
