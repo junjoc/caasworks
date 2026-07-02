@@ -337,55 +337,33 @@ export default function RevenuePage() {
   const cm = new Date().getMonth() + 1
   const cy = new Date().getFullYear()
 
-  /* ── Fetch via server RPC get_revenue_page (STEP 4-B).
-     Supabase postgrest 의 db-max-rows=1000 서버 제한 때문에 batch 로 반복 호출.
-     서버가 매출 있는 프로젝트만 리턴 + sheet_no DESC 정렬은 여전히 서버가 처리. ── */
+  /* ── Fetch ALL (batch 1000 to bypass Supabase default limit) ──
+     STEP 4-C 시도 후 원복: RPC 경로가 postgrest 서버 제한으로 데이터 누락 →
+     검증된 batch loop 로 복원. RPC/View 는 백엔드 자산으로 유지. ── */
   const load = useCallback(async () => {
     setLoading(true)
     const t0 = performance.now()
-    const BATCH = 1000
-    let offset = 0
-    let flatAll: any[] = []
+    let all: Row[] = []
+    let from = 0
+    const size = 1000
     while (true) {
-      const { data, error } = await sb.rpc('get_revenue_page', {
-        p_year: year,
-        p_limit: BATCH,
-        p_offset: offset,
-      })
-      if (error) {
-        console.error('[revenue.load rpc]', error)
-        setRows([])
-        setLoading(false)
-        return
-      }
-      const chunk = data || []
-      flatAll = flatAll.concat(chunk)
-      if (chunk.length < BATCH) break
-      offset += BATCH
+      // 시트 NO 내림차순: 가장 큰 NO(최신)가 맨 위, NO 1 이 맨 아래.
+      // 웹 추가 행(sheet_no NULL)은 nullsFirst 로 맨 위에 표시 (시트 다음 번호).
+      const { data, error } = await sb
+        .from('projects')
+        .select('id,customer_id,project_name,project_start,project_end,service_type,site_category,site_category2,billing_start,billing_end,billing_method,invoice_day,monthly_amount,status,notes,created_at,revenue_type,sheet_no,customer:customers(id,company_name,notes),revenues:monthly_revenues(id,month,amount,is_confirmed)')
+        .eq('revenues.year', year)
+        .order('sheet_no', { ascending: false, nullsFirst: true })
+        .order('created_at', { ascending: false })
+        .range(from, from + size - 1)
+      if (error) { console.error(error); break }
+      if (!data || data.length === 0) break
+      all = all.concat(data as unknown as Row[])
+      if (data.length < size) break
+      from += size
     }
-    // RPC flat rows → 기존 Row shape (customer nested) 로 재조립.
-    const withRev: Row[] = flatAll.map((r: any) => ({
-      id: r.project_id,
-      customer_id: r.customer_id,
-      project_name: r.project_name,
-      project_start: r.project_start,
-      project_end: r.project_end,
-      service_type: r.service_type,
-      site_category: r.site_category,
-      site_category2: r.site_category2,
-      billing_start: r.billing_start,
-      billing_end: r.billing_end,
-      billing_method: r.billing_method,
-      invoice_day: r.invoice_day,
-      monthly_amount: r.monthly_amount,
-      status: r.status,
-      notes: r.notes,
-      created_at: r.created_at,
-      revenue_type: r.revenue_type,
-      sheet_no: r.sheet_no,
-      customer: { id: r.customer_id, company_name: r.customer_name, notes: r.customer_notes },
-      revenues: r.revenues || [],
-    }))
+    // 해당 연도에 매출 있는 프로젝트만 표시 (매년 독립 넘버링을 위해).
+    const withRev = all.filter(r => r.revenues && r.revenues.length > 0)
     // _seqNo: sheet_no 없는 웹 추가 행에 max(sheet_no)+1, +2, ... 자동 부여.
     const maxSheetNo = withRev.reduce((m, r) => {
       const n = r.sheet_no != null ? Number(r.sheet_no) : 0
