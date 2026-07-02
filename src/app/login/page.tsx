@@ -1,12 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const [error, setError] = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
   const supabase = createClient()
+
+  // 콜드 스타트 완화: 로그인 페이지 로드 즉시 warmup 트리거.
+  // 사용자가 OAuth 클릭 → 리다이렉트 → 대시보드 도착할 즈음엔 이미 warm.
+  useEffect(() => {
+    fetch('/api/warmup').catch(() => {})
+  }, [])
 
   const handleGoogleLogin = async () => {
     setError('')
