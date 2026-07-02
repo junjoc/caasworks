@@ -35,7 +35,7 @@ const svcColor = serviceColor
 function fmtDate(d: string | null) { return d ? d.substring(2) : '' }
 
 /* ──── Types ──── */
-interface Rev { id: string; month: number; amount: number; is_confirmed: boolean }
+interface Rev { id: string; month: number; amount: number; is_confirmed: boolean; year?: number }
 interface Row {
   id: string; customer_id: string; project_name: string
   project_start: string | null; project_end: string | null
@@ -45,6 +45,7 @@ interface Row {
   monthly_amount: number | null; status: string; notes: string | null; created_at: string
   revenue_type: string | null  // 상품/서비스
   sheet_no: number | string | null  // 경영관리 시트의 NO (예: 1428, 1428.1)
+  sheet_year: number | null  // 어느 연도 시트에서 왔는지 (mig 015)
   customer?: { id: string; company_name: string; notes: string | null }
   revenues: Rev[]
   _seqNo?: number  // sheet_no 없는 웹 추가 행용 fallback
@@ -337,34 +338,47 @@ export default function RevenuePage() {
   const cm = new Date().getMonth() + 1
   const cy = new Date().getFullYear()
 
-  /* ── Fetch ALL: batch 1000 병렬 (STEP 4-C 재도전).
-     기존 while loop 는 순차 (3.5~5.7초). 병렬화로 wall time = max(1 batch).
-     예상: 1~1.5초. maxBatches 8000 rows 커버. ── */
+  /* ── Fetch: 그 연도 시트 프로젝트 전체 (sheet_year=year) + 웹 추가 프로젝트 (sheet_year=null AND 그 연도 매출 있음).
+     매출 없는 연간계약도 표시 → 시트-CRM 완전 매칭.
+     batch 병렬화로 성능 유지. ── */
   const load = useCallback(async () => {
     setLoading(true)
     const t0 = performance.now()
     const size = 1000
-    const maxBatches = 8  // 8000 projects 커버 (현재 실 데이터 ~4200)
-    const promises = Array.from({ length: maxBatches }, (_, i) =>
-      sb.from('projects')
-        .select('id,customer_id,project_name,project_start,project_end,service_type,site_category,site_category2,billing_start,billing_end,billing_method,invoice_day,monthly_amount,status,notes,created_at,revenue_type,sheet_no,customer:customers(id,company_name,notes),revenues:monthly_revenues(id,month,amount,is_confirmed)')
+    const SELECT = 'id,customer_id,project_name,project_start,project_end,service_type,site_category,site_category2,billing_start,billing_end,billing_method,invoice_day,monthly_amount,status,notes,created_at,revenue_type,sheet_no,sheet_year,customer:customers(id,company_name,notes),revenues:monthly_revenues(id,month,amount,is_confirmed,year)'
+    // A: sheet_year=year 인 프로젝트 (매출 유무 무관, 매출은 nested 필터 없이 다 가져와 클라이언트에서 그 연도만 필터)
+    const promA = Array.from({ length: 4 }, (_, i) =>
+      sb.from('projects').select(SELECT)
+        .eq('sheet_year', year)
+        .order('sheet_no', { ascending: false, nullsFirst: true })
+        .order('created_at', { ascending: false })
+        .range(i * size, i * size + size - 1)
+    )
+    // B: sheet_year IS NULL AND 그 연도 매출 있는 프로젝트 (웹 추가 등)
+    const promB = Array.from({ length: 2 }, (_, i) =>
+      sb.from('projects').select(SELECT)
+        .is('sheet_year', null)
         .eq('revenues.year', year)
         .order('sheet_no', { ascending: false, nullsFirst: true })
         .order('created_at', { ascending: false })
         .range(i * size, i * size + size - 1)
     )
-    const results = await Promise.all(promises)
+    const results = await Promise.all([...promA, ...promB])
     let all: Row[] = []
     for (const r of results) {
       if (r.error) { console.error(r.error); continue }
       if (r.data) all = all.concat(r.data as unknown as Row[])
     }
-    // 마지막 batch 가 꽉 찼으면 데이터 잘렸을 수 있음. 경고 로그.
-    if (results[maxBatches - 1]?.data?.length === size) {
-      console.warn(`[revenue.load] maxBatches(${maxBatches}) 도달 — 총 프로젝트 ${maxBatches * size}+ 초과 가능. maxBatches 상향 필요.`)
+    // dedup by id (A/B 중복 방지)
+    const seen = new Set<string>()
+    all = all.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true })
+    // 각 프로젝트 revenues 를 그 연도만 남기기 (SELECT 에서 year 필터 안 함).
+    // sheet_year 프로젝트는 다른 연도 매출도 함께 올 수 있음.
+    for (const r of all) {
+      if (r.revenues) r.revenues = r.revenues.filter((x: any) => x.year === year)
     }
-    // 해당 연도에 매출 있는 프로젝트만 표시 (매년 독립 넘버링을 위해).
-    const withRev = all.filter(r => r.revenues && r.revenues.length > 0)
+    // Filter: sheet_year=year 인 것 OR 그 연도 매출 있는 것
+    const withRev = all.filter(r => (r as any).sheet_year === year || (r.revenues && r.revenues.length > 0))
     // _seqNo: sheet_no 없는 웹 추가 행에 max(sheet_no)+1, +2, ... 자동 부여.
     const maxSheetNo = withRev.reduce((m, r) => {
       const n = r.sheet_no != null ? Number(r.sheet_no) : 0
