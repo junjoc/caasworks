@@ -337,30 +337,31 @@ export default function RevenuePage() {
   const cm = new Date().getMonth() + 1
   const cy = new Date().getFullYear()
 
-  /* ── Fetch ALL (batch 1000 to bypass Supabase default limit) ──
-     STEP 4-C 시도 후 원복: RPC 경로가 postgrest 서버 제한으로 데이터 누락 →
-     검증된 batch loop 로 복원. RPC/View 는 백엔드 자산으로 유지. ── */
+  /* ── Fetch ALL: batch 1000 병렬 (STEP 4-C 재도전).
+     기존 while loop 는 순차 (3.5~5.7초). 병렬화로 wall time = max(1 batch).
+     예상: 1~1.5초. maxBatches 8000 rows 커버. ── */
   const load = useCallback(async () => {
     setLoading(true)
     const t0 = performance.now()
-    let all: Row[] = []
-    let from = 0
     const size = 1000
-    while (true) {
-      // 시트 NO 내림차순: 가장 큰 NO(최신)가 맨 위, NO 1 이 맨 아래.
-      // 웹 추가 행(sheet_no NULL)은 nullsFirst 로 맨 위에 표시 (시트 다음 번호).
-      const { data, error } = await sb
-        .from('projects')
+    const maxBatches = 8  // 8000 projects 커버 (현재 실 데이터 ~4200)
+    const promises = Array.from({ length: maxBatches }, (_, i) =>
+      sb.from('projects')
         .select('id,customer_id,project_name,project_start,project_end,service_type,site_category,site_category2,billing_start,billing_end,billing_method,invoice_day,monthly_amount,status,notes,created_at,revenue_type,sheet_no,customer:customers(id,company_name,notes),revenues:monthly_revenues(id,month,amount,is_confirmed)')
         .eq('revenues.year', year)
         .order('sheet_no', { ascending: false, nullsFirst: true })
         .order('created_at', { ascending: false })
-        .range(from, from + size - 1)
-      if (error) { console.error(error); break }
-      if (!data || data.length === 0) break
-      all = all.concat(data as unknown as Row[])
-      if (data.length < size) break
-      from += size
+        .range(i * size, i * size + size - 1)
+    )
+    const results = await Promise.all(promises)
+    let all: Row[] = []
+    for (const r of results) {
+      if (r.error) { console.error(r.error); continue }
+      if (r.data) all = all.concat(r.data as unknown as Row[])
+    }
+    // 마지막 batch 가 꽉 찼으면 데이터 잘렸을 수 있음. 경고 로그.
+    if (results[maxBatches - 1]?.data?.length === size) {
+      console.warn(`[revenue.load] maxBatches(${maxBatches}) 도달 — 총 프로젝트 ${maxBatches * size}+ 초과 가능. maxBatches 상향 필요.`)
     }
     // 해당 연도에 매출 있는 프로젝트만 표시 (매년 독립 넘버링을 위해).
     const withRev = all.filter(r => r.revenues && r.revenues.length > 0)
