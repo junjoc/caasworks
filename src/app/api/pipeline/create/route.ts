@@ -30,6 +30,34 @@ export async function POST(request: NextRequest) {
       ].join('')
     }
 
+    // P0-6: customer_code 로 customers 매칭. 없으면 자동 생성 후 리드에 customer_id 연결.
+    // → 신규 문의 고객이 고객관리 목록에 즉시 반영됨.
+    const { data: existingCustomer } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('customer_code', body.customer_code)
+      .maybeSingle()
+    if (existingCustomer) {
+      body.customer_id = existingCustomer.id
+    } else {
+      const { data: newCust, error: custErr } = await supabase
+        .from('customers')
+        .insert({
+          customer_code: body.customer_code,
+          company_name: body.company_name,
+          contact_person: body.contact_person ?? null,
+          contact_phone: body.contact_phone ?? null,
+          contact_email: body.contact_email ?? null,
+          status: 'active',
+        })
+        .select('id')
+        .single()
+      if (custErr) {
+        return NextResponse.json({ error: `customer insert 실패: ${custErr.message}` }, { status: 500 })
+      }
+      body.customer_id = newCust.id
+    }
+
     // STEP 3: attribution 정규화 + first_touch 스냅샷 (있으면 저장)
     // 폼/웹 소스에서 body 에 session_id, utm_*, landing_page, referrer 전달 가능.
     const hasAttribution = body.utm_source || body.utm_medium || body.utm_campaign

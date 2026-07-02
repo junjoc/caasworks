@@ -325,9 +325,39 @@ export async function POST(request: NextRequest) {
           String(kstNow.getUTCMinutes()).padStart(2, '0'),
         ].join('')
 
+        // P0-6: customer_code 로 customers 매칭. 없으면 자동 생성 후 리드에 customer_id 연결.
+        let leadCustomerId: string | null = null
+        const { data: existingCust } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('customer_code', customerCode)
+          .maybeSingle()
+        if (existingCust) {
+          leadCustomerId = existingCust.id
+        } else {
+          const { data: newCust, error: newCustErr } = await supabase
+            .from('customers')
+            .insert({
+              customer_code: customerCode,
+              company_name: companyName,
+              contact_person: inquiry.name ?? null,
+              contact_phone: inquiry.phone ?? null,
+              contact_email: inquiry.email ?? null,
+              status: 'active',
+            })
+            .select('id')
+            .single()
+          if (newCustErr) {
+            console.error('Slack webhook: customer insert error', newCustErr)
+          } else {
+            leadCustomerId = newCust.id
+          }
+        }
+
         // pipeline_leads에 삽입
         const { error: leadError } = await supabase.from('pipeline_leads').insert({
           customer_code: customerCode,
+          customer_id: leadCustomerId,
           company_name: companyName,
           contact_person: inquiry.name,
           contact_email: inquiry.email,
