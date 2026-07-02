@@ -632,9 +632,9 @@ export default function RevenuePage() {
 
             <tbody>
               {/* 신규 작성 행 — 최상단에 배치 (아래로 스크롤 없이 바로 입력 가능) */}
-              <tr className="border-b-2 border-primary-300 bg-primary-50/40 sticky top-[48px] z-[15]">
-                <td className={`px-1.5 py-1.5 ${B} text-center font-bold text-primary-600 sticky left-0 bg-primary-50/90 z-10`}>NEW</td>
-                <td className={`px-0.5 py-1 ${B} text-center sticky left-[36px] bg-primary-50/90 z-10`}>
+              <tr className="border-b-2 border-primary-300 bg-primary-50 sticky top-[48px] z-[15]">
+                <td className={`px-1.5 py-1.5 ${B} text-center font-bold text-primary-600 sticky left-0 bg-primary-50 z-10`}>NEW</td>
+                <td className={`px-0.5 py-1 ${B} text-center sticky left-[36px] bg-primary-50 z-10`}>
                   <button onClick={saveNew} className="p-1 text-primary-500 hover:text-primary-700 hover:bg-primary-100 rounded" title="저장"><Plus className="w-3.5 h-3.5" /></button>
                 </td>
                 <td className={`px-1.5 py-1.5 ${B}`}><input type="date" className="w-full text-xs border border-gray-300 rounded px-0.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" value={nr.project_start} onChange={e => setNr(p => ({ ...p, project_start: e.target.value }))} /></td>
