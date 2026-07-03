@@ -84,11 +84,22 @@ export default function PipelineAnalyticsPage() {
 
   async function fetchData() {
     setLoading(true)
-    const [leadsRes, usersRes] = await Promise.all([
-      supabase.from('pipeline_leads').select('id, company_name, stage, assigned_to, inquiry_channel, industry, interest_service, inquiry_date, created_at, updated_at, converted_at, next_action_date, priority'),
+    // Supabase 1000-row 서버 제한 우회: batch 병렬.
+    const size = 1000, maxBatches = 5
+    const LEAD_COLS = 'id, company_name, stage, assigned_to, inquiry_channel, industry, interest_service, inquiry_date, created_at, updated_at, converted_at, next_action_date, priority'
+    const leadPromises = Array.from({ length: maxBatches }, (_, i) =>
+      supabase.from('pipeline_leads').select(LEAD_COLS).range(i * size, i * size + size - 1)
+    )
+    const [leadsResults, usersRes] = await Promise.all([
+      Promise.all(leadPromises),
       supabase.from('users').select('id, name'),
     ])
-    setLeads(leadsRes.data || [])
+    let allLeads: any[] = []
+    for (const r of leadsResults) {
+      if (r.error) { console.error(r.error); continue }
+      if (r.data) allLeads = allLeads.concat(r.data)
+    }
+    setLeads(allLeads)
     setUsers(usersRes.data || [])
     setLoading(false)
   }

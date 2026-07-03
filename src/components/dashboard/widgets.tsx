@@ -171,38 +171,45 @@ export function PreConversionWidget({ size }: WidgetProps) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// 5. 이번달 매출
+// 5. 이번달 매출 (Q5 팀 결정: MTD 비교 — 지난달 동일 시점까지 pro-rate)
 // ──────────────────────────────────────────────────────────────
-export function MonthlyRevenueWidget({ size }: WidgetProps) {
+export function MonthlyRevenueWidget({ size: _size }: WidgetProps) {
   const sb = useRef(createClient()).current
-  const [data, setData] = useState<{ current: number; previous: number } | null>(null)
+  const [data, setData] = useState<{ current: number; previousMTD: number; previousTotal: number } | null>(null)
   useEffect(() => {
     (async () => {
       const now = new Date()
       const year = now.getFullYear()
       const month = now.getMonth() + 1
+      const day = now.getDate()
       const prevMonth = month === 1 ? 12 : month - 1
       const prevYear = month === 1 ? year - 1 : year
+      const daysInPrevMonth = new Date(prevYear, prevMonth, 0).getDate()
       const [cur, prev] = await Promise.all([
         sb.from('monthly_revenues').select('amount').eq('year', year).eq('month', month),
         sb.from('monthly_revenues').select('amount').eq('year', prevYear).eq('month', prevMonth),
       ])
       const sum = (arr: any[] | null) => (arr || []).reduce((s, r) => s + Number(r.amount || 0), 0)
-      setData({ current: sum(cur.data), previous: sum(prev.data) })
+      const current = sum(cur.data)
+      const previousTotal = sum(prev.data)
+      // MTD: 지난달 매출을 오늘 일자까지 pro-rate.
+      const previousMTD = previousTotal * (Math.min(day, daysInPrevMonth) / daysInPrevMonth)
+      setData({ current, previousMTD, previousTotal })
     })()
   }, [sb])
   if (!data) return <EmptyState msg="로딩..." />
-  const delta = data.previous > 0 ? ((data.current - data.previous) / data.previous) * 100 : 0
+  const delta = data.previousMTD > 0 ? ((data.current - data.previousMTD) / data.previousMTD) * 100 : 0
   return (
     <div className="flex flex-col h-full justify-center">
       <div className="text-2xl font-bold text-text-primary">{formatCurrency(data.current)}</div>
       <div className="text-[11px] text-text-tertiary mt-1">
-        이번달 · {delta === 0 ? '지난달과 동일' :
+        이번달 · {delta === 0 ? '지난달 동일 시점과 동일' :
           delta > 0
-            ? <span className="text-green-600">↑ {delta.toFixed(1)}% vs 지난달</span>
-            : <span className="text-red-500">↓ {Math.abs(delta).toFixed(1)}% vs 지난달</span>
+            ? <span className="text-green-600">↑ {delta.toFixed(1)}% vs 지난달 동일 시점</span>
+            : <span className="text-red-500">↓ {Math.abs(delta).toFixed(1)}% vs 지난달 동일 시점</span>
         }
       </div>
+      <div className="text-[10px] text-text-placeholder mt-0.5">지난달 전체: {formatCurrency(data.previousTotal)}</div>
     </div>
   )
 }

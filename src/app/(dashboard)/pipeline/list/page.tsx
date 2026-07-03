@@ -67,27 +67,27 @@ export default function PipelineListPage() {
   async function fetchLeads() {
     setLoading(true)
     try {
-    let query = supabase
-      .from('pipeline_leads')
-      .select('*, assigned_user:users!pipeline_leads_assigned_to_fkey(id, name)')
-      .order('created_at', { ascending: false })
-      .limit(1000)
-
-    if (stageFilter !== '전체') {
-      query = query.eq('stage', stageFilter)
-    }
-
-    const { data, error } = await query
-    if (error) {
-      console.error('Pipeline query error:', error)
-      const { data: fallback } = await supabase
-        .from('pipeline_leads')
-        .select('*')
-        .order('created_at', { ascending: false })
-      setLeads(fallback || [])
-    } else {
-      setLeads(data || [])
-    }
+      // Supabase 1000-row 서버 제한 우회: batch 병렬 fetch (실제 총 ~1079).
+      const size = 1000
+      const maxBatches = 5  // 5000 rows 커버
+      const buildQuery = (from: number, to: number) => {
+        let q = supabase
+          .from('pipeline_leads')
+          .select('*, assigned_user:users!pipeline_leads_assigned_to_fkey(id, name)')
+          .order('created_at', { ascending: false })
+          .range(from, to)
+        if (stageFilter !== '전체') q = q.eq('stage', stageFilter)
+        return q
+      }
+      const results = await Promise.all(
+        Array.from({ length: maxBatches }, (_, i) => buildQuery(i * size, i * size + size - 1))
+      )
+      let all: any[] = []
+      for (const r of results) {
+        if (r.error) { console.error('Pipeline query error:', r.error); continue }
+        if (r.data) all = all.concat(r.data)
+      }
+      setLeads(all)
     } catch (err) {
       console.error('Fetch error:', err)
       setLeads([])

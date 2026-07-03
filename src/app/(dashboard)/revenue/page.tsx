@@ -183,8 +183,13 @@ const RevenueRow = React.memo(function RevenueRow({
           </div>
         )}
       </td>
-      {/* 회사명 (readonly) */}
-      <td className={`px-1.5 py-1.5 ${B} text-left font-medium text-gray-800 truncate max-w-[150px]`} title={r.customer?.company_name}>{r.customer?.company_name || '(미지정)'}</td>
+      {/* 회사명 (readonly) — 매출 없는 시트 프로젝트에 "연간계약" 회색 배지 (팀 결정 2026-07-03) */}
+      <td className={`px-1.5 py-1.5 ${B} text-left font-medium text-gray-800 truncate max-w-[150px]`} title={r.customer?.company_name}>
+        {r.customer?.company_name || '(미지정)'}
+        {(r.revenues == null || r.revenues.length === 0) && (
+          <span className="ml-1 inline-block px-1 py-0.5 text-[9px] font-medium text-gray-500 bg-gray-100 rounded border border-gray-200 align-middle">연간계약</span>
+        )}
+      </td>
       {/* 현장명 */}
       <td className={`px-1.5 py-1.5 ${B} text-left max-w-[220px]`}>
         {ec === 'project_name' ? (
@@ -296,6 +301,8 @@ export default function RevenuePage() {
   const [rows, setRows] = useState<Row[]>([])
   const [q, setQ] = useState('')
   const [custs, setCusts] = useState<Cust[]>([])
+  // 팀 결정 (2026-07-03): "매출 있는 것만" 필터 토글. 기본 OFF = 연간계약 포함 다 표시.
+  const [onlyWithRev, setOnlyWithRev] = useState(false)
 
   // 헤더별 컬럼 필터 — input 값 (즉시 반영)
   const [colFilter, setColFilter] = useState<{
@@ -443,8 +450,12 @@ export default function RevenuePage() {
         (r.revenues || []).some(v => isRevInRange(v.month, year, dateRange))
       )
     }
+    // Q5 팀 결정: "매출 있는 것만" 필터. 연간계약(매출 없음) 제외.
+    if (onlyWithRev) {
+      result = result.filter(r => r.revenues && r.revenues.length > 0)
+    }
     return result
-  }, [rows, debouncedQ, dateRange, year, debouncedFilter])
+  }, [rows, debouncedQ, dateRange, year, debouncedFilter, onlyWithRev])
 
   /* ── Totals (dateRange-aware) ── */
   const totals = useMemo(() => {
@@ -536,6 +547,10 @@ export default function RevenuePage() {
       <div className="page-header">
         <h1 className="page-title">CaaS.Works 현장별 매출 현황</h1>
         <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer select-none px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">
+            <input type="checkbox" checked={onlyWithRev} onChange={e => setOnlyWithRev(e.target.checked)} className="w-3.5 h-3.5" />
+            매출 있는 것만
+          </label>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
           <Select value={String(year)} onChange={e => setYear(Number(e.target.value))} options={yOpts} className="w-32" />
         </div>

@@ -77,14 +77,23 @@ export default function PipelineBoardPage() {
   }
 
   async function fetchLeads() {
-    const { data } = await supabase
-      .from('pipeline_leads')
-      .select('*, assigned_user:users!pipeline_leads_assigned_to_fkey(id, name)')
-      .order('created_at', { ascending: false })
+    // Supabase 1000-row 서버 제한 우회: batch 병렬.
+    const size = 1000, maxBatches = 5
+    const results = await Promise.all(
+      Array.from({ length: maxBatches }, (_, i) =>
+        supabase
+          .from('pipeline_leads')
+          .select('*, assigned_user:users!pipeline_leads_assigned_to_fkey(id, name)')
+          .order('created_at', { ascending: false })
+          .range(i * size, i * size + size - 1)
+      )
+    )
+    let data: any[] = []
+    for (const r of results) if (r.data) data = data.concat(r.data)
 
-    setLeads(data || [])
+    setLeads(data)
 
-    if (data && data.length > 0) {
+    if (data.length > 0) {
       // Fetch all activity_logs with lead_id (not using .in() to avoid URL length limit with 700+ leads)
       const { data: activities } = await supabase
         .from('activity_logs')
