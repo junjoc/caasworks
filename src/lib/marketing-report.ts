@@ -1,5 +1,6 @@
 // 마케팅 리포트 (/marketing/report) 계산 도우미.
 // 요구사항: 마케팅팀 _요구사항_CRM_마케팅리포트_클로드코드용_261008.md
+import { parseNaverBlogUrl } from './naver-blog-url'
 
 export type ChannelGroup = '웹' | '전화' | '기타'
 export const CHANNEL_GROUPS: ChannelGroup[] = ['웹', '전화', '기타']
@@ -31,11 +32,22 @@ export function referrerKey(url: string | null): string {
   if (!url) return NO_REFERRER
   try {
     const u = new URL(url)
+    // 네이버 블로그만 예외: 글 번호(logNo)를 키에 남긴다. PostView.naver?blogId=&logNo= 형식도 /아이디/글번호 로 통일
+    if (/^(m\.)?blog\.naver\.com$/i.test(u.host)) {
+      const nb = parseNaverBlogUrl(url)
+      if (nb?.logNo) return nb.blogId ? `${u.host}/${nb.blogId}/${nb.logNo}` : `${u.host}/PostView.naver?logNo=${nb.logNo}`
+    }
     const path = u.pathname.replace(/\/+$/, '')
     return `${u.host}${path}`
   } catch {
     return NO_REFERRER
   }
+}
+
+// (m.)blog.naver.com/{아이디}/{글번호} → 글번호
+export function naverLogNoOf(key: string): string | null {
+  const m = key.match(/^(?:m\.)?blog\.naver\.com\/(?:[^/?]+\/(\d+)|PostView\.naver\?logNo=(\d+))$/i)
+  return m ? (m[1] || m[2]) : null
 }
 
 // www.caas.works/blog/{id} → id

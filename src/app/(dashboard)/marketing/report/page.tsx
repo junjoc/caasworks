@@ -13,7 +13,7 @@ import { DateRangePicker, type DateRange } from '@/components/ui/date-range-pick
 import { STAGE_COLORS, STAGE_ORDER, ACTIVITY_TYPE_LABELS, formatDate } from '@/lib/utils'
 import { classifyTopics, TOPIC_TAGS } from '@/lib/topic-tags'
 import {
-  CHANNEL_GROUPS, PRESETS, presetRange, channelGroup, extractReferrer, referrerKey, blogIdOf,
+  CHANNEL_GROUPS, PRESETS, presetRange, channelGroup, extractReferrer, referrerKey, blogIdOf, naverLogNoOf,
   NO_REFERRER, toCsv, downloadText, type ChannelGroup, type PresetKey,
 } from '@/lib/marketing-report'
 import { toast } from 'sonner'
@@ -86,6 +86,7 @@ export default function MarketingReportPage() {
   const [users, setUsers] = useState<{ id: string; name: string }[]>([])
   const [lastActivity, setLastActivity] = useState<Map<string, { type: string; at: string }>>(new Map())
   const [blogTitles, setBlogTitles] = useState<Map<string, string>>(new Map())
+  const [naverTitles, setNaverTitles] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
   const [loadMs, setLoadMs] = useState<number | null>(null)
 
@@ -115,11 +116,13 @@ export default function MarketingReportPage() {
     const ids = all.map(l => l.id)
     const chunks: string[][] = []
     for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100))
-    const [acts, usersRes, blogsRes] = await Promise.all([
+    const [acts, usersRes, blogsRes, naverRes] = await Promise.all([
       Promise.all(chunks.map(c => supabase.from('activity_logs').select('lead_id, activity_type, performed_at')
         .in('lead_id', c).order('performed_at', { ascending: false }))),
       supabase.from('users').select('id, name'),
       supabase.from('content_performance').select('page_path, title').like('page_path', '%/blog/%'),
+      // 콘텐츠 성과 > 네이버 탭에서 URL 을 입력한 글
+      supabase.from('naver_blog_posts').select('log_no, title').not('log_no', 'is', null),
     ])
     const last = new Map<string, { type: string; at: string }>()
     for (const r of acts) for (const a of r.data || []) {
@@ -130,6 +133,7 @@ export default function MarketingReportPage() {
       const id = blogIdOf(`www.caas.works${(b.page_path || '').replace(/\/+$/, '')}`)
       if (id && b.title) titles.set(id, b.title.replace(/\s*[-|]\s*카스웍스.*$/, ''))
     }
+    setNaverTitles(new Map((naverRes.data || []).map(n => [n.log_no as string, n.title as string])))
     setLeads(all)
     setUsers(usersRes.data || [])
     setLastActivity(last)
@@ -217,11 +221,13 @@ export default function MarketingReportPage() {
   const pageRows = listRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const pageCount = Math.max(1, Math.ceil(listRows.length / PAGE_SIZE))
 
-  const refLabel = (key: string) => {
+  const refTitle = (key: string) => {
     const id = blogIdOf(key)
-    const title = id ? blogTitles.get(id) : null
-    return title ? `${title}` : key
+    if (id) return blogTitles.get(id) || null
+    const logNo = naverLogNoOf(key)
+    return logNo ? naverTitles.get(logNo) || null : null
   }
+  const refLabel = (key: string) => refTitle(key) || key
 
   const selectPreset = (k: PresetKey) => { setPreset(k); setRange(presetRange(k)) }
 
@@ -361,7 +367,7 @@ export default function MarketingReportPage() {
                         className={`cursor-pointer ${refFilter === key ? 'bg-primary-50' : ''}`}>
                         <td className="max-w-[260px]">
                           <div className="truncate" title={key}>{refLabel(key)}</div>
-                          {blogIdOf(key) && blogTitles.get(blogIdOf(key)!) && <div className="text-[10px] text-text-tertiary truncate">{key}</div>}
+                          {refTitle(key) && <div className="text-[10px] text-text-tertiary truncate">{key}</div>}
                         </td>
                         <td className="text-right">{v.n}</td>
                         <td className="text-right">{v.won || ''}</td>
