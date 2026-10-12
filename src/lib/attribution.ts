@@ -1,6 +1,7 @@
 // 리드 유입채널 판정.
 // 저장 기준은 화면 분류(CHANNEL_OPTIONS + CHANNEL_SUB_SOURCES): 리드 화면과 광고성과 연동(sync-lead-to-ads)이 이 값에 의존한다.
 // 팀이 정한 14종 표준은 리포트에서 묶어 보여줄 때만 쓴다 (2026-10-12 결정).
+import { classifyBlogReferrer } from './blog-channel'
 
 export interface AttributionInput {
   utm_source?: string | null
@@ -47,7 +48,11 @@ export function inferLeadChannel(a: AttributionInput): LeadChannel {
   if (source || medium) {
     // 네이버 광고: 유입경로 = utm_campaign (N_smart, N_video ...) — 마케팅팀 요청 2026-10-12
     if (/^nads/.test(source)) return { channel: '네이버', source: a.utm_campaign || '검색광고' }
-    if (source.includes('blog')) return { channel: '블로그', source: source.includes('tistory') ? '티스토리' : '네이버' }
+    if (source.includes('blog') || medium === 'blog') {
+      // 블로그 utm 은 레퍼러로 자사/외주 구분, 레퍼러가 없으면 자사
+      if (source.includes('tistory')) return { channel: '블로그', source: '티스토리' }
+      return classifyBlogReferrer(a.referrer) || { channel: '블로그', source: '자사' }
+    }
     if (AI_HOSTS.some(h => source.includes(h)) || ['gemini', 'chatgpt', 'perplexity', 'claude'].includes(source)) {
       return { channel: '검색유입', source: '생성형AI' }
     }
@@ -56,7 +61,6 @@ export function inferLeadChannel(a: AttributionInput): LeadChannel {
     if (source.includes('google')) return paid ? { channel: '구글', source: '검색광고' } : { channel: '검색유입', source: '구글' }
     if (['facebook', 'instagram', 'meta'].some(s => source.includes(s))) return { channel: '메타', source: source.includes('instagram') ? '인스타그램' : '페이스북' }
     if (source.includes('youtube')) return { channel: '유튜브', source: paid ? '광고' : '오가닉' }
-    if (medium === 'blog') return { channel: '블로그', source: source.includes('tistory') ? '티스토리' : '네이버' }
   }
 
   const ref = (a.referrer || '').trim()
@@ -66,7 +70,9 @@ export function inferLeadChannel(a: AttributionInput): LeadChannel {
 
   // 네이버 광고(NAds) 중간 랜딩 도메인. utm 이 없으면 캠페인을 모르므로 검색광고
   if (host.endsWith('miracleintip.com')) return { channel: '네이버', source: a.utm_campaign || '검색광고' }
-  if (host.endsWith('blog.naver.com')) return { channel: '블로그', source: '네이버' }
+  // 네이버 블로그: caasworks 는 자사, 그 외(와 boosterlink.kr)는 외주 블로그 (src/config/blog_channels.json)
+  const blog = classifyBlogReferrer(ref)
+  if (blog) return blog
   if (host.endsWith('tistory.com')) return { channel: '블로그', source: '티스토리' }
   if (host.endsWith('search.naver.com')) return { channel: '검색유입', source: '네이버' }
   if (AI_HOSTS.some(h => host.includes(h))) return { channel: '검색유입', source: '생성형AI' }

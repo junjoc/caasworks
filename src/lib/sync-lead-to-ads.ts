@@ -20,7 +20,7 @@ export function mapLeadChannelToAds(inquiryChannel: string, inquirySource: strin
   if (mapped) return { channel: ch, ...mapped }
 
   // 광고성과와 동일한 채널명인 경우 (통합 후)
-  const directChannels = ['네이버', '구글', '메타', '유튜브', '검색유입', '자사채널', '블로그', '언론', '이벤트/행사']
+  const directChannels = ['네이버', '구글', '메타', '유튜브', '검색유입', '자사채널', '블로그', '외주 블로그', '언론', '이벤트/행사']
   if (directChannels.includes(ch)) {
     // 서브소스(campaign_name) 결정
     if (ch === '검색유입') {

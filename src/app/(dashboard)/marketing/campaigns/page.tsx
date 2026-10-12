@@ -75,6 +75,7 @@ const CHANNEL_OPTIONS = [
   { value: '메타', label: '메타 (FB/IG)' },
   { value: '유튜브', label: '유튜브' },
   { value: '블로그', label: '블로그' },
+  { value: '외주 블로그', label: '외주 블로그' },
   { value: '언론', label: '언론' },
   { value: '이벤트', label: '이벤트/행사' },
   { value: '이메일', label: '이메일' },

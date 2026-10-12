@@ -1,12 +1,13 @@
 // 마케팅 리포트 (/marketing/report) 계산 도우미.
 // 요구사항: 마케팅팀 _요구사항_CRM_마케팅리포트_클로드코드용_261008.md
 import { parseNaverBlogUrl } from './naver-blog-url'
+import { classifyBlogReferrer, OUTSOURCED_BLOG_CHANNEL } from './blog-channel'
 
 export type ChannelGroup = '웹' | '전화' | '기타'
 export const CHANNEL_GROUPS: ChannelGroup[] = ['웹', '전화', '기타']
 
 const PHONE = ['대표전화', '개인전화']
-const WEB_CHANNELS = ['검색유입', '자사채널', '블로그', '네이버', '구글', '메타', '유튜브', '언론']
+const WEB_CHANNELS = ['검색유입', '자사채널', '블로그', '외주 블로그', '네이버', '구글', '메타', '유튜브', '언론']
 
 // 화면 분류(채널 + 유입경로) → 웹/전화/기타. 자사채널 아래 대표전화·개인전화·해피톡은 웹이 아니다.
 export function channelGroup(channel: string | null, source: string | null): ChannelGroup {
@@ -32,6 +33,9 @@ export function referrerKey(url: string | null): string {
   if (!url) return NO_REFERRER
   try {
     const u = new URL(url)
+    // 외주 블로그는 글마다 나누지 않고 한 줄 (유입경로별: 팀부스터 / 인플루언서 …)
+    const blog = classifyBlogReferrer(url)
+    if (blog && blog.channel === OUTSOURCED_BLOG_CHANNEL) return `${blog.channel} · ${blog.source}`
     // 네이버 블로그만 예외: 글 번호(logNo)를 키에 남긴다. PostView.naver?blogId=&logNo= 형식도 /아이디/글번호 로 통일
     if (/^(m\.)?blog\.naver\.com$/i.test(u.host)) {
       const nb = parseNaverBlogUrl(url)

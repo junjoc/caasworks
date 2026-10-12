@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 import { gaSegmentFilter } from '@/lib/ga-segment'
+import { classifyNaverBlogId } from '@/lib/blog-channel'
+import { parseNaverBlogUrl } from '@/lib/naver-blog-url'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -63,6 +65,11 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   // 해피톡 / 채널톡
   if (src.includes('happytalk') || src.includes('channel.io') || src.includes('채널톡')) {
     return { channel: '자사채널', campaign_name: '해피톡' }
+  }
+
+  // 외주 블로그 대행사 링크 (src/config/blog_channels.json)
+  if (src.includes('boosterlink')) {
+    return { channel: '외주 블로그', campaign_name: '팀부스터' }
   }
 
   // ─── 블로그 (referral) ───
@@ -163,6 +170,34 @@ export async function POST(request: NextRequest) {
     })
 
     const gaRows = response.data.rows || []
+
+    // 네이버 블로그 유입은 GA 소스가 호스트(blog.naver.com)뿐이라 자사/외주를 못 나눈다.
+    // 첫 페이지의 pageReferrer(글 주소)로 날짜별 자사·예외 블로그 세션을 세고, 나머지는 외주 블로그로 본다.
+    const blogRef = await analyticsData.properties.runReport({
+      property: `properties/${propertyId}`,
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [{ name: 'date' }, { name: 'pageReferrer' }],
+        dimensionFilter: { andGroup: { expressions: [
+          gaSegmentFilter('marketing', 'landingPage')!,
+          { filter: { fieldName: 'sessionSource', stringFilter: { matchType: 'CONTAINS', value: 'blog.naver' } } },
+          { filter: { fieldName: 'pageReferrer', stringFilter: { matchType: 'CONTAINS', value: 'blog.naver.com' } } },
+        ] } },
+        metrics: [{ name: 'sessions' }],
+        limit: '10000',
+      },
+    })
+    // date → "채널|유입경로" → 세션
+    const blogSplit = new Map<string, Map<string, number>>()
+    for (const row of blogRef.data.rows || []) {
+      const d = row.dimensionValues?.[0]?.value || ''
+      const c = classifyNaverBlogId(parseNaverBlogUrl(row.dimensionValues?.[1]?.value)?.blogId)
+      const m = blogSplit.get(d) || new Map<string, number>()
+      const k = `${c.channel}|${c.source}`
+      m.set(k, (m.get(k) || 0) + (Number(row.metricValues?.[0]?.value) || 0))
+      blogSplit.set(d, m)
+    }
+    const naverBlogTotals = new Map<string, { sessions: number; users: number; views: number; convs: number; sources: Map<string, number> }>()
     console.log(`[GA4 Sources] ${gaRows.length}개 소스/매체 행 조회`)
 
     // ─── GA4 데이터를 채널별로 집계 ───
@@ -195,6 +230,15 @@ export async function POST(request: NextRequest) {
       const mapping = mapSourceToChannel(source, medium)
       if (!mapping) continue
 
+      // 네이버 블로그 세션은 아래에서 자사/외주로 나눠 넣는다
+      if (source.toLowerCase().includes('blog.naver')) {
+        const t = naverBlogTotals.get(rawDate) || { sessions: 0, users: 0, views: 0, convs: 0, sources: new Map<string, number>() }
+        t.sessions += sessions; t.users += users; t.views += views; t.convs += convs
+        t.sources.set(source, (t.sources.get(source) || 0) + sessions)
+        naverBlogTotals.set(rawDate, t)
+        continue
+      }
+
       const key = `${dateStr}|${mapping.channel}|${mapping.campaign_name}`
       const existing = aggregated.get(key)
 
@@ -221,6 +265,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 날짜별 네이버 블로그 세션 배분: 글 주소로 구분된 자사·예외 블로그 먼저, 나머지는 외주(팀부스터)
+    for (const [rawDate, t] of Array.from(naverBlogTotals.entries())) {
+      const dateStr = `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
+      const parts = new Map<string, number>()
+      let left = t.sessions
+      for (const [k, n] of Array.from(blogSplit.get(rawDate)?.entries() || [])) {
+        if (k === '외주 블로그|팀부스터') continue
+        const take = Math.min(n, left)
+        if (take > 0) { parts.set(k, take); left -= take }
+      }
+      if (left > 0) parts.set('외주 블로그|팀부스터', left)
+      for (const [k, n] of Array.from(parts.entries())) {
+        const [channel, campaign_name] = k.split('|')
+        const ratio = t.sessions ? n / t.sessions : 0
+        const key = `${dateStr}|${channel}|${campaign_name}`
+        const ex = aggregated.get(key)
+        if (ex) {
+          ex.ga_visits += n
+          ex.active_users += Math.round(t.users * ratio)
+          ex.page_views += Math.round(t.views * ratio)
+          ex.conversions += Math.round(t.convs * ratio)
+        } else {
+          aggregated.set(key, {
+            date: dateStr, channel, campaign_name, ga_visits: n,
+            active_users: Math.round(t.users * ratio), page_views: Math.round(t.views * ratio),
+            conversions: Math.round(t.convs * ratio), sources: new Map(t.sources),
+          })
+        }
+      }
+    }
+
     console.log(`[GA4 Sources] ${aggregated.size}개 채널/소스 집계`)
 
     if (aggregated.size === 0) {
@@ -233,7 +308,8 @@ export async function POST(request: NextRequest) {
 
     // ─── Supabase에 저장 ───
     const supabase = createClient(supabaseUrl, supabaseKey)
-    const organicChannels = ['검색유입', '자사채널', '블로그', '언론']
+    // 외주 블로그는 월 비용 행(캠페인 연결, campaign_id 있음)이 같은 채널에 있어서 campaign_id 없는 행만 다룬다
+    const organicChannels = ['검색유입', '자사채널', '블로그', '외주 블로그', '언론']
 
     // 기존 수동 입력 데이터(문의/도입 등) 보존을 위해 먼저 조회 (기본 1000행 제한이 있어서 나눠 읽음)
     const existingRows: Record<string, any>[] = []
@@ -242,6 +318,7 @@ export async function POST(request: NextRequest) {
         .select('date, channel, campaign_name, signups, inquiries, adoptions, signup_companies, inquiry_companies, adoption_companies, inquiry_clicks')
         .in('channel', organicChannels)
         .neq('data_source', 'manual')
+        .is('campaign_id', null)
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date')
@@ -276,6 +353,7 @@ export async function POST(request: NextRequest) {
       .delete()
       .in('channel', organicChannels)
       .neq('data_source', 'manual')
+      .is('campaign_id', null)
       .gte('date', startDate)
       .lte('date', endDate)
 

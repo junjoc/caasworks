@@ -1,0 +1,8 @@
+{
+  "_comment": "블로그 레퍼러 → 유입채널 (마케팅팀 요청 2026-10-12). own 은 자사 네이버 블로그 아이디, exceptions 는 아이디별 예외, 그 외 네이버 블로그와 outsourced.hosts 는 외주.",
+  "own": { "naver_blog_ids": ["caasworks"], "channel": "블로그", "source": "자사" },
+  "outsourced": { "hosts": ["boosterlink.kr"], "channel": "외주 블로그", "source": "팀부스터" },
+  "exceptions": {
+    "imbc21c": { "channel": "외주 블로그", "source": "인플루언서" }
+  }
+}

@@ -68,10 +68,10 @@ interface MarketingBudget {
   budget_amount: number
 }
 
-type TabType = '전체' | '네이버' | '구글' | '메타' | '콘텐츠' | '기타'
+type TabType = '전체' | '네이버' | '구글' | '메타' | '외주 블로그' | '콘텐츠' | '기타'
 type SortField = 'date' | 'cost' | 'clicks' | 'signups'
 
-const TABS: TabType[] = ['전체', '네이버', '구글', '메타', '콘텐츠', '기타']
+const TABS: TabType[] = ['전체', '네이버', '구글', '메타', '외주 블로그', '콘텐츠', '기타']
 
 const CHANNEL_OPTIONS = [
   { value: '네이버', label: '네이버' },
@@ -81,6 +81,7 @@ const CHANNEL_OPTIONS = [
   { value: '검색유입', label: '검색유입 (오가닉)' },
   { value: '자사채널', label: '자사채널' },
   { value: '블로그', label: '블로그' },
+  { value: '외주 블로그', label: '외주 블로그 (월 비용)' },
   { value: '언론', label: '언론' },
   { value: '이벤트', label: '이벤트/행사' },
   { value: '기타', label: '기타' },
@@ -109,6 +110,7 @@ const CHANNEL_COLORS: Record<string, string> = {
   '검색유입': 'bg-teal-100 text-teal-700',
   '자사채널': 'bg-cyan-100 text-cyan-700',
   '블로그': 'bg-emerald-100 text-emerald-700',
+  '외주 블로그': 'bg-lime-100 text-lime-700',
   '언론': 'bg-purple-100 text-purple-700',
   '이벤트': 'bg-orange-100 text-orange-700',
   '기타': 'bg-gray-100 text-gray-700',
@@ -119,6 +121,8 @@ function channelToTab(channel: string): TabType {
   if (channel === '네이버') return '네이버'
   if (channel === '구글') return '구글'
   if (channel === '메타' || channel === '유튜브') return '메타'
+  // 외주 블로그(팀부스터 등)는 월 비용이 있어서 광고처럼 비용 대비 문의·도입으로 본다
+  if (channel === '외주 블로그') return '외주 블로그'
   if (channel === '블로그' || channel === '콘텐츠' || channel === '검색유입' || channel === '자사채널' || channel === '언론') return '콘텐츠'
   return '기타'
 }

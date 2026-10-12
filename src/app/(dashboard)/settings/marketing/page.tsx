@@ -25,6 +25,7 @@ const CHANNEL_OPTIONS = [
   { value: '메타', label: '메타' },
   { value: '유튜브', label: '유튜브' },
   { value: '블로그', label: '블로그/콘텐츠' },
+  { value: '외주 블로그', label: '외주 블로그' },
   { value: '기타', label: '기타' },
 ]
 
