@@ -33,7 +33,8 @@ interface ContentItem {
 }
 
 type SortField = 'page_views' | 'published_at' | 'sessions'
-type ChannelFilter = 'all' | 'caasworks_blog' | 'naver_blog'
+// 전체 탭 없음: 카스웍스(GA 페이지뷰)와 네이버(블로그 통계 조회수)는 기준이 달라 합치면 안 됨
+type ChannelFilter = 'caasworks_blog' | 'naver_blog'
 
 const CHANNEL_LABELS: Record<string, string> = {
   caasworks_blog: '카스웍스',
@@ -43,7 +44,7 @@ const CHANNEL_LABELS: Record<string, string> = {
 const emptyForm = {
   title: '',
   url: '',
-  channel: 'naver_blog',
+  channel: 'caasworks_blog',
   page_views: 0,
   published_at: '',
 }
@@ -55,7 +56,7 @@ export default function ContentPage() {
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all')
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>('caasworks_blog')
   const [sortField, setSortField] = useState<SortField>('page_views')
   const [sortAsc, setSortAsc] = useState(false)
   const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
@@ -119,7 +120,7 @@ export default function ContentPage() {
   }
 
   const filtered = useMemo(() => {
-    let items = channelFilter === 'all' ? [...data] : data.filter(d => d.channel === channelFilter)
+    let items = data.filter(d => d.channel === channelFilter)
     // 날짜 범위로 필터링 (published_at → created_at 순서로 fallback)
     if (dateRange.from && dateRange.to) {
       items = items.filter(d => {
@@ -159,13 +160,15 @@ export default function ContentPage() {
       <div className="page-header">
         <h1 className="page-title">콘텐츠 성과</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
-          <Button size="sm" variant="secondary" onClick={handleSync} loading={syncing}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1" /> GA4 동기화
-          </Button>
-          <Button size="sm" onClick={() => { setForm(emptyForm); setShowModal(true) }}>
-            <Plus className="w-4 h-4 mr-1" /> 콘텐츠 추가
-          </Button>
+          {channelFilter === 'caasworks_blog' && <>
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
+            <Button size="sm" variant="secondary" onClick={handleSync} loading={syncing}>
+              <RefreshCw className="w-3.5 h-3.5 mr-1" /> GA4 동기화
+            </Button>
+            <Button size="sm" onClick={() => { setForm(emptyForm); setShowModal(true) }}>
+              <Plus className="w-4 h-4 mr-1" /> 콘텐츠 추가
+            </Button>
+          </>}
         </div>
       </div>
 
@@ -205,7 +208,6 @@ export default function ContentPage() {
       <div className="flex items-center gap-3 mb-4">
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
           {[
-            { value: 'all' as ChannelFilter, label: '전체' },
             { value: 'caasworks_blog' as ChannelFilter, label: '카스웍스' },
             { value: 'naver_blog' as ChannelFilter, label: '네이버' },
           ].map(f => (
@@ -300,7 +302,7 @@ export default function ContentPage() {
       )}
 
       {/* Manual Add Modal */}
-      <Modal open={showModal} onClose={() => setShowModal(false)} title="콘텐츠 추가 (네이버)">
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="콘텐츠 추가">
         <div className="space-y-3">
           <Input label="제목" value={form.title}
             onChange={e => setForm({ ...form, title: e.target.value })}
