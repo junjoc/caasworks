@@ -35,6 +35,7 @@ function infer(a) {
   }
   const host = a.referrer ? hostOf(a.referrer.trim()) : null
   if (!host) return { channel: '자사채널', source: '홈페이지' }
+  if (host.endsWith('miracleintip.com')) return { channel: '네이버', source: a.utm_campaign || '검색광고' }
   if (host.endsWith('blog.naver.com')) return { channel: '블로그', source: '네이버' }
   if (host.endsWith('tistory.com')) return { channel: '블로그', source: '티스토리' }
   if (host.endsWith('search.naver.com')) return { channel: '검색유입', source: '네이버' }
@@ -65,11 +66,19 @@ function mapToAds(ch, src) {
 }
 const split = s => (s ? s.split(',').map(x => x.trim()).filter(Boolean) : [])
 
-const { data: all, error } = await sb.from('pipeline_leads').select('*').gte('inquiry_date', '2026-07-01').like('inquiry_content', '%utm_source%')
-if (error) throw error
+// 대상: 7/1 이후 utm 줄이 있는 리드 + 기간 무관 miracleintip.com(네이버 광고 중간 랜딩) 레퍼러 리드
+const [r1, r2, r3] = await Promise.all([
+  sb.from('pipeline_leads').select('*').gte('inquiry_date', '2026-07-01').like('inquiry_content', '%utm_source%'),
+  sb.from('pipeline_leads').select('*').ilike('referrer', '%miracleintip.com%'),
+  sb.from('pipeline_leads').select('*').ilike('inquiry_content', '%miracleintip.com%'),
+])
+if (r1.error || r2.error || r3.error) throw (r1.error || r2.error || r3.error)
+const all = Array.from(new Map([...r1.data, ...r2.data, ...r3.data].map(l => [l.id, l])).values())
+// 과거 Slack 리드는 referrer 컬럼이 비고 문의내용에 "레퍼러 주소:" 로만 있음
+const refOf = l => l.referrer || ((l.inquiry_content || '').match(/(?:^|\n)\s*>?\s*레퍼러(?: 주소)?\s*:\s*(\S+)/) || [])[1] || null
 const plan = all.map(l => {
   const utm = parseUtm(l.inquiry_content)
-  const next = infer({ ...utm, referrer: l.referrer })
+  const next = infer({ ...utm, referrer: refOf(l) })
   return { l, utm, next, changed: next.channel !== l.inquiry_channel || next.source !== l.inquiry_source }
 })
 console.log(`[utm 재분류] ${LIVE ? 'LIVE' : 'DRY-RUN'}  대상 ${plan.length}건, 채널 바뀌는 리드 ${plan.filter(p => p.changed).length}건\n`)
@@ -100,7 +109,7 @@ console.log(`\n백업: ${bpath}`)
 
 let ok = 0
 for (const p of plan) {
-  const upd = { ...p.utm }
+  const upd = Object.fromEntries(Object.entries(p.utm).filter(([, v]) => v != null))
   if (p.changed) { upd.inquiry_channel = p.next.channel; upd.inquiry_source = p.next.source }
   const { error } = await sb.from('pipeline_leads').update(upd).eq('id', p.l.id)
   if (error) console.log(`  ❌ ${p.l.company_name}: ${error.message}`); else ok++

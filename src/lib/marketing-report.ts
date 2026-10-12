@@ -17,10 +17,10 @@ export function channelGroup(channel: string | null, source: string | null): Cha
   return '기타'
 }
 
-// 레퍼러: 별도 필드 우선, 없으면 문의내용의 "레퍼러 주소:" 줄 (과거 Slack 리드)
+// 레퍼러: 별도 필드 우선, 없으면 문의내용의 "레퍼러 주소:" 또는 (더 예전 형식) "레퍼러:" 줄. "실제 레퍼러:" 는 제외
 export function extractReferrer(referrer: string | null, inquiryContent: string | null): string | null {
   if (referrer && referrer.trim()) return referrer.trim()
-  const m = (inquiryContent || '').match(/레퍼러 주소\s*:\s*(\S+)/)
+  const m = (inquiryContent || '').match(/(?:^|\n)\s*>?\s*레퍼러(?: 주소)?\s*:\s*(\S+)/)
   return m ? m[1] : null
 }
 

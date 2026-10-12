@@ -64,6 +64,8 @@ export function inferLeadChannel(a: AttributionInput): LeadChannel {
   // 레퍼러가 비었거나 "없음(다이렉트)" 같은 텍스트면 직접 방문
   if (!host) return { channel: '자사채널', source: '홈페이지' }
 
+  // 네이버 광고(NAds) 중간 랜딩 도메인. utm 이 없으면 캠페인을 모르므로 검색광고
+  if (host.endsWith('miracleintip.com')) return { channel: '네이버', source: a.utm_campaign || '검색광고' }
   if (host.endsWith('blog.naver.com')) return { channel: '블로그', source: '네이버' }
   if (host.endsWith('tistory.com')) return { channel: '블로그', source: '티스토리' }
   if (host.endsWith('search.naver.com')) return { channel: '검색유입', source: '네이버' }
