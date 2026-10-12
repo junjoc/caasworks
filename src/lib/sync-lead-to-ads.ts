@@ -1,14 +1,23 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import campaignMap from '@/config/ad_campaign_map.json'
+
+export interface AdMapping { channel: string; campaign_name: string; adgroup_name?: string }
+
+// 광고 리드(utm_campaign) → 광고성과의 실제 캠페인·광고그룹 (src/config/ad_campaign_map.json)
+const CAMPAIGN_MAP = campaignMap as unknown as Record<string, Record<string, { campaign_name: string; adgroup_name?: string }>>
+
+// 광고그룹이 정해진 매핑이면 광고그룹까지 같은 행만 고른다
+const adgroupFilter = (m: { adgroup_name?: string }) => (m.adgroup_name ? { adgroup_name: m.adgroup_name } : {})
 
 // 파이프라인 리드 유입채널 → 광고성과 채널/서브소스 매핑
 // 채널 체계 통일 후: pipeline과 ad_performance가 같은 채널명 사용
 // 레거시 채널명(문의하기, 검색채널 등)도 하위 호환 지원
-function mapLeadChannelToAds(inquiryChannel: string, inquirySource: string): {
-  channel: string
-  campaign_name: string
-} | null {
+export function mapLeadChannelToAds(inquiryChannel: string, inquirySource: string): AdMapping | null {
   const ch = (inquiryChannel || '').trim()
   const src = (inquirySource || '').trim()
+
+  const mapped = CAMPAIGN_MAP[ch]?.[src]
+  if (mapped) return { channel: ch, ...mapped }
 
   // 광고성과와 동일한 채널명인 경우 (통합 후)
   const directChannels = ['네이버', '구글', '메타', '유튜브', '검색유입', '자사채널', '블로그', '언론', '이벤트/행사']
@@ -97,6 +106,7 @@ export async function syncLeadToAdPerformance(
     .eq('date', date)
     .eq('channel', mapping.channel)
     .eq('campaign_name', mapping.campaign_name)
+    .match(adgroupFilter(mapping))
     .limit(1)
 
   if (existing && existing.length > 0) {
@@ -125,6 +135,7 @@ export async function syncLeadToAdPerformance(
         channel: mapping.channel,
         ad_type: '콘텐츠',
         campaign_name: mapping.campaign_name,
+        ...adgroupFilter(mapping),
         impressions: 0,
         clicks: 0,
         cost: 0,
@@ -146,6 +157,7 @@ export async function syncLeadToAdPerformance(
       .eq('date', date)
       .eq('channel', mapping.channel)
       .eq('campaign_name', mapping.campaign_name)
+      .match(adgroupFilter(mapping))
       .limit(1)
 
     if (row && row.length > 0) {
@@ -189,6 +201,7 @@ export async function revertLeadFromAdPerformance(
     .eq('date', lead.inquiry_date)
     .eq('channel', mapping.channel)
     .eq('campaign_name', mapping.campaign_name)
+    .match(adgroupFilter(mapping))
     .limit(1)
 
   if (!existing || existing.length === 0) return
@@ -232,7 +245,7 @@ export async function recalcAdPerformanceFromLeads(
     const mapping = mapLeadChannelToAds(lead.inquiry_channel, lead.inquiry_source)
     if (!mapping) continue
 
-    const key = `${mapping.channel}|${mapping.campaign_name}`
+    const key = `${mapping.channel}|${mapping.campaign_name}|${mapping.adgroup_name || ''}`
     if (!groups.has(key)) {
       groups.set(key, { inquiries: [], adoptions: [] })
     }
@@ -248,7 +261,8 @@ export async function recalcAdPerformanceFromLeads(
   // 각 그룹별로 ad_performance 업데이트
   const entries = Array.from(groups.entries())
   for (const [key, g] of entries) {
-    const [channel, campaign_name] = key.split('|')
+    const [channel, campaign_name, adgroup] = key.split('|')
+    const ag = adgroupFilter({ adgroup_name: adgroup || undefined })
 
     const { data: existing } = await supabase
       .from('ad_performance')
@@ -256,6 +270,7 @@ export async function recalcAdPerformanceFromLeads(
       .eq('date', date)
       .eq('channel', channel)
       .eq('campaign_name', campaign_name)
+      .match(ag)
       .limit(1)
 
     if (existing && existing.length > 0) {
@@ -276,6 +291,7 @@ export async function recalcAdPerformanceFromLeads(
           channel,
           ad_type: '콘텐츠',
           campaign_name,
+          ...ag,
           impressions: 0,
           clicks: 0,
           cost: 0,

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { inferLeadChannel, buildFirstTouch, parseUtmFromText } from '@/lib/attribution'
 import { autoTagLead } from '@/lib/topic-tags'
+import { mapLeadChannelToAds, syncLeadToAdPerformance } from '@/lib/sync-lead-to-ads'
 
 // Use service role for server-side operations
 function getSupabase() {
@@ -368,6 +369,15 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Lead insert failed' }, { status: 500 })
         }
         if (newLead?.id) await autoTagLead(supabase, newLead.id)
+        // 대응표(ad_campaign_map)에 있는 광고 캠페인 리드는 광고성과 해당 광고그룹 행에 문의 자동 반영 (같은 회사명은 중복 안 됨)
+        if (mapLeadChannelToAds(inquiryChannel, inquirySource)?.adgroup_name) {
+          try {
+            await syncLeadToAdPerformance(supabase, {
+              inquiry_date: today, inquiry_channel: inquiryChannel, inquiry_source: inquirySource,
+              company_name: companyName, stage: '신규리드',
+            })
+          } catch (e) { console.error('Slack webhook: ad sync failed', e) }
+        }
 
         return NextResponse.json({ ok: true, action: 'inquiry_lead_created' })
       }

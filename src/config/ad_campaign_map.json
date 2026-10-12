@@ -1,0 +1,9 @@
+{
+  "_설명": "리드 유입경로(utm_campaign) → 광고성과(ad_performance)의 캠페인·광고그룹 대응표. 광고성과 화면에서 광고비 행과 문의·도입이 같은 줄에 묶이게 한다. 새 광고 캠페인을 만들면 여기에 추가. 마케팅팀 확인 2026-10-12 (N_smc 는 팀이 광고성과에 중대재해예방으로 입력해 둔 기록 기준).",
+  "네이버": {
+    "N_smart": { "campaign_name": "260401_NA_스마트 안전장비", "adgroup_name": "N_스마트안전장비" },
+    "N_video": { "campaign_name": "260401_NA_동영상기록관리", "adgroup_name": "N_동영상기록관리" },
+    "N_ai": { "campaign_name": "260401_NA_동영상기록관리", "adgroup_name": "N_엣지 AI CCTV" },
+    "N_smc": { "campaign_name": "260401_NA_중대재해예방", "adgroup_name": "N_중대재해예방" }
+  }
+}

@@ -1,47 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { mapLeadChannelToAds } from '@/lib/sync-lead-to-ads'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 // 파이프라인 리드 → 광고성과 일괄 동기화
 // 리드의 inquiry_channel → ad_performance의 channel/campaign_name 매핑
-
-function mapLeadChannelToAds(inquiryChannel: string, inquirySource: string): {
-  channel: string
-  campaign_name: string
-} | null {
-  const ch = (inquiryChannel || '').trim()
-  const src = (inquirySource || '').trim()
-
-  switch (ch) {
-    case '검색채널':
-      if (src.includes('네이버') || src.toLowerCase().includes('naver'))
-        return { channel: '검색유입', campaign_name: '네이버' }
-      if (src.includes('구글') || src.toLowerCase().includes('google'))
-        return { channel: '검색유입', campaign_name: '구글' }
-      if (src.includes('AI') || src.includes('GPT') || src.includes('클로드') || src.includes('퍼플렉'))
-        return { channel: '검색유입', campaign_name: '생성형AI' }
-      return { channel: '검색유입', campaign_name: src || '기타' }
-    case '문의하기':
-    case '공식홈페이지':
-      return { channel: '자사채널', campaign_name: '홈페이지' }
-    case '대표전화':
-    case '개인전화':
-      return { channel: '자사채널', campaign_name: ch }
-    case '이용자 추천':
-      return { channel: '기타', campaign_name: '추천' }
-    case '박람회':
-      return { channel: '기타', campaign_name: '박람회' }
-    case '블로그':
-      if (src.includes('네이버')) return { channel: '블로그', campaign_name: '네이버' }
-      if (src.includes('티스토리')) return { channel: '블로그', campaign_name: '티스토리' }
-      return { channel: '블로그', campaign_name: src || '기타' }
-    default:
-      if (!ch) return null
-      return { channel: '기타', campaign_name: ch }
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // 날짜+채널별로 그룹핑
     const groups = new Map<string, {
-      date: string; channel: string; campaign_name: string;
+      date: string; channel: string; campaign_name: string; adgroup_name?: string;
       inquiries: string[]; adoptions: string[]
     }>()
 
@@ -79,12 +44,13 @@ export async function POST(request: NextRequest) {
       const mapping = mapLeadChannelToAds(lead.inquiry_channel, lead.inquiry_source)
       if (!mapping) continue
 
-      const key = `${lead.inquiry_date}|${mapping.channel}|${mapping.campaign_name}`
+      const key = `${lead.inquiry_date}|${mapping.channel}|${mapping.campaign_name}|${mapping.adgroup_name || ''}`
       if (!groups.has(key)) {
         groups.set(key, {
           date: lead.inquiry_date,
           channel: mapping.channel,
           campaign_name: mapping.campaign_name,
+          adgroup_name: mapping.adgroup_name,
           inquiries: [],
           adoptions: [],
         })
@@ -110,6 +76,7 @@ export async function POST(request: NextRequest) {
         .eq('date', g.date)
         .eq('channel', g.channel)
         .eq('campaign_name', g.campaign_name)
+        .match(g.adgroup_name ? { adgroup_name: g.adgroup_name } : {})
         .limit(1)
 
       if (existing && existing.length > 0) {
@@ -131,6 +98,7 @@ export async function POST(request: NextRequest) {
             channel: g.channel,
             ad_type: '콘텐츠',
             campaign_name: g.campaign_name,
+            ...(g.adgroup_name ? { adgroup_name: g.adgroup_name } : {}),
             impressions: 0,
             clicks: 0,
             cost: 0,
