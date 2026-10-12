@@ -8,7 +8,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
-import { STAGE_COLORS, PRIORITY_COLORS, CONVERSION_PROB_COLORS, SITE_CATEGORY_COLORS, ACTIVITY_TYPE_ICONS, formatDate } from '@/lib/utils'
+import { STAGE_COLORS, PRIORITY_COLORS, CONVERSION_PROB_COLORS, SITE_CATEGORY_COLORS, ACTIVITY_TYPE_ICONS, formatDate, confirmConvertedStageChange, confirmBulkConvertedStageChange, FOLLOWUP_BADGE_CLASS } from '@/lib/utils'
+import { useFollowupLeadIds } from '@/hooks/useFollowupLeadIds'
 import type { PipelineLead } from '@/types/database'
 import { toast } from 'sonner'
 import { Plus, Clock, AlertCircle, Search, CheckSquare, Square, X, ArrowRight, UserPlus } from 'lucide-react'
@@ -42,6 +43,7 @@ function getCardBorderClass(lead: PipelineLead, isSelected: boolean) {
 
 export default function PipelineBoardPage() {
   const [leads, setLeads] = useState<PipelineLead[]>([])
+  const followupIds = useFollowupLeadIds()
   const [loading, setLoading] = useState(true)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [activityMap, setActivityMap] = useState<Record<string, { count: number; latest?: { type: string; title: string; date: string } }>>({})
@@ -216,10 +218,12 @@ export default function PipelineBoardPage() {
 
     const ids = Array.from(selectedIds)
     const selectedLeads = leads.filter(l => ids.includes(l.id))
+    const force = confirmBulkConvertedStageChange(selectedLeads.map(l => l.stage), newStage)
+    const isSkipped = (l: PipelineLead) => !force && l.stage === '도입완료' && newStage !== '이탈' && newStage !== '도입완료'
 
-    // Optimistic update
+    // Optimistic update (확인 안 한 도입완료 건은 그대로)
     setLeads(prev =>
-      prev.map(l => ids.includes(l.id) ? { ...l, stage: newStage as PipelineLead['stage'] } : l)
+      prev.map(l => ids.includes(l.id) && !isSkipped(l) ? { ...l, stage: newStage as PipelineLead['stage'] } : l)
     )
 
     // Build history records
@@ -239,13 +243,15 @@ export default function PipelineBoardPage() {
       lead_ids: ids,
       new_stage: newStage,
       history_records: historyRecords,
+      force,
     })
 
     if (res.error) {
       toast.error('일괄 단계 변경에 실패했습니다.')
       fetchLeads()
     } else {
-      toast.success(`${ids.length}건 → ${newStage} 이동 완료`)
+      const skipped = res.skipped_locked || 0
+      toast.success(`${ids.length - skipped}건 → ${newStage} 이동 완료${skipped ? ` (도입완료 ${skipped}건 유지)` : ''}`)
     }
 
     setBulkLoading(false)
@@ -305,6 +311,11 @@ export default function PipelineBoardPage() {
       setDraggingId(null)
       return
     }
+    const { proceed, force } = confirmConvertedStageChange(lead.stage, newStage)
+    if (!proceed) {
+      setDraggingId(null)
+      return
+    }
 
     // Optimistic update
     setLeads((prev) =>
@@ -318,6 +329,7 @@ export default function PipelineBoardPage() {
       new_stage: newStage,
       old_stage: lead.stage,
       changed_by: user?.id,
+      force,
     })
 
     if (res.error) {
@@ -552,6 +564,9 @@ export default function PipelineBoardPage() {
                                 <Square className="w-4 h-4 text-gray-300" />
                               )}
                             </span>
+                            {followupIds.has(lead.id) && (
+                              <span className={`text-[10px] px-1.5 py-0 rounded font-medium ${FOLLOWUP_BADGE_CLASS}`}>추가 진행</span>
+                            )}
                             {lead.priority && lead.priority !== '중간' && (
                               <Badge className={`${PRIORITY_COLORS[lead.priority]} text-[10px] px-1.5 py-0 border`}>
                                 {lead.priority}
@@ -599,6 +614,9 @@ export default function PipelineBoardPage() {
                         <Link href={`/pipeline/${lead.id}`} className="block">
                           {/* Top: priority + conversion + industry */}
                           <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                            {followupIds.has(lead.id) && (
+                              <span className={`text-[10px] px-1.5 py-0 rounded font-medium ${FOLLOWUP_BADGE_CLASS}`}>추가 진행</span>
+                            )}
                             {lead.priority && lead.priority !== '중간' && (
                               <Badge className={`${PRIORITY_COLORS[lead.priority]} text-[10px] px-1.5 py-0 border`}>
                                 {lead.priority}

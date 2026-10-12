@@ -230,15 +230,18 @@ export async function POST(request: NextRequest) {
         if (customerCode) {
           const { data: existing } = await supabase
             .from('pipeline_leads')
-            .select('id')
+            .select('id, stage')
             .eq('customer_code', customerCode)
             .limit(1)
 
           if (existing && existing.length > 0) {
-            // 기존 데이터 업데이트
+            // 기존 데이터 업데이트. 도입완료/이탈 리드는 시트 값으로 단계를 되돌리지 않는다.
+            const updateData = ['도입완료', '이탈'].includes(existing[0].stage)
+              ? (({ stage: _stage, ...rest }) => rest)(leadData)
+              : leadData
             const { error } = await supabase
               .from('pipeline_leads')
-              .update(leadData)
+              .update(updateData)
               .eq('id', existing[0].id)
 
             if (error) {

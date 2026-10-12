@@ -19,8 +19,9 @@ import {
   VOC_CATEGORY_LABELS, VOC_PRIORITY_LABELS,
   CONVERSION_PROB_OPTIONS, CONVERSION_PROB_COLORS,
   SITE_CATEGORY_OPTIONS, SITE_CATEGORY_COLORS,
-  formatDate, formatDateTime
+  formatDate, formatDateTime, confirmConvertedStageChange, FOLLOWUP_BADGE_CLASS
 } from '@/lib/utils'
+import { useFollowupLeadIds } from '@/hooks/useFollowupLeadIds'
 import type { PipelineLead, PipelineHistory, User } from '@/types/database'
 import { toast } from 'sonner'
 import { ArrowLeft, Edit2, Save, X, Clock, AlertCircle, Plus, Send, MessageSquare, Link2, Building2, ExternalLink, Trash2, Pencil, Megaphone, FileText, BarChart3, Headphones, ChevronRight } from 'lucide-react'
@@ -76,6 +77,7 @@ export default function LeadDetailPage() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<Partial<PipelineLead>>({})
+  const followupIds = useFollowupLeadIds()
   const [saving, setSaving] = useState(false)
 
   // Customer matching
@@ -260,13 +262,20 @@ export default function LeadDetailPage() {
 
   const changeStage = async (newStage: string) => {
     if (!lead || !user) return
-    await callApi({
+    const { proceed, force } = confirmConvertedStageChange(lead.stage, newStage)
+    if (!proceed) return
+    const res = await callApi({
       action: 'change_stage',
       lead_id: id,
       new_stage: newStage,
       old_stage: lead.stage,
       changed_by: user.id,
+      force,
     })
+    if (res?.error) {
+      toast.error(`단계 변경 실패: ${res.error}`)
+      return
+    }
 
     // 도입완료 시 광고성과에 도입 데이터 반영
     if (newStage === '도입완료' && lead) {
@@ -507,6 +516,7 @@ export default function LeadDetailPage() {
             {lead.customer_code && <p className="text-[10px] font-mono text-text-tertiary">{lead.customer_code}</p>}
           </div>
           <Badge className={STAGE_COLORS[lead.stage]}>{lead.stage}</Badge>
+          {followupIds.has(lead.id) && <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${FOLLOWUP_BADGE_CLASS}`} title="도입완료 후 추가 견적·미팅 진행 중">추가 진행</span>}
           {lead.priority && lead.priority !== '중간' && <Badge className={`${PRIORITY_COLORS[lead.priority]} border`}>{lead.priority}</Badge>}
           {(lead as any).conversion_probability && (lead as any).conversion_probability !== '중간' && (
             <Badge className={`${CONVERSION_PROB_COLORS[(lead as any).conversion_probability] || ''} border`}>

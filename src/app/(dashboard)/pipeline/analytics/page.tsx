@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Loading } from '@/components/ui/loading'
 import { Select } from '@/components/ui/select'
-import { STAGE_COLORS, formatNumber } from '@/lib/utils'
+import { STAGE_COLORS, formatNumber, confirmConvertedStageChange } from '@/lib/utils'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   Cell, Legend, PieChart, Pie, Treemap,
@@ -114,6 +114,8 @@ export default function PipelineAnalyticsPage() {
   // 장기 방치 리스트에서 인라인으로 단계 변경
   async function handleStuckStageChange(leadId: string, oldStage: string, newStage: string) {
     if (newStage === oldStage) return
+    const { proceed, force } = confirmConvertedStageChange(oldStage, newStage)
+    if (!proceed) return
     setStageChanging(leadId)
     // Optimistic update
     setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: newStage } : l))
@@ -126,6 +128,7 @@ export default function PipelineAnalyticsPage() {
           lead_id: leadId,
           new_stage: newStage,
           old_stage: oldStage,
+          force,
         }),
       })
       const result = await res.json()

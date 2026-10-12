@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { syncLeadToAdPerformance, revertLeadFromAdPerformance } from '@/lib/sync-lead-to-ads'
 
+// 도입완료 잠금: 도입완료 리드는 이탈로만 바로 바꿀 수 있고, 그 외 단계는 force(사용자 확인) 필요.
+// 도입 후 추가 견적/미팅 같은 후속 활동이 단계를 되돌리지 않게 하기 위함.
+const LOCKED_STAGE = '도입완료'
+const CLOSED_STAGES = ['도입완료', '이탈']
+function isLockedTransition(oldStage: string | null | undefined, newStage: string | null | undefined, force?: boolean) {
+  return oldStage === LOCKED_STAGE && !!newStage && newStage !== LOCKED_STAGE && newStage !== '이탈' && !force
+}
+function lockedResponse() {
+  return NextResponse.json(
+    { error: '도입완료 리드입니다. 이탈 외 단계로 바꾸려면 확인이 필요합니다.', code: 'LOCKED_CONVERTED' },
+    { status: 409 },
+  )
+}
+
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,6 +41,7 @@ export async function POST(request: NextRequest) {
         const { data: prev } = await supabase
           .from('pipeline_leads').select('stage').eq('id', lead_id).single()
         oldStage = prev?.stage
+        if (isLockedTransition(oldStage, payload.updates.stage, payload.force)) return lockedResponse()
       }
       const { data, error } = await supabase
         .from('pipeline_leads')
@@ -63,7 +78,11 @@ export async function POST(request: NextRequest) {
 
     // 2. Change stage with history
     if (action === 'change_stage') {
-      const { new_stage, old_stage, changed_by } = payload
+      const { new_stage, changed_by } = payload
+      // 화면이 들고 있던 값 대신 DB 현재 단계 기준으로 판단
+      const { data: cur } = await supabase.from('pipeline_leads').select('stage').eq('id', lead_id).single()
+      const old_stage = cur?.stage ?? payload.old_stage
+      if (isLockedTransition(old_stage, new_stage, payload.force)) return lockedResponse()
       // Insert history
       await supabase.from('pipeline_history').insert({
         lead_id, field_changed: 'stage',
@@ -136,6 +155,11 @@ export async function POST(request: NextRequest) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
       // Lead 업데이트 — stage 자동 변경 + 다음 액션 자동 정리
+      // 도입완료/이탈 리드는 활동을 기록해도 단계 자동 변경 안 함 (서버에서도 보장)
+      if (payload.auto_stage) {
+        const { data: cur } = await supabase.from('pipeline_leads').select('stage').eq('id', lead_id).single()
+        if (CLOSED_STAGES.includes(cur?.stage)) payload.auto_stage = undefined
+      }
       const leadUpdates: Record<string, unknown> = {}
       if (payload.auto_stage) {
         leadUpdates.stage = payload.auto_stage
@@ -174,6 +198,7 @@ export async function POST(request: NextRequest) {
         const { data: prev } = await supabase
           .from('pipeline_leads').select('stage').eq('id', lead_id).single()
         oldStage = prev?.stage
+        if (isLockedTransition(oldStage, payload.form.stage, payload.force)) return lockedResponse()
       }
       const { data, error } = await supabase.from('pipeline_leads')
         .update(payload.form)
@@ -282,7 +307,20 @@ export async function POST(request: NextRequest) {
 
     // 11. Bulk move stage (board view)
     if (action === 'bulk_move_stage') {
-      const { lead_ids, new_stage, history_records } = payload
+      const { new_stage } = payload
+      let { lead_ids, history_records } = payload
+      // 도입완료 잠금: 확인(force) 없이 일괄 이동하면 도입완료 리드는 건너뛴다
+      let skippedLocked = 0
+      if (!payload.force && lead_ids?.length) {
+        const { data: curStages } = await supabase.from('pipeline_leads').select('id, stage').in('id', lead_ids)
+        const locked = new Set((curStages || []).filter(l => isLockedTransition(l.stage, new_stage)).map(l => l.id))
+        if (locked.size) {
+          skippedLocked = locked.size
+          lead_ids = lead_ids.filter((id: string) => !locked.has(id))
+          history_records = (history_records || []).filter((h: any) => !locked.has(h.lead_id))
+          if (lead_ids.length === 0) return NextResponse.json({ success: true, skipped_locked: skippedLocked })
+        }
+      }
       // history_records 에서 old_value 매핑 (각 lead 별 이전 stage)
       const oldStageById = new Map<string, string>()
       ;(history_records || []).forEach((h: any) => {
@@ -325,7 +363,7 @@ export async function POST(request: NextRequest) {
           console.error('[bulk_move_stage] ad sync failed', e)
         }
       }
-      return NextResponse.json({ success: true })
+      return NextResponse.json({ success: true, skipped_locked: skippedLocked })
     }
 
     // 12. Bulk assign (board view)

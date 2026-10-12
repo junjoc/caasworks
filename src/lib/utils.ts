@@ -286,3 +286,23 @@ export const ACTIVITY_TYPE_GROUPS = [
     ],
   },
 ]
+
+// 도입완료 잠금 (서버 /api/pipeline/update 와 같은 규칙): 이탈 외 단계로 옮길 때 확인
+export function confirmConvertedStageChange(oldStage: string | null | undefined, newStage: string): { proceed: boolean; force: boolean } {
+  if (oldStage !== '도입완료' || newStage === '도입완료' || newStage === '이탈') return { proceed: true, force: false }
+  const ok = window.confirm(
+    `도입완료 리드입니다.\n"${newStage}"(으)로 바꾸면 도입 집계에서 빠집니다.\n\n추가 견적·미팅은 단계를 바꾸지 않고 활동으로 기록하면 됩니다.\n정말 변경할까요?`,
+  )
+  return { proceed: ok, force: ok }
+}
+
+// 일괄 이동: 도입완료가 섞여 있으면 함께 옮길지 한 번 묻는다. 취소하면 도입완료 건은 서버가 건너뛴다.
+export function confirmBulkConvertedStageChange(oldStages: (string | null | undefined)[], newStage: string): boolean {
+  if (newStage === '도입완료' || newStage === '이탈') return false
+  const n = oldStages.filter(s => s === '도입완료').length
+  if (n === 0) return false
+  return window.confirm(`선택한 리드 중 도입완료 ${n}건이 있습니다.\n도입완료 건도 "${newStage}"(으)로 함께 옮길까요?\n\n취소를 누르면 도입완료 건은 그대로 두고 나머지만 옮깁니다.`)
+}
+
+// "추가 진행" 배지 스타일 (도입완료 후 후속 견적/미팅이 있는 리드)
+export const FOLLOWUP_BADGE_CLASS = 'bg-violet-50 text-violet-700 border border-violet-200'

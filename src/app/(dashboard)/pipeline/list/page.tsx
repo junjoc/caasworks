@@ -11,7 +11,8 @@ import { DateRangePicker, type DateRange } from '@/components/ui/date-range-pick
 import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
-import { STAGE_COLORS, PRIORITY_COLORS, CONVERSION_PROB_COLORS, SITE_CATEGORY_COLORS, formatDate } from '@/lib/utils'
+import { STAGE_COLORS, PRIORITY_COLORS, CONVERSION_PROB_COLORS, SITE_CATEGORY_COLORS, formatDate, confirmBulkConvertedStageChange, FOLLOWUP_BADGE_CLASS } from '@/lib/utils'
+import { useFollowupLeadIds } from '@/hooks/useFollowupLeadIds'
 import type { PipelineLead, User } from '@/types/database'
 import { toast } from 'sonner'
 import { Plus, Search, GitBranch, AlertCircle, Clock, ChevronDown, ChevronUp, CheckSquare, Trash2, ArrowRight, UserCheck } from 'lucide-react'
@@ -37,6 +38,8 @@ export default function PipelineListPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState('전체')
+  const [followupOnly, setFollowupOnly] = useState(false)
+  const followupIds = useFollowupLeadIds()
   const [priorityFilter, setPriorityFilter] = useState('전체')
   const [assigneeFilter, setAssigneeFilter] = useState('전체')
   const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
@@ -115,7 +118,8 @@ export default function PipelineListPage() {
         const leadDate = lead.inquiry_date || lead.created_at?.substring(0, 10)
         matchDate = !!leadDate && leadDate >= dateRange.from && leadDate <= dateRange.to
       }
-      return matchSearch && matchPriority && matchAssignee && matchDate
+      const matchFollowup = !followupOnly || followupIds.has(lead.id)
+      return matchSearch && matchPriority && matchAssignee && matchDate && matchFollowup
     })
     .sort((a, b) => {
       if (sortField === 'next_action_date') {
@@ -187,6 +191,7 @@ export default function PipelineListPage() {
   const executeBulkStageChange = async () => {
     if (!bulkStage || selectedIds.size === 0 || !user) return
     const ids = Array.from(selectedIds)
+    const force = confirmBulkConvertedStageChange(ids.map(id => leads.find(l => l.id === id)?.stage), bulkStage)
 
     const historyRecords = ids.map(leadId => {
       const lead = leads.find(l => l.id === leadId)
@@ -205,12 +210,14 @@ export default function PipelineListPage() {
       lead_ids: ids,
       new_stage: bulkStage,
       history_records: historyRecords,
+      force,
     })
 
     if (res.error) {
       toast.error('일괄 단계 변경에 실패했습니다.')
     } else {
-      toast.success(`${ids.length}건의 단계를 "${bulkStage}"로 변경했습니다.`)
+      const skipped = res.skipped_locked || 0
+      toast.success(`${ids.length - skipped}건의 단계를 "${bulkStage}"로 변경했습니다.${skipped ? ` (도입완료 ${skipped}건 유지)` : ''}`)
     }
   }
 
@@ -365,6 +372,10 @@ export default function PipelineListPage() {
           options={STAGES.map((s) => ({ value: s, label: s }))}
           className="w-32"
         />
+        <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer select-none px-2 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 whitespace-nowrap">
+          <input type="checkbox" checked={followupOnly} onChange={(e) => setFollowupOnly(e.target.checked)} className="w-3.5 h-3.5" />
+          추가 진행만 ({followupIds.size})
+        </label>
         <Select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value)}
@@ -457,6 +468,7 @@ export default function PipelineListPage() {
                   <td className="text-text-tertiary text-[11px] font-mono">{lead.customer_code || '-'}</td>
                   <td>
                     <Badge className={`${STAGE_COLORS[lead.stage]} text-xs`}>{lead.stage}</Badge>
+                    {followupIds.has(lead.id) && <span className={`ml-1 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${FOLLOWUP_BADGE_CLASS}`}>추가 진행</span>}
                   </td>
                   <td>
                     {lead.priority && (
