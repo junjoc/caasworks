@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
+import { gaSegmentFilter, andFilters } from '@/lib/ga-segment'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -66,15 +67,11 @@ export async function POST(request: NextRequest) {
           { name: 'sessions' },
           { name: 'activeUsers' },
         ],
-        dimensionFilter: {
-          filter: {
-            fieldName: 'pagePath',
-            stringFilter: {
-              matchType: 'BEGINS_WITH',
-              value: '/blog/',
-            },
-          },
-        },
+        // /blog/ 글 + 마케팅 사이트(www.caas.works)만
+        dimensionFilter: andFilters(
+          { filter: { fieldName: 'pagePath', stringFilter: { matchType: 'BEGINS_WITH', value: '/blog/' } } },
+          gaSegmentFilter('marketing', 'pagePath'),
+        ),
         orderBys: [
           { metric: { metricName: 'screenPageViews' }, desc: true },
         ],

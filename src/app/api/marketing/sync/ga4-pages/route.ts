@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
+import { gaSegmentFilter, type GaSegment } from '@/lib/ga-segment'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -20,6 +21,10 @@ export async function POST(request: NextRequest) {
 
     const startDate = body.startDate || toYMD(ago90)
     const endDate = body.endDate || toYMD(today)
+    // 마케팅 사이트만(기본) / 앱·기타 / 전체 — src/config/ga_segments.json
+    const segment: GaSegment = ['marketing', 'app', 'all'].includes(body.segment) ? body.segment : 'marketing'
+    const sessionFilter = gaSegmentFilter(segment, 'landingPage')
+    const pageFilter = gaSegmentFilter(segment, 'pagePath')
 
     const serviceAccountKeyBase64 = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
     const propertyId = process.env.GA4_PROPERTY_ID || '455467446'
@@ -60,6 +65,7 @@ export async function POST(request: NextRequest) {
           { name: 'landingPage' },
           { name: 'sessionDefaultChannelGroup' },
         ],
+        dimensionFilter: sessionFilter,
         metrics: [
           { name: 'sessions' },
           { name: 'activeUsers' },
@@ -83,6 +89,7 @@ export async function POST(request: NextRequest) {
         dimensions: [
           { name: 'pagePath' },
         ],
+        dimensionFilter: pageFilter,
         metrics: [
           { name: 'screenPageViews' },
           { name: 'sessions' },
@@ -106,6 +113,7 @@ export async function POST(request: NextRequest) {
         dimensions: [
           { name: 'sessionDefaultChannelGroup' },
         ],
+        dimensionFilter: sessionFilter,
         metrics: [
           { name: 'sessions' },
           { name: 'activeUsers' },
@@ -133,15 +141,6 @@ export async function POST(request: NextRequest) {
       pageViews: Number(row.metricValues?.[5]?.value) || 0,
     }))
 
-    // 앱(app.caas.works) 경로 제외 필터 (P0-4). 방문자 여정에 앱 트래픽 혼입 방지.
-    const APP_PATH_PATTERNS = [
-      /^\/cctv\//i, /^\/companies\//i, /^\/proxy\//i,
-      /^\/control-dashboard/i, /^\/chat/i,
-      /^\/users\//i, /^\/signup/i, /^\/login/i,
-      /^\/fire-detections\//i, /^\/action\//i,
-    ]
-    const isAppPath = (p: string) => APP_PATH_PATTERNS.some(re => re.test(p))
-
     const pages = (pageReport.data.rows || [])
       .map(row => ({
         pagePath: row.dimensionValues?.[0]?.value || '',
@@ -153,7 +152,6 @@ export async function POST(request: NextRequest) {
         engagedSessions: Number(row.metricValues?.[5]?.value) || 0,
         entrances: 0,
       }))
-      .filter(p => !isAppPath(p.pagePath))
 
     const channels = (channelReport.data.rows || []).map(row => ({
       channel: row.dimensionValues?.[0]?.value || '',
@@ -179,6 +177,8 @@ export async function POST(request: NextRequest) {
     // ─── Supabase traffic_analytics에 페이지별 데이터 저장 ───
     const supabase = createClient(supabaseUrl, supabaseKey)
 
+    // traffic_analytics 는 마케팅 사이트 기준으로만 저장 (앱·전체 보기는 화면 표시만)
+    if (segment === 'marketing') {
     // 기존 sync 데이터만 삭제 (수동 입력 data_source='manual' 은 보존)
     // STEP 2-B 안전 동기화: 다른 sync 라우트와 동일한 보호 패턴
     await supabase.from('traffic_analytics')
@@ -205,6 +205,7 @@ export async function POST(request: NextRequest) {
         }),
       }))
       await supabase.from('traffic_analytics').insert(rows)
+    }
     }
 
     return NextResponse.json({

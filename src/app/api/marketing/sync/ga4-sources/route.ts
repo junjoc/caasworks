@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
+import { gaSegmentFilter } from '@/lib/ga-segment'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -146,6 +147,8 @@ export async function POST(request: NextRequest) {
           { name: 'sessionSource' },   // naver, google, (direct), ...
           { name: 'sessionMedium' },   // organic, referral, (none), ...
         ],
+        // 마케팅 사이트 세션만 (앱 직접 방문이 자사채널/홈페이지 GA 유입으로 잡히던 문제)
+        dimensionFilter: gaSegmentFilter('marketing', 'landingPage'),
         metrics: [
           { name: 'sessions' },        // 세션 수 → ga_visits로 사용
           { name: 'activeUsers' },     // 활성 사용자
@@ -232,12 +235,23 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(supabaseUrl, supabaseKey)
     const organicChannels = ['검색유입', '자사채널', '블로그', '언론']
 
-    // 기존 수동 입력 데이터(문의/도입 등) 보존을 위해 먼저 조회
-    const { data: existingRows } = await supabase.from('ad_performance')
-      .select('date, channel, campaign_name, signups, inquiries, adoptions, signup_companies, inquiry_companies, adoption_companies, inquiry_clicks')
-      .in('channel', organicChannels)
-      .gte('date', startDate)
-      .lte('date', endDate)
+    // 기존 수동 입력 데이터(문의/도입 등) 보존을 위해 먼저 조회 (기본 1000행 제한이 있어서 나눠 읽음)
+    const existingRows: Record<string, any>[] = []
+    for (let off = 0; ; off += 1000) {
+      const { data, error } = await supabase.from('ad_performance')
+        .select('date, channel, campaign_name, signups, inquiries, adoptions, signup_companies, inquiry_companies, adoption_companies, inquiry_clicks')
+        .in('channel', organicChannels)
+        .neq('data_source', 'manual')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date')
+        .range(off, off + 999)
+      if (error) {
+        return NextResponse.json({ success: false, message: '기존 데이터 조회 실패: ' + error.message, status: 'db_error' })
+      }
+      existingRows.push(...(data || []))
+      if (!data || data.length < 1000) break
+    }
 
     const manualDataMap = new Map<string, Record<string, any>>()
     existingRows?.forEach(r => {
@@ -301,6 +315,21 @@ export async function POST(request: NextRequest) {
         notes,
       }
     })
+
+    // GA 유입이 없어진 날짜·채널(예: 앱 트래픽 제외 후 0)의 수동 입력값도 지워지지 않게 행을 다시 만든다
+    const covered = new Set(insertRows.map(r => `${r.date}|${r.channel}|${r.campaign_name}`))
+    for (const [key, manual] of Array.from(manualDataMap.entries())) {
+      if (covered.has(key)) continue
+      const [date, channel, campaign_name] = key.split('|')
+      insertRows.push({
+        date, channel, ad_type: '콘텐츠', campaign_name, campaign_id: null,
+        impressions: 0, clicks: 0, cost: 0, conversions: 0, ga_visits: 0,
+        inquiry_clicks: manual.inquiry_clicks || 0, signups: manual.signups || 0,
+        inquiries: manual.inquiries || 0, adoptions: manual.adoptions || 0,
+        signup_companies: manual.signup_companies || null, inquiry_companies: manual.inquiry_companies || null,
+        adoption_companies: manual.adoption_companies || null, notes: null,
+      })
+    }
 
     const { error: insertError } = await supabase
       .from('ad_performance')

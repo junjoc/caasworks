@@ -5,6 +5,7 @@ import { DateRangePicker, type DateRange } from '@/components/ui/date-range-pick
 import { createClient } from '@/lib/supabase/client'
 import { Loading } from '@/components/ui/loading'
 import { useAuth } from '@/hooks/useAuth'
+import { GA_SEGMENT_OPTIONS, type GaSegment } from '@/lib/ga-segment'
 import {
   Globe,
   ArrowRight,
@@ -127,6 +128,8 @@ export default function JourneyPage() {
     }
   })
   const [channelFilter, setChannelFilter] = useState<string>('all')
+  // 기본은 마케팅 사이트만. 앱(app.caas.works 등) 트래픽은 토글로만 본다
+  const [segment, setSegment] = useState<GaSegment>('marketing')
   const [expandedSection, setExpandedSection] = useState<string[]>(['funnel', 'landing', 'exit'])
   const { user } = useAuth()
 
@@ -140,7 +143,7 @@ export default function JourneyPage() {
       const res = await fetch('/api/marketing/sync/ga4-pages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startDate, endDate }),
+        body: JSON.stringify({ startDate, endDate, segment }),
       })
       const json = await res.json()
       if (json.success && json.data) {
@@ -157,7 +160,7 @@ export default function JourneyPage() {
 
   useEffect(() => {
     fetchData()
-  }, [dateRange.from, dateRange.to])
+  }, [dateRange.from, dateRange.to, segment])
 
   const toggleSection = (s: string) => {
     setExpandedSection(prev =>
@@ -261,6 +264,17 @@ export default function JourneyPage() {
           <p className="text-xs text-text-tertiary mt-0.5">유입 채널 &rarr; 랜딩 페이지 &rarr; 이탈 페이지 흐름 분석</p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs" title="마케팅 사이트: www.caas.works 의 마케팅 페이지만 (기준: src/config/ga_segments.json)">
+            {GA_SEGMENT_OPTIONS.map(o => (
+              <button
+                key={o.value}
+                onClick={() => setSegment(o.value)}
+                className={`px-2.5 py-1.5 ${segment === o.value ? 'bg-primary-500 text-white' : 'bg-white text-text-secondary hover:bg-gray-50'}`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
           <button
             onClick={fetchData}
