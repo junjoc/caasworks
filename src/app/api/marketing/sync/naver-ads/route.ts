@@ -55,6 +55,9 @@ export async function POST(request: NextRequest) {
     const naverCamps = await campRes.json()
     const campNameMap = new Map<string, string>() // naverId → name
     naverCamps.forEach((c: any) => campNameMap.set(c.nccCampaignId, c.name))
+    // 네이버 캠페인 종류 → 광고유형 (쇼핑검색 캠페인을 파워링크 검색광고와 구분)
+    const campTypeMap = new Map<string, string>()
+    naverCamps.forEach((c: any) => campTypeMap.set(c.nccCampaignId, c.campaignTp === 'SHOPPING' ? '쇼핑' : '검색'))
     debug.push({ step: 'campaigns', status: 200, detail: `${naverCamps.length}개` })
 
     // ─── 2. 광고그룹 목록 ───
@@ -264,7 +267,7 @@ export async function POST(request: NextRequest) {
       const row: Record<string, any> = {
         date: r.date,
         channel: '네이버',
-        ad_type: '검색',
+        ad_type: campTypeMap.get(r.campNaverId) || '검색',
         campaign_name: campName,
         campaign_id: dbCampIdMap.get(r.campNaverId) || null,
         impressions: r.impressions,

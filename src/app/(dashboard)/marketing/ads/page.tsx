@@ -88,6 +88,7 @@ const CHANNEL_OPTIONS = [
 
 const AD_TYPE_OPTIONS = [
   { value: '검색', label: '검색광고' },
+  { value: '쇼핑', label: '쇼핑검색광고' },
   { value: 'SNS', label: 'SNS광고' },
   { value: '콘텐츠', label: '콘텐츠/유입' },
   { value: '영상', label: '영상광고' },
