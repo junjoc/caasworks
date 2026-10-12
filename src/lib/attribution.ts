@@ -1,15 +1,6 @@
-// STEP 3-B: 관통(Attribution) 표준화 유틸
-// 팀 결정 (2026-07-03): 표준 채널 14종 통일
-
-export type InquiryChannel =
-  | '유료검색_네이버' | '유료검색_구글'
-  | '오가닉검색'
-  | '블로그'
-  | '직접' | '추천/외부링크'
-  | '전화_대표' | '전화_개인'
-  | '이벤트/행사' | '채팅상담'
-  | '이메일' | '제품가입'
-  | 'AI어시스턴트' | '기타/미분류'
+// 리드 유입채널 판정.
+// 저장 기준은 화면 분류(CHANNEL_OPTIONS + CHANNEL_SUB_SOURCES): 리드 화면과 광고성과 연동(sync-lead-to-ads)이 이 값에 의존한다.
+// 팀이 정한 14종 표준은 리포트에서 묶어 보여줄 때만 쓴다 (2026-10-12 결정).
 
 export interface AttributionInput {
   utm_source?: string | null
@@ -17,88 +8,50 @@ export interface AttributionInput {
   utm_campaign?: string | null
   referrer?: string | null
   landing_page?: string | null
-  inquiry_source?: string | null   // Slack 인입에서 오는 초기 채널
-  inquiry_channel?: string | null
 }
 
-/**
- * utm/referrer/기존 값에서 표준 채널(14종) 도출.
- * 우선순위: utm > referrer > inquiry_source / inquiry_channel
- */
-export function normalizeInquiryChannel(a: AttributionInput): InquiryChannel {
+export interface LeadChannel {
+  channel: string
+  source: string
+}
+
+const AI_HOSTS = ['chatgpt.com', 'openai.com', 'claude.ai', 'gemini.google', 'perplexity.ai', 'vertexaisearch.cloud.google.com', 'copilot.microsoft.com']
+
+function hostOf(url: string): string | null {
+  try { return new URL(url).host.toLowerCase() } catch { return null }
+}
+
+export function inferLeadChannel(a: AttributionInput): LeadChannel {
   const source = (a.utm_source || '').toLowerCase()
   const medium = (a.utm_medium || '').toLowerCase()
-  const ref = (a.referrer || '').toLowerCase()
-  const existing = (a.inquiry_channel || a.inquiry_source || '').trim()
 
-  // 1. utm_medium 기반 (가장 정확)
-  if (medium === 'cpc' || medium === 'ppc' || medium === 'paidsearch' || medium === 'sa') {
-    if (source.includes('naver')) return '유료검색_네이버'
-    if (source.includes('google')) return '유료검색_구글'
-    return '유료검색_구글'  // 소스 불명 시 구글로 기본 (팀 결정 필요 시 변경)
-  }
-  if (medium === 'organic' || medium === 'seo') return '오가닉검색'
-  if (medium === 'referral') return '추천/외부링크'
-  if (medium === 'email') return '이메일'
-  if (medium === 'social') return '기타/미분류'  // SNS 는 팀 논의 후 별도 신설 예정
-  if (medium === 'blog') return '블로그'
-
-  // 2. referrer 기반 (utm 없을 때)
-  if (ref.includes('naver.com') || ref.includes('search.naver')) {
-    if (ref.includes('cr') || ref.includes('ad.')) return '유료검색_네이버'
-    return '오가닉검색'
-  }
-  if (ref.includes('google.com') || ref.includes('google.co.kr')) {
-    if (ref.includes('adurl') || ref.includes('/aclk')) return '유료검색_구글'
-    return '오가닉검색'
-  }
-  if (ref.includes('blog.naver.com') || ref.includes('m.blog.naver.com')) return '블로그'
-  if (ref.includes('tistory.com')) return '블로그'
-  if (ref.includes('daum.net') || ref.includes('search.daum')) return '오가닉검색'
-  // AI 어시스턴트 refer (chat.openai.com, claude.ai, gemini.google.com, perplexity)
-  if (ref.includes('openai.com') || ref.includes('chatgpt.com')
-      || ref.includes('claude.ai') || ref.includes('gemini.google')
-      || ref.includes('perplexity.ai') || ref.includes('bard.google')) {
-    return 'AI어시스턴트'
+  if (source || medium) {
+    const paid = ['cpc', 'ppc', 'paidsearch', 'sa', 'paid'].includes(medium)
+    if (source.includes('naver')) return paid ? { channel: '네이버', source: '검색광고' } : { channel: '검색유입', source: '네이버' }
+    if (source.includes('google')) return paid ? { channel: '구글', source: '검색광고' } : { channel: '검색유입', source: '구글' }
+    if (['facebook', 'instagram', 'meta'].some(s => source.includes(s))) return { channel: '메타', source: source.includes('instagram') ? '인스타그램' : '페이스북' }
+    if (source.includes('youtube')) return { channel: '유튜브', source: paid ? '광고' : '오가닉' }
+    if (medium === 'blog') return { channel: '블로그', source: source.includes('tistory') ? '티스토리' : '네이버' }
   }
 
-  // 3. inquiry_source / inquiry_channel 기존 값 (Slack 인입 등 수기)
-  //    팀 매핑 표 (2026-07-03) 기준
-  if (existing) {
-    // 전화
-    if (existing.includes('대표전화')) return '전화_대표'
-    if (existing.includes('개인전화')) return '전화_개인'
-    // 채팅
-    if (existing === '해피톡' || existing === '채팅상담') return '채팅상담'
-    // 이메일
-    if (existing === '이메일') return '이메일'
-    // 제품가입 (기존: 가입사)
-    if (existing === '가입사' || existing === '제품가입') return '제품가입'
-    // 이벤트/행사 (기존: 행사방문)
-    if (existing === '행사방문' || existing === '이벤트' || existing === '이벤트/행사') return '이벤트/행사'
-    // 추천/외부링크
-    if (existing === '추천' || existing === '외부링크' || existing === '추천/외부링크') return '추천/외부링크'
-    // 블로그
-    if (existing.includes('블로그')) return '블로그'
-    // 오가닉/유료 (구분 없을 때는 오가닉 우선. 국장 확정 후 재분류 대상)
-    if (existing === '검색유입' || existing === '오가닉_네이버' || existing === '오가닉_구글'
-        || existing === '오가닉_기타' || existing.includes('오가닉') || existing.includes('검색')) return '오가닉검색'
-    // 유료검색
-    if (existing.includes('유료검색_네이버')) return '유료검색_네이버'
-    if (existing.includes('유료검색_구글')) return '유료검색_구글'
-    // AI
-    if (existing === 'AI어시스턴트' || existing === 'AI Assistant') return 'AI어시스턴트'
-    // 자사채널 (팀 애매 표시. 임시로 직접으로 통합. 국장 확정 후 재분류)
-    if (existing === '자사채널') return '직접'
-    if (existing === '직접') return '직접'
-    // 기타
-    if (existing === '기타' || existing === '기타/미분류' || existing === '(not set)' || existing === '미분류') return '기타/미분류'
-  }
+  const ref = (a.referrer || '').trim()
+  const host = ref ? hostOf(ref) : null
+  // 레퍼러가 비었거나 "없음(다이렉트)" 같은 텍스트면 직접 방문
+  if (!host) return { channel: '자사채널', source: '홈페이지' }
 
-  // 4. 직접 유입 (referrer 없음)
-  if (!ref) return '직접'
+  if (host.endsWith('blog.naver.com')) return { channel: '블로그', source: '네이버' }
+  if (host.endsWith('tistory.com')) return { channel: '블로그', source: '티스토리' }
+  if (host.endsWith('search.naver.com')) return { channel: '검색유입', source: '네이버' }
+  if (AI_HOSTS.some(h => host.includes(h))) return { channel: '검색유입', source: '생성형AI' }
+  // 구글 오가닉은 경로 없이 https://www.google.com/ 으로만 넘어온다
+  if (/(^|\.)google\.(com|co\.kr)$/.test(host)) return { channel: '검색유입', source: '구글' }
+  if (host.endsWith('daum.net') || host.endsWith('bing.com')) return { channel: '검색유입', source: '기타' }
+  if (host.endsWith('youtube.com')) return { channel: '유튜브', source: '오가닉' }
+  if (host.endsWith('instagram.com')) return { channel: '메타', source: '인스타그램' }
+  if (host.endsWith('facebook.com')) return { channel: '메타', source: '페이스북' }
+  if (host.endsWith('caas.works') || host.endsWith('caas.co.kr') || host.includes('caasworks')) return { channel: '자사채널', source: '홈페이지' }
 
-  return '기타/미분류'
+  return { channel: '자사채널', source: '기타' }
 }
 
 /**

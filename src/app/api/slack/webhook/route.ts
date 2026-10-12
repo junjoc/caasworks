@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
-import { normalizeInquiryChannel, buildFirstTouch } from '@/lib/attribution'
+import { inferLeadChannel, buildFirstTouch } from '@/lib/attribution'
 
 // Use service role for server-side operations
 function getSupabase() {
@@ -173,30 +173,6 @@ function parseInquiryMessage(text: string): {
   }
 }
 
-/**
- * 레퍼러 URL에서 유입경로 추정
- */
-function inferInquirySource(referrer: string | null): { channel: string; source: string } {
-  if (!referrer) return { channel: '자사채널', source: '홈페이지' }
-
-  const url = referrer.toLowerCase()
-  if (url.includes('blog.naver.com') || url.includes('m.blog.naver.com'))
-    return { channel: '블로그', source: '네이버' }
-  if (url.includes('search.naver.com') || url.includes('m.search.naver.com'))
-    return { channel: '검색유입', source: '네이버' }
-  if (url.includes('google.com/search') || url.includes('google.co.kr'))
-    return { channel: '검색유입', source: '구글' }
-  if (url.includes('youtube.com'))
-    return { channel: '유튜브', source: '유튜브' }
-  if (url.includes('instagram.com') || url.includes('facebook.com'))
-    return { channel: '메타', source: '메타' }
-  if (url.includes('caas.co.kr') || url.includes('caasworks'))
-    return { channel: '자사채널', source: '홈페이지' }
-  if (url.includes('tistory.com'))
-    return { channel: '블로그', source: '티스토리' }
-
-  return { channel: '자사채널', source: '기타' }
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -276,7 +252,7 @@ export async function POST(request: NextRequest) {
       // 1. 문의알림봇 메시지 처리 (pipeline_leads)
       const inquiry = parseInquiryMessage(fullText)
       if (inquiry) {
-        const { channel: inquiryChannel, source: inquirySource } = inferInquirySource(inquiry.referrer)
+        const { channel: inquiryChannel, source: inquirySource } = inferLeadChannel({ referrer: inquiry.referrer })
 
         // 중복 체크 (같은 이메일 또는 전화번호 + 같은 날짜)
         // KST(한국시간) 기준으로 오늘 날짜 계산 (Vercel 서버는 UTC)
@@ -363,19 +339,10 @@ export async function POST(request: NextRequest) {
           contact_email: inquiry.email,
           contact_phone: inquiry.phone,
           inquiry_date: today,
-          inquiry_channel: normalizeInquiryChannel({
-            referrer: inquiry.referrer,
-            inquiry_source: inquirySource,
-            inquiry_channel: inquiryChannel,
-          }),
+          inquiry_channel: inquiryChannel,
           inquiry_source: inquirySource,
-          // STEP 3: attribution 캡처 (referrer 만 있음, session_id 는 폼-CRM 연결 후 backfill)
           referrer: inquiry.referrer,
-          first_touch: buildFirstTouch({
-            referrer: inquiry.referrer,
-            inquiry_source: inquirySource,
-            inquiry_channel: inquiryChannel,
-          }) as any,
+          first_touch: buildFirstTouch({ referrer: inquiry.referrer }) as any,
           inquiry_content: [
             inquiry.extra_content,  // 레퍼러 주소 ↔ 실제 레퍼러 사이의 실제 문의 내용 (최우선)
             inquiry.referrer ? `레퍼러 주소: ${inquiry.referrer}` : null,
