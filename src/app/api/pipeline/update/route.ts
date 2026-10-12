@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { syncLeadToAdPerformance, revertLeadFromAdPerformance } from '@/lib/sync-lead-to-ads'
+import { autoTagLead } from '@/lib/topic-tags'
 
 // 도입완료 잠금: 도입완료 리드는 이탈로만 바로 바꿀 수 있고, 그 외 단계는 force(사용자 확인) 필요.
 // 도입 후 추가 견적/미팅 같은 후속 활동이 단계를 되돌리지 않게 하기 위함.
@@ -205,6 +206,9 @@ export async function POST(request: NextRequest) {
         .eq('id', lead_id)
         .select()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (['inquiry_content', 'core_need', 'notes'].some(k => k in (payload.form || {}))) {
+        await autoTagLead(supabase, lead_id)
+      }
       const newStage = payload.form?.stage
       if (newStage !== undefined && newStage !== oldStage) {
         try {

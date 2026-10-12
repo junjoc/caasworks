@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { inferLeadChannel, buildFirstTouch } from '@/lib/attribution'
+import { autoTagLead } from '@/lib/topic-tags'
 
 function getSupabase() {
   return createClient(
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+    if (data?.id) await autoTagLead(supabase, data.id)
 
     return NextResponse.json({ success: true, data })
   } catch (error: any) {

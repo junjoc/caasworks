@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { inferLeadChannel, buildFirstTouch } from '@/lib/attribution'
+import { autoTagLead } from '@/lib/topic-tags'
 
 // Use service role for server-side operations
 function getSupabase() {
@@ -331,7 +332,7 @@ export async function POST(request: NextRequest) {
         }
 
         // pipeline_leads에 삽입
-        const { error: leadError } = await supabase.from('pipeline_leads').insert({
+        const { data: newLead, error: leadError } = await supabase.from('pipeline_leads').insert({
           customer_code: customerCode,
           customer_id: leadCustomerId,
           company_name: companyName,
@@ -352,12 +353,13 @@ export async function POST(request: NextRequest) {
           priority: '중간',
           inquiry_hour: (new Date().getUTCHours() + 9) % 24, // KST
           notes: '[Slack 문의알림] 자동등록',
-        })
+        }).select('id').single()
 
         if (leadError) {
           console.error('Slack webhook: lead insert error', leadError)
           return NextResponse.json({ error: 'Lead insert failed' }, { status: 500 })
         }
+        if (newLead?.id) await autoTagLead(supabase, newLead.id)
 
         return NextResponse.json({ ok: true, action: 'inquiry_lead_created' })
       }
