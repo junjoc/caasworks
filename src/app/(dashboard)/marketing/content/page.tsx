@@ -15,6 +15,7 @@ import {
   FileText, RefreshCw, Plus, Eye, Users, Clock,
   ExternalLink, ArrowUpDown
 } from 'lucide-react'
+import { NaverBlogPanel } from './naver-blog-panel'
 
 interface ContentItem {
   id: string
@@ -169,7 +170,7 @@ export default function ContentPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      {channelFilter !== 'naver_blog' && <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="card p-4">
           <div className="flex items-center gap-2 mb-1">
             <FileText className="w-4 h-4 text-blue-500" />
@@ -198,7 +199,7 @@ export default function ContentPage() {
           </div>
           <p className="text-lg font-bold">{formatNumber(kpi.totalUsers)}</p>
         </div>
-      </div>
+      </div>}
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-4">
@@ -218,8 +219,8 @@ export default function ContentPage() {
         </div>
       </div>
 
-      {/* Content Table */}
-      {loading ? <Loading /> : filtered.length === 0 ? (
+      {/* Content Table — 네이버 탭은 블로그 통계 업로드 기반 */}
+      {channelFilter === 'naver_blog' ? <NaverBlogPanel /> : loading ? <Loading /> : filtered.length === 0 ? (
         <EmptyState icon={FileText} title="콘텐츠 데이터가 없습니다"
           description="GA4 동기화 또는 수동 입력으로 콘텐츠를 추가하세요"
           action={
