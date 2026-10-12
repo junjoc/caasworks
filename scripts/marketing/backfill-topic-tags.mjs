@@ -26,8 +26,13 @@ function matches(text, lower, kw) {
   if (/^[A-Za-z0-9-]+$/.test(kw)) return new RegExp(`(?<![A-Za-z])${kw.replace(/[-]/g, '\\-')}(?![A-Za-z])`, 'i').test(text)
   return lower.includes(kw.toLowerCase())
 }
+function isEmptyBody(text) {
+  return !text.replace(/>?\s*(utm_\w+|landing_page)\s*:\s*\S*/gi, ' ')
+    .replace(/\[Slack 문의알림\]\s*자동등록/g, ' ').replace(/[>\s|-]+/g, '')
+}
 function classify(l) {
   const text = cleanText([l.inquiry_content, l.core_need, l.notes])
+  if (isEmptyBody(text)) return [rules.empty_label]
   const lower = text.toLowerCase()
   const tags = rules.tags.filter(r => r.keywords.some(kw => matches(text, lower, kw))).map(r => r.tag)
   return tags.length ? tags : [rules.fallback]
@@ -50,7 +55,9 @@ const ratio = leads.length ? etc.length / leads.length : 0
 
 console.log(`[주제 태그] ${LIVE ? 'LIVE' : 'DRY-RUN'}  유입일 ${FROM} 이후 리드 ${leads.length}건\n`)
 for (const [t, v] of Object.entries(cnt).sort((a, b) => b[1] - a[1])) console.log(`  ${String(v).padStart(4)}  ${t}`)
+const empty = result.filter(r => r.tags[0] === rules.empty_label).length
 console.log(`\n"${rules.fallback}" 비율: ${(ratio * 100).toFixed(1)}% (${etc.length}/${leads.length})  — 목표 20% 이하`)
+console.log(`"${rules.empty_label}" (문의내용 없음): ${empty}건`)
 
 const hasBody = l => !!cleanText([l.inquiry_content, l.core_need]).replace(/>?\s*(utm_\w+|landing_page)\s*:\s*\S*/g, ' ').replace(/[>\s]+/g, ' ').trim()
 const etcWithBody = etc.filter(r => hasBody(r.l))

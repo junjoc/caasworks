@@ -4,8 +4,9 @@ import rules from '@/config/topic_tags.json'
 
 interface TopicRule { tag: string; keywords: string[] }
 
-export const TOPIC_TAGS: string[] = [...(rules.tags as TopicRule[]).map(r => r.tag), rules.fallback]
+export const TOPIC_TAGS: string[] = [...(rules.tags as TopicRule[]).map(r => r.tag), rules.fallback, rules.empty_label]
 export const TOPIC_FALLBACK: string = rules.fallback
+export const TOPIC_EMPTY: string = rules.empty_label
 
 // URL 과 "레퍼러 주소:" 줄은 분류 대상에서 뺀다 (주소 속 영문이 AI/LH 등에 걸리는 것 방지)
 function cleanText(parts: (string | null | undefined)[]): string {
@@ -27,8 +28,17 @@ function matches(text: string, lower: string, kw: string): boolean {
   return lower.includes(kw.toLowerCase())
 }
 
+// 분류할 실제 문장이 없는지: 폼이 붙이는 utm/landing_page 줄, Slack 자동등록 메모는 내용이 아니다
+function isEmptyBody(text: string): boolean {
+  return !text
+    .replace(/>?\s*(utm_\w+|landing_page)\s*:\s*\S*/gi, ' ')
+    .replace(/\[Slack 문의알림\]\s*자동등록/g, ' ')
+    .replace(/[>\s|-]+/g, '')
+}
+
 export function classifyTopics(parts: { inquiry_content?: string | null; core_need?: string | null; notes?: string | null }): string[] {
   const text = cleanText([parts.inquiry_content, parts.core_need, parts.notes])
+  if (isEmptyBody(text)) return [rules.empty_label]
   const lower = text.toLowerCase()
   const tags = (rules.tags as TopicRule[])
     .filter(r => r.keywords.some(kw => matches(text, lower, kw)))
