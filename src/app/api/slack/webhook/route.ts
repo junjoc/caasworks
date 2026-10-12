@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
-import { inferLeadChannel, buildFirstTouch } from '@/lib/attribution'
+import { inferLeadChannel, buildFirstTouch, parseUtmFromText } from '@/lib/attribution'
 import { autoTagLead } from '@/lib/topic-tags'
 
 // Use service role for server-side operations
@@ -253,7 +253,9 @@ export async function POST(request: NextRequest) {
       // 1. 문의알림봇 메시지 처리 (pipeline_leads)
       const inquiry = parseInquiryMessage(fullText)
       if (inquiry) {
-        const { channel: inquiryChannel, source: inquirySource } = inferLeadChannel({ referrer: inquiry.referrer })
+        // 문의폼이 문의내용에 붙인 utm 줄을 레퍼러보다 우선 (예: NAds 광고는 레퍼러가 중간 랜딩 도메인)
+        const utm = parseUtmFromText([inquiry.extra_content, fullText].filter(Boolean).join('\n'))
+        const { channel: inquiryChannel, source: inquirySource } = inferLeadChannel({ ...utm, referrer: inquiry.referrer })
 
         // 중복 체크 (같은 이메일 또는 전화번호 + 같은 날짜)
         // KST(한국시간) 기준으로 오늘 날짜 계산 (Vercel 서버는 UTC)
@@ -343,7 +345,13 @@ export async function POST(request: NextRequest) {
           inquiry_channel: inquiryChannel,
           inquiry_source: inquirySource,
           referrer: inquiry.referrer,
-          first_touch: buildFirstTouch({ referrer: inquiry.referrer }) as any,
+          utm_source: utm.utm_source,
+          utm_medium: utm.utm_medium,
+          utm_campaign: utm.utm_campaign,
+          utm_content: utm.utm_content,
+          utm_term: utm.utm_term,
+          landing_page: utm.landing_page,
+          first_touch: buildFirstTouch({ ...utm, referrer: inquiry.referrer }) as any,
           inquiry_content: [
             inquiry.extra_content,  // 레퍼러 주소 ↔ 실제 레퍼러 사이의 실제 문의 내용 (최우선)
             inquiry.referrer ? `레퍼러 주소: ${inquiry.referrer}` : null,

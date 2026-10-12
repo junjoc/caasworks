@@ -6,6 +6,8 @@ export interface AttributionInput {
   utm_source?: string | null
   utm_medium?: string | null
   utm_campaign?: string | null
+  utm_content?: string | null
+  utm_term?: string | null
   referrer?: string | null
   landing_page?: string | null
 }
@@ -21,11 +23,34 @@ function hostOf(url: string): string | null {
   try { return new URL(url).host.toLowerCase() } catch { return null }
 }
 
+// 웹 문의폼이 문의내용에 붙이는 ">utm_source: NAds >utm_campaign: N_smart >landing_page: /pages/x" 줄 파싱.
+// 빈 값("utm_source: >landing_page: /")은 null.
+export function parseUtmFromText(text: string | null | undefined): AttributionInput {
+  const pick = (k: string) => {
+    const m = (text || '').match(new RegExp(`${k}\\s*:\\s*([^\\s>]+)`))
+    return m ? m[1] : null
+  }
+  return {
+    utm_source: pick('utm_source'),
+    utm_medium: pick('utm_medium'),
+    utm_campaign: pick('utm_campaign'),
+    utm_content: pick('utm_content'),
+    utm_term: pick('utm_term'),
+    landing_page: pick('landing_page'),
+  }
+}
+
 export function inferLeadChannel(a: AttributionInput): LeadChannel {
   const source = (a.utm_source || '').toLowerCase()
   const medium = (a.utm_medium || '').toLowerCase()
 
   if (source || medium) {
+    // 네이버 광고: 유입경로 = utm_campaign (N_smart, N_video ...) — 마케팅팀 요청 2026-10-12
+    if (/^nads/.test(source)) return { channel: '네이버', source: a.utm_campaign || '검색광고' }
+    if (source.includes('blog')) return { channel: '블로그', source: source.includes('tistory') ? '티스토리' : '네이버' }
+    if (AI_HOSTS.some(h => source.includes(h)) || ['gemini', 'chatgpt', 'perplexity', 'claude'].includes(source)) {
+      return { channel: '검색유입', source: '생성형AI' }
+    }
     const paid = ['cpc', 'ppc', 'paidsearch', 'sa', 'paid'].includes(medium)
     if (source.includes('naver')) return paid ? { channel: '네이버', source: '검색광고' } : { channel: '검색유입', source: '네이버' }
     if (source.includes('google')) return paid ? { channel: '구글', source: '검색광고' } : { channel: '검색유입', source: '구글' }

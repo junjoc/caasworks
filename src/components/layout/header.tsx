@@ -15,10 +15,10 @@ const pageTitles: Record<string, string> = {
   '/marketing/ads': '광고 성과',
   '/marketing/analytics': '유입 분석',
   '/marketing/campaigns': '캠페인 관리',
+  '/marketing/report': '마케팅 리포트',
   // 세일즈
   '/pipeline/board': '세일즈 · 보드뷰',
   '/pipeline/list': '세일즈 · 리스트',
-  '/pipeline/marketing-report': '세일즈 · 마케팅 리포트',
   '/quotations': '견적서 관리',
   '/quotations/simulator': '견적 모의계산',
   '/quotations/price-list': '단가표',

@@ -1,4 +1,4 @@
-// 마케팅 리포트 (/pipeline/marketing-report) 계산 도우미.
+// 마케팅 리포트 (/marketing/report) 계산 도우미.
 // 요구사항: 마케팅팀 _요구사항_CRM_마케팅리포트_클로드코드용_261008.md
 
 export type ChannelGroup = '웹' | '전화' | '기타'

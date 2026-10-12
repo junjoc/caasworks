@@ -27,6 +27,7 @@ export const NAV_MENU: NavSection[] = [
       { label: '콘텐츠 성과', href: '/marketing/content' },
       { label: '방문자 여정', href: '/marketing/journey' },
       { label: '마케팅 분석', href: '/marketing/analytics' },
+      { label: '마케팅 리포트', href: '/marketing/report' },
     ],
   },
   {
@@ -35,7 +36,6 @@ export const NAV_MENU: NavSection[] = [
       { label: '보드뷰', href: '/pipeline/board' },
       { label: '리스트', href: '/pipeline/list' },
       { label: '파이프라인 분석', href: '/pipeline/analytics' },
-      { label: '마케팅 리포트', href: '/pipeline/marketing-report' },
       { label: '견적서', href: '/quotations' },
       { label: '견적 모의계산', href: '/quotations/simulator' },
       { label: '단가표', href: '/quotations/price-list' },
