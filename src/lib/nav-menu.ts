@@ -28,6 +28,7 @@ export const NAV_MENU: NavSection[] = [
       { label: '방문자 여정', href: '/marketing/journey' },
       { label: '마케팅 분석', href: '/marketing/analytics' },
       { label: '마케팅 리포트', href: '/marketing/report' },
+      { label: '연간 비교', href: '/marketing/history' },
     ],
   },
   {
