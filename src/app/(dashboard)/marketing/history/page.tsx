@@ -182,6 +182,14 @@ export default function MarketingHistoryPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title flex items-center gap-2"><BarChart3 className="w-6 h-6" /> 마케팅 연간 비교</h1>
+        {years.length > 0 && (
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-text-secondary">상세 연도</span>
+            <select value={year} onChange={e => setYear(Number(e.target.value))} className="input-base !py-1.5 !w-28 text-sm">
+              {years.map(y => <option key={y} value={y}>{y}년</option>)}
+            </select>
+          </label>
+        )}
       </div>
       {uploadBox}
       <div className="flex items-start gap-2 text-xs text-text-secondary bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-4">
@@ -298,7 +306,7 @@ export default function MarketingHistoryPage() {
           {/* 월별 표 */}
           <div className="card p-4">
             <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-              <p className="text-sm font-medium">월별 상세</p>
+              <p className="text-sm font-medium">{year}년 월별 상세</p>
               <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
                 {years.map(y => (
                   <button key={y} onClick={() => setYear(y)}
