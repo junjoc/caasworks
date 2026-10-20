@@ -64,6 +64,16 @@ for (const p of plan) {
   const patch = {}
   const notes = []
   for (const r of p.rest) {
+    // 청구서는 (고객, 연, 월) UNIQUE — 같은 달 청구서가 양쪽에 있으면 같은 건이 두 번 들어간 것. 발행일이 있는(최근 시트 동기화) 쪽을 남긴다
+    const { data: dupInv } = await sb.from('invoices').select('id, year, month, total, tax_invoice_issued_at, notes').eq('customer_id', r.id)
+    for (const di of dupInv || []) {
+      const { data: ki } = await sb.from('invoices').select('id, total, tax_invoice_issued_at, notes').eq('customer_id', k.id).eq('year', di.year).eq('month', di.month).maybeSingle()
+      if (!ki) continue
+      const keepDup = !!di.tax_invoice_issued_at && !ki.tax_invoice_issued_at
+      const loser = keepDup ? ki.id : di.id
+      const { error } = await sb.from('invoices').delete().eq('id', loser)
+      console.log(`  청구서 중복 ${r.company_name} ${di.year}-${di.month} (${Number(di.total).toLocaleString()} / ${Number(ki.total).toLocaleString()}) → ${keepDup ? '기존 것 삭제, 합쳐지는 쪽 유지' : '합쳐지는 쪽 삭제'}${error ? ' ❌ ' + error.message : ''}`)
+    }
     for (const [t, col] of live) {
       const { error } = await sb.from(t).update({ [col]: k.id }).eq(col, r.id)
       if (error) { console.log(`  ❌ ${t} 이동 실패 ${r.company_name}: ${error.message}`); failed++ }
