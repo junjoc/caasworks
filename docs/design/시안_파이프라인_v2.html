@@ -1,0 +1,178 @@
+<title>CRM 새 디자인 시안</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* 레이아웃: 사이드바 + 목록 + 오른쪽 드로어. 흰 바탕, 1px 선, 색은 상태에만 */
+:root {
+  --bg: #ffffff; --bg-subtle: #fafafa; --fg: #18181b; --fg-2: #52525b; --fg-3: #a1a1aa; --line: #e4e4e7; --line-2: #f1f1f3;
+  --accent: #2563eb; --accent-fg: #ffffff; --ok: #16a34a; --warn: #d97706; --bad: #dc2626; --info: #2563eb;
+  --font: "Inter", "Noto Sans KR", "Pretendard", -apple-system, "Apple SD Gothic Neo", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0f1011; --bg-subtle: #151617; --fg: #f4f4f5; --fg-2: #a1a1aa; --fg-3: #63636b; --line: #27272a; --line-2: #1d1d20; --accent: #60a5fa; --accent-fg: #0f1011; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --info: #60a5fa; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #0f1011; --bg-subtle: #151617; --fg: #f4f4f5; --fg-2: #a1a1aa; --fg-3: #63636b; --line: #27272a; --line-2: #1d1d20; --accent: #60a5fa; --accent-fg: #0f1011; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --info: #60a5fa; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 13px; line-height: 1.5; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; -webkit-font-smoothing: antialiased; }
+.note { max-width: 1180px; margin: 0 auto 14px; color: var(--fg-2); font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap; align-items: baseline }
+.note b { color: var(--fg); font-weight: 600; font-size: 14px }
+.app { max-width: 1180px; margin: 0 auto; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: grid; grid-template-columns: 200px 1fr; min-height: 640px; background: var(--bg) }
+.side { border-right: 1px solid var(--line); padding: 14px 10px; background: var(--bg-subtle); min-width: 0 }
+.side .brand { font-weight: 600; font-size: 13px; padding: 4px 8px 12px; display: flex; align-items: center; gap: 8px }
+.side .brand i { width: 18px; height: 18px; border-radius: 5px; background: var(--fg); display: inline-block }
+.side .sec { color: var(--fg-3); font-size: 11px; letter-spacing: .04em; padding: 10px 8px 4px; text-transform: uppercase }
+.side a { display: block; padding: 6px 8px; border-radius: 5px; color: var(--fg-2); text-decoration: none; font-size: 13px }
+.side a.on { background: var(--bg); color: var(--fg); font-weight: 500; box-shadow: inset 0 0 0 1px var(--line) }
+.side .cmdk { margin: 2px 0 8px; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; color: var(--fg-3); display: flex; justify-content: space-between; font-size: 12px; background: var(--bg) }
+.side kbd { font-family: var(--font); font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--fg-3) }
+.main { display: grid; grid-template-columns: 1fr 360px; min-width: 0 }
+.list { min-width: 0; display: flex; flex-direction: column }
+.hdr { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px 12px; flex-wrap: wrap }
+.hdr h1 { font-size: 18px; font-weight: 600; margin: 0; line-height: 1.3 }
+.hdr .sub { color: var(--fg-2); font-size: 12px; margin-top: 2px }
+.hdr .sub b { color: var(--fg); font-weight: 500 }
+.btns { display: flex; gap: 8px; align-items: center }
+.btn { height: 30px; padding: 0 11px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer }
+.btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg) }
+.btn.quiet { border-color: transparent; color: var(--fg-2) }
+.btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 35%, transparent) }
+.toolbar { display: flex; align-items: center; gap: 10px; padding: 0 20px 10px; flex-wrap: wrap; border-bottom: 1px solid var(--line) }
+.tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; padding: 2px; gap: 2px }
+.tabs span { padding: 4px 10px; border-radius: 4px; color: var(--fg-2); font-size: 12.5px }
+.tabs span.on { background: var(--fg); color: var(--bg); font-weight: 500 }
+.search { height: 30px; border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; color: var(--fg-3); display: flex; align-items: center; min-width: 180px; font-size: 12.5px; flex: 1; max-width: 260px }
+.sel { height: 30px; border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; color: var(--fg-2); font-size: 12.5px }
+.sel::after { content: "⌄"; color: var(--fg-3) }
+.tablewrap { overflow-x: auto; min-width: 0 }
+table { border-collapse: collapse; width: 100%; min-width: 760px }
+th { text-align: left; font-weight: 500; color: var(--fg-3); font-size: 12px; padding: 0 12px; height: 34px; border-bottom: 1px solid var(--line); white-space: nowrap }
+td { padding: 0 12px; height: 36px; border-bottom: 1px solid var(--line-2); white-space: nowrap; vertical-align: middle }
+tr.row:hover td { background: var(--bg-subtle) }
+tr.row.on td { background: color-mix(in srgb, var(--accent) 7%, var(--bg)) }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums }
+td.co { font-weight: 500 }
+td.muted { color: var(--fg-2) }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; vertical-align: 1px }
+.ok { background: var(--ok) } .warn { background: var(--warn) } .bad { background: var(--bad) } .info { background: var(--info) } .gray { background: var(--fg-3) }
+.pill { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--line-2); color: var(--fg-2); font-size: 11.5px }
+/* 먼데이 결: 상태는 칸 전체 색, 글자 흰색. 색은 이 네 가지뿐 */
+.st { display: block; margin: 0 -12px; padding: 0 12px; height: 36px; line-height: 36px; color: #fff; font-weight: 500; text-align: center; font-size: 12.5px }
+.st.ok { background: #00c875 } .st.info { background: #579bfc } .st.warn { background: #fdab3d } .st.bad { background: #e2445c } .st.gray { background: #c4c4c4; color: #fff }
+.grp { border-left: 4px solid var(--grp, var(--accent)) }
+.grp-h td { height: 30px; color: var(--grp, var(--accent)); font-weight: 600; font-size: 13px; border-bottom: 1px solid var(--line); background: var(--bg) }
+.av { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--line); color: var(--fg-2); font-size: 11px; font-weight: 600; margin-right: 6px; vertical-align: middle }
+.tag { color: var(--accent); font-size: 12px; margin-right: 6px }
+.act { opacity: 0; color: var(--fg-3) } tr.row:hover .act { opacity: 1 }
+tfoot td { color: var(--fg); font-weight: 600; border-bottom: 0; border-top: 1px solid var(--line) }
+.pager { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; color: var(--fg-3); font-size: 12px; margin-top: auto }
+.pager span.pg { color: var(--fg-2) }
+.drawer { border-left: 1px solid var(--line); min-width: 0; display: flex; flex-direction: column }
+.dh { padding: 16px 18px 12px; border-bottom: 1px solid var(--line) }
+.dh .t { font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 8px }
+.dh .t small { color: var(--fg-3); font-weight: 400; font-size: 12px }
+.dh .meta { color: var(--fg-2); font-size: 12px; margin-top: 3px }
+.sec2 { padding: 12px 18px; border-bottom: 1px solid var(--line-2) }
+.sec2 h4 { margin: 0 0 8px; font-size: 11.5px; color: var(--fg-3); font-weight: 500; letter-spacing: .03em }
+.kv { display: grid; grid-template-columns: 84px 1fr; gap: 6px 10px; font-size: 12.5px }
+.kv .k { color: var(--fg-3) } .kv .v { min-width: 0 }
+.kv .v.edit { border-bottom: 1px dashed var(--line); cursor: text }
+.auto { color: var(--fg-3); font-size: 11px; margin-left: 6px }
+.tl { list-style: none; margin: 0; padding: 0; font-size: 12.5px }
+.tl li { display: grid; grid-template-columns: 76px 1fr; gap: 10px; padding: 4px 0 }
+.tl .d { color: var(--fg-3); font-variant-numeric: tabular-nums }
+.spark { display: flex; align-items: flex-end; gap: 3px; height: 36px; margin-top: 4px }
+.spark i { display: block; width: 14px; background: var(--fg-3); opacity: .55; border-radius: 2px 2px 0 0 } .spark i.hi { background: var(--accent); opacity: 1 }
+.dfoot { margin-top: auto; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line) }
+.toast { position: static; margin: 12px auto 0; width: max-content; max-width: 100%; background: var(--fg); color: var(--bg); padding: 7px 12px; border-radius: 6px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0,0,0,.15) }
+.legend { max-width: 1180px; margin: 18px auto 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; font-size: 12.5px; color: var(--fg-2) }
+.legend b { color: var(--fg); font-weight: 600 }
+@media (max-width: 980px) { .main { grid-template-columns: 1fr } .drawer { border-left: 0; border-top: 1px solid var(--line) } }
+@media (max-width: 700px) { .app { grid-template-columns: 1fr } .side { display: none } }
+</style>
+
+<div class="note"><b>파이프라인 리스트 — 새 규칙 시안 v2 (먼데이 결 + 가벼운 구조)</b> <span>흰 바탕 · 1px 선 · 그림자 없음 · 상태는 칸 색으로 · 그룹 색 줄 · 담당자 아바타 · 주 동작 1개 · 행 클릭 → 드로어 · 인라인 편집 · ⌘K</span></div>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand"><i></i> CaaS.Works</div>
+    <div class="cmdk"><span>검색 · 이동</span><kbd>⌘K</kbd></div>
+    <a>대시보드</a>
+    <div class="sec">마케팅</div><a>캠페인</a><a>광고 성과</a><a>콘텐츠 성과</a>
+    <div class="sec">세일즈</div><a class="on">파이프라인</a><a>견적서</a>
+    <div class="sec">고객관리</div><a>매출 현황</a><a>고객사</a>
+    <div class="sec">재무관리</div><a>청구/계산서</a><a>미납</a>
+    <div class="sec">분석</div><a>개요</a><a>고객 생애주기</a>
+    <div class="sec">모음</div><a>효성 체감온도계</a><a>중요 현장</a>
+  </aside>
+
+  <div class="main">
+    <section class="list">
+      <div class="hdr">
+        <div>
+          <h1>파이프라인</h1>
+          <div class="sub">리드 <b>1,287</b> · 진행 중 <b>416</b> · 도입 <b>229</b> · 도입률 <b>17.8%</b> · 이번 달 유입 <b>32</b></div>
+        </div>
+        <div class="btns"><span class="sel">2026년</span><button class="btn">보드로 보기</button><button class="btn primary">리드 등록</button></div>
+      </div>
+      <div class="toolbar">
+        <div class="tabs"><span class="on">전체</span><span>내 담당</span><span>추가 진행</span><span>장기 방치 12</span></div>
+        <div class="search">회사명, 현장, 담당자 검색</div>
+        <span class="sel">단계</span><span class="sel">채널</span><span class="sel">담당자</span>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>회사</th><th style="text-align:center">단계</th><th>채널</th><th>담당</th><th>유입일</th><th class="num">소요일</th><th class="num">매출 (원)</th><th>다음 액션</th><th></th></tr></thead>
+          <tbody>
+            <tr class="grp-h" style="--grp:#00c875"><td colspan="9">도입완료 · 2</td></tr>
+            <tr class="row on grp" style="--grp:#00c875"><td class="co">주식회사 남전엔지니어링</td><td><span class="st ok">도입완료</span></td><td class="muted">검색유입 / 네이버</td><td><span class="av">박</span>박성언</td><td class="muted">2026-09-23</td><td class="num">0</td><td class="num">2,858,000</td><td class="muted">—</td><td class="act">수정</td></tr>
+            <tr class="row grp" style="--grp:#00c875"><td class="co">제이아이엔피</td><td><span class="st ok">도입완료</span></td><td class="muted">자사채널 / 홈페이지</td><td><span class="av">전</span>전성환</td><td class="muted">2026-10-02</td><td class="num">17</td><td class="num">22,050,000</td><td class="muted">—</td><td class="act">수정</td></tr>
+            <tr class="grp-h" style="--grp:#579bfc"><td colspan="9">진행 중 · 5</td></tr>
+            <tr class="row grp" style="--grp:#579bfc"><td class="co">동명종합건설(주)</td><td><span class="st info">제안</span></td><td class="muted">외주 블로그 / 팀부스터</td><td><span class="av">박</span>박성언</td><td class="muted">2026-10-20</td><td class="num muted">—</td><td class="num muted">—</td><td>10-23 견적 발송</td><td class="act">수정</td></tr>
+            <tr class="row grp" style="--grp:#579bfc"><td class="co">국가철도공단</td><td><span class="st info">미팅</span></td><td class="muted">대표전화</td><td><span class="av">전</span>전성환</td><td class="muted">2026-09-28</td><td class="num muted">—</td><td class="num muted">—</td><td>10-24 현장 방문</td><td class="act">수정</td></tr>
+            <tr class="row grp" style="--grp:#579bfc"><td class="co">(주)태영건설</td><td><span class="st warn">예정</span></td><td class="muted">행사방문</td><td><span class="av">최</span>최한별</td><td class="muted">2026-09-28</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">설계 단계, 2027 Q1</td><td class="act">수정</td></tr>
+            <tr class="row grp" style="--grp:#579bfc"><td class="co">AJ네트웍스</td><td><span class="st gray">컨텍</span></td><td class="muted">검색유입 / 구글</td><td><span class="av">박</span>박성언</td><td class="muted">2026-09-30</td><td class="num muted">—</td><td class="num muted">—</td><td>10-21 자료 발송</td><td class="act">수정</td></tr>
+            <tr class="row grp" style="--grp:#579bfc"><td class="co">주택도시보증공사(HUG)</td><td><span class="st gray">컨텍</span></td><td class="muted">자사채널 / 홈페이지</td><td class="muted">미배정</td><td class="muted">2026-09-28</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td><td class="act">수정</td></tr>
+            <tr class="grp-h" style="--grp:#e2445c"><td colspan="9">이탈 · 1</td></tr>
+            <tr class="row grp" style="--grp:#e2445c"><td class="co">정담건설</td><td><span class="st bad">이탈</span></td><td class="muted">네이버 / 검색광고</td><td><span class="av">전</span>전성환</td><td class="muted">2026-08-11</td><td class="num muted">—</td><td class="num">1,867,800</td><td class="muted">가격 사유</td><td class="act">수정</td></tr>
+          </tbody>
+          <tfoot><tr><td>8 / 1,287</td><td colspan="5"></td><td class="num">26,775,800</td><td colspan="2"></td></tr></tfoot>
+        </table>
+      </div>
+      <div class="pager"><span>50행씩 · 서버 페이지</span><span class="pg">‹ 1 / 26 ›</span></div>
+    </section>
+
+    <aside class="drawer">
+      <div class="dh">
+        <div class="t"><span>주식회사 남전엔지니어링</span><small>고객사 2609230001</small></div>
+        <div class="meta"><span class="st ok" style="display:inline-block;height:22px;line-height:22px;margin:0 6px 0 0;padding:0 8px;border-radius:4px">도입완료</span> · 유입 2026-09-23 → 도입 2026-09-23 (0일) · 담당 박성언</div>
+      </div>
+      <div class="sec2"><h4>리드</h4>
+        <div class="kv">
+          <span class="k">채널</span><span class="v edit">검색유입 / 네이버<span class="auto">자동</span></span>
+          <span class="k">업종</span><span class="v edit">전문건설사</span>
+          <span class="k">발주유형</span><span class="v edit" style="color:var(--fg-3)">입력…</span>
+          <span class="k">주제</span><span class="v"><span class="tag">#가격·견적</span><span class="tag">#AI CCTV</span></span>
+          <span class="k">문의</span><span class="v" style="white-space:normal;color:var(--fg-2)">현장 CCTV 6대와 타임랩스 견적 요청. 11월 착공.</span>
+        </div>
+      </div>
+      <div class="sec2"><h4>매출 · 2026-09 ~</h4>
+        <div class="kv"><span class="k">누적</span><span class="v" style="font-variant-numeric:tabular-nums">2,858,000원 · 플랫폼, AI CCTV, 타임랩스, Wearable Cam</span></div>
+        <div class="spark"><i style="height:60%"></i><i style="height:100%" class="hi"></i><i style="height:0;opacity:.2"></i></div>
+      </div>
+      <div class="sec2"><h4>타임라인</h4>
+        <ul class="tl">
+          <li><span class="d">09-23</span><span>첫 문의 · 검색유입/네이버</span></li>
+          <li><span class="d">09-23</span><span>도입완료 · 과금 시작</span></li>
+          <li><span class="d">09-25</span><span>세금계산서 1,250,000원 · 수납 09-30</span></li>
+          <li><span class="d">10-15</span><span>세금계산서 1,608,000원 · <span style="color:var(--warn)">미수납</span></span></li>
+        </ul>
+      </div>
+      <div class="dfoot"><button class="btn quiet">활동 기록</button><div class="btns"><button class="btn quiet danger">이탈 처리</button><button class="btn">고객사 열기</button></div></div>
+    </aside>
+  </div>
+</div>
+<div class="toast">저장됨</div>
+
+<div class="legend">
+  <div><b>먼데이에서 가져온 것</b><br>상태 칸 전체 색(초록·파랑·주황·빨강), 그룹 색 줄과 그룹 제목, 담당자 아바타, 태그 칩. 전부 CSS 몇 줄이다.</div><div><b>가져오지 않은 것</b><br>12종 뷰·자동화·공동 문서·모든 칸 드래그. 우리는 표·보드·분석 3종과 드로어로 충분하다.</div>
+  <div><b>코드가 줄어드는 이유</b><br>카드·KPI·안내줄·모달이 PageHeader/Toolbar/DataTable/Drawer 네 부품으로 흡수된다. 페이지는 데이터만 넘긴다.</div>
+  <div><b>빨라지는 이유</b><br>목록은 서버에서 50행씩, 드로어는 열 때만 그 행을 읽는다. 차트 라이브러리는 분석 화면에서만 쓴다.</div>
+</div>
