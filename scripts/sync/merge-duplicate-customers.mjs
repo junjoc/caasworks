@@ -28,8 +28,8 @@ const dups = [...groups.values()].filter(g => g.length > 1)
 const refCount = new Map() // customer_id → { table: n }
 const live = []
 for (const [t, col] of REF_TABLES) {
-  const { error } = await sb.from(t).select(col, { head: true, count: 'exact' }).limit(1)
-  if (error) continue
+  const { error } = await sb.from(t).select(col).limit(1)
+  if (error) continue // 없는 테이블/컬럼
   live.push([t, col])
   const rows = await all(() => sb.from(t).select(col).not(col, 'is', null).order(col))
   for (const r of rows) { const id = r[col]; if (!refCount.has(id)) refCount.set(id, {}); refCount.get(id)[t] = (refCount.get(id)[t] || 0) + 1 }
