@@ -30,6 +30,7 @@ interface Lead {
   converted_at: string | null
   next_action_date: string | null
   priority: string | null
+  customer_id: string | null
 }
 
 interface UserInfo {
@@ -62,6 +63,8 @@ const INDUSTRY_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', 
 export default function PipelineAnalyticsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [users, setUsers] = useState<UserInfo[]>([])
+  // 고객사별 유입 후 누적 매출(공급가) — 생애주기 API (5분 캐시). 담당자별 도입 매출에 사용
+  const [revByCust, setRevByCust] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
   const [stageChanging, setStageChanging] = useState<string | null>(null)
 
@@ -86,14 +89,16 @@ export default function PipelineAnalyticsPage() {
     setLoading(true)
     // Supabase 1000-row 서버 제한 우회: batch 병렬.
     const size = 1000, maxBatches = 5
-    const LEAD_COLS = 'id, company_name, stage, assigned_to, inquiry_channel, industry, interest_service, inquiry_date, created_at, updated_at, converted_at, next_action_date, priority'
+    const LEAD_COLS = 'id, company_name, stage, assigned_to, inquiry_channel, industry, interest_service, inquiry_date, created_at, updated_at, converted_at, next_action_date, priority, customer_id'
     const leadPromises = Array.from({ length: maxBatches }, (_, i) =>
       supabase.from('pipeline_leads').select(LEAD_COLS).range(i * size, i * size + size - 1)
     )
-    const [leadsResults, usersRes] = await Promise.all([
+    const [leadsResults, usersRes, lifecycle] = await Promise.all([
       Promise.all(leadPromises),
       supabase.from('users').select('id, name'),
+      fetch('/api/analytics/lifecycle').then(r => r.json()).catch(() => null),
     ])
+    if (lifecycle?.rows) setRevByCust(new Map((lifecycle.rows as { customer_id: string | null; rev_total: number }[]).filter(r => r.customer_id).map(r => [r.customer_id!, r.rev_total])))
     let allLeads: any[] = []
     for (const r of leadsResults) {
       if (r.error) { console.error(r.error); continue }
@@ -240,10 +245,12 @@ export default function PipelineAnalyticsPage() {
 
   const assigneeData = useMemo(() => {
     const map: Record<string, Record<string, number>> = {}
+    const wonCusts: Record<string, Set<string>> = {} // 담당자별 도입 고객사 (같은 고객사 리드가 여럿이면 한 번만)
     filtered.forEach(l => {
       const name = userName(l.assigned_to)
       if (!map[name]) map[name] = {}
       map[name][l.stage] = (map[name][l.stage] || 0) + 1
+      if (l.stage === '도입완료' && l.customer_id) (wonCusts[name] ||= new Set()).add(l.customer_id)
     })
 
     return Object.entries(map).map(([name, stages]) => {
@@ -253,9 +260,11 @@ export default function PipelineAnalyticsPage() {
       const active = total - converted - lost
       // 도입률 (METRICS 2.4): 도입완료 / 전체 리드. 팀 결정 2026-07-02 로 화면 통일.
       const convRate = total > 0 ? Math.round(converted / total * 100) : 0
-      return { name, total, converted, lost, active, convRate, stages }
+      // 도입 매출: 도입완료 리드의 고객사가 유입 이후 올린 누적 매출(공급가, VAT 제외)
+      const revenue = Array.from(wonCusts[name] || []).reduce((s, cid) => s + (revByCust.get(cid) || 0), 0)
+      return { name, total, converted, lost, active, convRate, stages, revenue }
     }).sort((a, b) => b.total - a.total)
-  }, [filtered, users])
+  }, [filtered, users, revByCust])
 
   // ─── 3. Industry Analysis ──────────────────────────────
 
@@ -730,7 +739,9 @@ export default function PipelineAnalyticsPage() {
                     <th className="text-center py-2 px-2 text-text-tertiary font-medium">도입</th>
                     <th className="text-center py-2 px-2 text-text-tertiary font-medium">이탈</th>
                     <th className="text-center py-2 px-2 text-text-tertiary font-medium">도입률</th>
-                    <th className="text-left py-2 px-2 text-text-tertiary font-medium w-1/3">단계 분포</th>
+                    <th className="text-right py-2 px-2 text-text-tertiary font-medium" title="도입완료 고객사가 유입 이후 올린 누적 매출 (공급가, VAT 제외)">도입 매출</th>
+                    <th className="text-right py-2 px-2 text-text-tertiary font-medium" title="도입 매출 ÷ 도입 건수">도입당</th>
+                    <th className="text-left py-2 px-2 text-text-tertiary font-medium w-1/4">단계 분포</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -746,6 +757,8 @@ export default function PipelineAnalyticsPage() {
                           {a.convRate}%
                         </span>
                       </td>
+                      <td className="text-right py-2.5 px-2 font-medium whitespace-nowrap">{a.revenue ? `${formatNumber(Math.round(a.revenue))}원` : '-'}</td>
+                      <td className="text-right py-2.5 px-2 text-text-secondary whitespace-nowrap">{a.converted && a.revenue ? `${formatNumber(Math.round(a.revenue / a.converted))}원` : '-'}</td>
                       <td className="py-2.5 px-2">
                         <div className="flex h-4 rounded overflow-hidden">
                           {STAGE_ORDER.map((stage, i) => {
