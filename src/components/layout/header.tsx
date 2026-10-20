@@ -20,6 +20,8 @@ const pageTitles: Record<string, string> = {
   '/analytics': '분석 개요',
   '/analytics/conversion': '전환 소요 기간',
   '/analytics/cohort': '유입 코호트',
+  '/analytics/channel-value': '채널별 생애 가치',
+  '/analytics/company': '회사 생애주기',
   // 세일즈
   '/pipeline/board': '세일즈 · 보드뷰',
   '/pipeline/list': '세일즈 · 리스트',
@@ -89,6 +91,7 @@ export function Header({ user }: HeaderProps) {
   const getTitle = () => {
     if (!pathname) return ''
     if (pageTitles[pathname]) return pageTitles[pathname]
+    if (pathname.startsWith('/analytics/company/')) return '회사 생애주기'
     if (pathname.startsWith('/pipeline/')) return '파이프라인'
     if (pathname.startsWith('/customers/')) return '고객 상세'
     if (pathname.startsWith('/quotations/')) return '견적서'

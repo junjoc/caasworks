@@ -57,6 +57,10 @@ async function build() {
     readAll<{ customer_id: string; year: number; month: number; amount: number }>((a, b) => sb.from('monthly_revenues').select('customer_id, year, month, amount').order('id').range(a, b)),
     readAll<{ id: string; name: string }>((a, b) => sb.from('users').select('id, name').order('id').range(a, b)),
   ])
+  // 채널별 광고비 (연도별) — 채널별 생애 가치에서 매출/광고비 비교용. 리드 채널명과 광고성과 채널명이 같다 (네이버/구글/메타/유튜브/외주 블로그 …)
+  const ads = await readAll<{ date: string; channel: string; cost: number }>((a, b) => sb.from('ad_performance').select('date, channel, cost').gt('cost', 0).order('id').range(a, b))
+  const ad_cost: Record<string, Record<string, number>> = {}
+  for (const r of ads) { const y = r.date.slice(0, 4); ad_cost[r.channel] ||= {}; ad_cost[r.channel][y] = (ad_cost[r.channel][y] || 0) + Number(r.cost) }
   const custMap = new Map(customers.map(c => [c.id, c]))
   const userName = new Map(users.map(u => [u.id, u.name]))
   const services = new Map<string, Set<string>>()
@@ -113,7 +117,7 @@ async function build() {
     })
   }
   rows.sort((a, b) => b.inquiry_date.localeCompare(a.inquiry_date))
-  return { rows, generated_at: new Date().toISOString(), ms: Date.now() - t0, counts: { leads: leads.length, companies: rows.length, won: rows.filter(r => r.won).length } }
+  return { rows, ad_cost, generated_at: new Date().toISOString(), ms: Date.now() - t0, counts: { leads: leads.length, companies: rows.length, won: rows.filter(r => r.won).length } }
 }
 
 const cached = unstable_cache(build, ['analytics-lifecycle'], { revalidate: 300 })

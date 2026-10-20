@@ -32,7 +32,7 @@ export const fmtWon = (v: number | null | undefined) => (v == null ? '-' : `${Ma
 export const fmtPct = (n: number, d: number) => (d ? `${(n / d * 100).toFixed(1)}%` : '-')
 export const median = (xs: number[]) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)] }
 
-export async function fetchLifecycle(): Promise<{ rows: LifecycleRow[]; generated_at: string; ms: number }> {
+export async function fetchLifecycle(): Promise<{ rows: LifecycleRow[]; ad_cost: Record<string, Record<string, number>>; generated_at: string; ms: number }> {
   const t0 = performance.now()
   const res = await fetch('/api/analytics/lifecycle')
   const json = await res.json()

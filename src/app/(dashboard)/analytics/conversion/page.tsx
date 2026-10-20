@@ -145,7 +145,7 @@ export default function ConversionPage() {
                   <tbody>
                     {[...selRows].sort((a, b) => a.days_to_convert! - b.days_to_convert!).map(r => (
                       <tr key={r.key}>
-                        <td className="font-medium">{r.customer_id ? <Link href={`/customers/${r.customer_id}`} className="hover:text-primary-600">{r.company_name} <ExternalLink className="w-3 h-3 inline" /></Link> : r.company_name}</td>
+                        <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} className="hover:text-primary-600">{r.company_name} <ExternalLink className="w-3 h-3 inline" /></Link> : r.company_name}</td>
                         <td className="whitespace-nowrap">{r.inquiry_date}</td><td className="whitespace-nowrap">{r.converted_at}</td><td className="text-right">{r.days_to_convert}</td>
                         <td>{r.inquiry_channel || '-'}</td><td>{r.industry || '-'}</td><td>{r.site_category || '-'}</td><td className="text-xs">{r.services.join(', ') || '-'}</td><td>{r.assigned_to || '-'}</td>
                         <td className="text-right font-medium">{fmtWon(r.rev_total)}</td>

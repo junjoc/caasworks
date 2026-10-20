@@ -32,6 +32,7 @@ export const NAV_MENU: NavSection[] = [
       { label: '전환 소요 기간', href: '/analytics/conversion', group: '세일즈' },
       { label: '손익 분석', href: '/finance/analysis', group: '매출/재무' },
       { label: '유입 코호트', href: '/analytics/cohort', group: '고객 생애주기' },
+      { label: '채널별 생애 가치', href: '/analytics/channel-value', group: '고객 생애주기' },
     ],
   },
   {

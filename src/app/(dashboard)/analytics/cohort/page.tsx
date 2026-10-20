@@ -123,7 +123,7 @@ export default function CohortPage() {
                     {[...sel.rows].sort((a, b) => b.rev_total - a.rev_total).map(r => (
                       <tr key={r.key}>
                         <td className="font-medium">
-                          {r.customer_id ? <Link href={`/customers/${r.customer_id}`} className="hover:text-primary-600">{r.company_name} <ExternalLink className="w-3 h-3 inline" /></Link> : <span>{r.company_name} <span className="text-[10px] text-text-tertiary">(고객 미연결)</span></span>}
+                          {r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} className="hover:text-primary-600">{r.company_name} <ExternalLink className="w-3 h-3 inline" /></Link> : <span>{r.company_name} <span className="text-[10px] text-text-tertiary">(고객 미연결)</span></span>}
                         </td>
                         <td className="whitespace-nowrap">{r.inquiry_date}</td><td>{r.inquiry_channel || '-'}</td><td>{r.industry || '-'}</td>
                         <td className="whitespace-nowrap">{r.converted_at || (r.won ? '도입(일자 없음)' : '-')}</td>
