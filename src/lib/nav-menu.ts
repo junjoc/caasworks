@@ -20,22 +20,6 @@ export interface NavSection {
 export const NAV_MENU: NavSection[] = [
   { label: '대시보드', href: '/' },
   {
-    // 분석은 한 곳에서: 보는 화면만 여기로 모으고 입력·운영 화면은 각 메뉴에 둔다 (2026-10-20). 주소는 그대로라 권한·북마크 유지
-    label: '분석',
-    children: [
-      { label: '개요', href: '/analytics' },
-      { label: '마케팅 분석', href: '/marketing/analytics', group: '마케팅' },
-      { label: '방문자 여정', href: '/marketing/journey', group: '마케팅' },
-      { label: '연간 비교', href: '/marketing/history', group: '마케팅' },
-      { label: '파이프라인 분석', href: '/pipeline/analytics', group: '세일즈' },
-      { label: '마케팅 리포트', href: '/marketing/report', group: '세일즈' },
-      { label: '전환 소요 기간', href: '/analytics/conversion', group: '세일즈' },
-      { label: '손익 분석', href: '/finance/analysis', group: '매출/재무' },
-      { label: '유입 코호트', href: '/analytics/cohort', group: '고객 생애주기' },
-      { label: '채널별 생애 가치', href: '/analytics/channel-value', group: '고객 생애주기' },
-    ],
-  },
-  {
     label: '마케팅',
     children: [
       { label: '캠페인 관리', href: '/marketing/campaigns' },
@@ -80,6 +64,22 @@ export const NAV_MENU: NavSection[] = [
       { label: '재고 관리', href: '/operations/inventory' },
       { label: '장비 관리', href: '/operations/equipment' },
       { label: '협력사 발주', href: '/operations/orders' },
+    ],
+  },
+  {
+    // 분석은 한 곳에서: 보는 화면만 여기로 모으고 입력·운영 화면은 각 메뉴에 둔다 (2026-10-20). 주소는 그대로라 권한·북마크 유지
+    label: '분석',
+    children: [
+      { label: '개요', href: '/analytics' },
+      { label: '마케팅 분석', href: '/marketing/analytics', group: '마케팅' },
+      { label: '방문자 여정', href: '/marketing/journey', group: '마케팅' },
+      { label: '연간 비교', href: '/marketing/history', group: '마케팅' },
+      { label: '파이프라인 분석', href: '/pipeline/analytics', group: '세일즈' },
+      { label: '마케팅 리포트', href: '/marketing/report', group: '세일즈' },
+      { label: '전환 소요 기간', href: '/analytics/conversion', group: '세일즈' },
+      { label: '손익 분석', href: '/finance/analysis', group: '매출/재무' },
+      { label: '유입 코호트', href: '/analytics/cohort', group: '고객 생애주기' },
+      { label: '채널별 생애 가치', href: '/analytics/channel-value', group: '고객 생애주기' },
     ],
   },
   {
