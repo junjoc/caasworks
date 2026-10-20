@@ -6,6 +6,11 @@
 
 @layer base {
   :root {
+    /* 디자인 정의 v1 — 색 12 (docs/design/디자인정의_v1.html). 다크는 값만 바뀐다 (2027 이후) */
+    --ds-bg: #ffffff; --ds-subtle: #f7f7f8; --ds-line: #e5e5e8; --ds-line2: #f0f0f2;
+    --ds-fg: #1a1a1f; --ds-fg2: #5c5f66; --ds-fg3: #9b9ea6;
+    --ds-accent: #2563eb; --ds-accent-hover: #1d4ed8; --ds-accent-soft: #eaf1fe;
+    --ds-ok: #00c875; --ds-info: #579bfc; --ds-warn: #fdab3d; --ds-bad: #e2445c; --ds-na: #c4c4c4;
     --sidebar-width: 240px;
     --header-height: 48px;
     /* CaaS Brand Spacing Tokens */
@@ -45,6 +50,21 @@
 }
 
 @layer components {
+  /* ─── 디자인 정의 v1 표 ─── 행 36 · 머리 34 · 셀 좌우 12 · 가로선만 */
+  .ds-table { @apply w-full border-collapse text-[13px] text-ds-fg; }
+  .ds-table th { @apply text-left font-medium text-ds-fg3 text-[12px] px-3 h-[34px] border-b border-ds-line whitespace-nowrap; }
+  .ds-table td { @apply px-3 h-9 border-b border-ds-line2 whitespace-nowrap align-middle; }
+  .ds-table tbody tr.ds-row:hover td { background: var(--ds-subtle); }
+  .ds-table tbody tr.ds-row.is-active td { background: var(--ds-accent-soft); }
+  .ds-table .num { @apply text-right tabular-nums; }
+  .ds-table .muted { color: var(--ds-fg3); }
+  .ds-table tr.ds-group-h td { @apply h-[30px] font-semibold border-b border-ds-line; color: var(--grp, var(--ds-accent)); }
+  .ds-table tr.ds-group td:first-child { border-left: 4px solid var(--grp, var(--ds-accent)); }
+  .ds-table tr.ds-sum td { @apply font-semibold border-b-0 border-t border-ds-line; color: var(--ds-fg); }
+  .ds-table td .ds-cell-status { @apply block -mx-3 h-9 leading-9 text-center text-white font-medium; }
+  .ds-table.is-clickable tbody tr.ds-row { cursor: pointer; }
+  .ds-wrap { @apply overflow-x-auto border border-ds-line rounded-lg bg-ds-bg; }
+  .ds-edit { @apply border-b border-dashed border-ds-line cursor-text; }
   /* ─── Page Layout ─── */
   .page-header {
     @apply flex items-center justify-between mb-5;

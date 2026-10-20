@@ -11,6 +11,13 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // ─── 디자인 정의 v1 (docs/DESIGN_RULES.md 부록) — 값은 globals.css 의 CSS 변수. 새 화면은 이것만 쓴다 ───
+        ds: {
+          bg: 'var(--ds-bg)', subtle: 'var(--ds-subtle)', line: 'var(--ds-line)', line2: 'var(--ds-line2)',
+          fg: 'var(--ds-fg)', fg2: 'var(--ds-fg2)', fg3: 'var(--ds-fg3)',
+          accent: 'var(--ds-accent)', 'accent-hover': 'var(--ds-accent-hover)', 'accent-soft': 'var(--ds-accent-soft)',
+          ok: 'var(--ds-ok)', info: 'var(--ds-info)', warn: 'var(--ds-warn)', bad: 'var(--ds-bad)', na: 'var(--ds-na)',
+        },
         // ─── CaaS Gray Scale (theme.color.gray) ───
         gray: {
           50: '#FAFAFA',
