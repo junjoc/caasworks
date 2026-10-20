@@ -66,12 +66,12 @@ export async function GET(request: Request) {
       }
     })
 
-    // Filter by members (if specified)
+    // Filter by members (if specified). [이름] 이 없는 일정(팀 미팅·교육 등)은 개인 일정이 아니므로 남긴다
     let filtered = events
     if (membersParam) {
       const memberNames = membersParam.split(',').map(n => n.trim()).filter(Boolean)
       if (memberNames.length > 0) {
-        filtered = filtered.filter(e => e.name && memberNames.includes(e.name))
+        filtered = filtered.filter(e => !e.name || memberNames.includes(e.name))
       }
     }
 

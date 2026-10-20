@@ -41,26 +41,26 @@ export default function TeamCalendarPage() {
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [filter, setFilter] = useState('all')
   const [nameFilter, setNameFilter] = useState('전체')
-  const [teamMembers, setTeamMembers] = useState<string[]>([])
+  const [teamMembers, setTeamMembers] = useState<string[] | null>(null) // null = 설정 로딩 전
   const supabase = createClient()
 
   useEffect(() => {
-    // Load team member settings
+    // Load team member settings. 설정을 읽은 뒤에 일정을 불러와야 전체 → 팀원만 으로 두 번 그려지지 않는다
     supabase.from('company_settings').select('value').eq('key', 'calendar_team_members').single()
       .then(({ data }) => {
-        if (data?.value && Array.isArray(data.value)) setTeamMembers(data.value)
+        setTeamMembers(data?.value && Array.isArray(data.value) ? data.value : [])
       })
   }, [])
 
   useEffect(() => {
-    fetchEvents()
+    if (teamMembers !== null) fetchEvents()
   }, [year, month, filter, teamMembers])
 
   async function fetchEvents() {
     setLoading(true)
     try {
       let url = `/api/calendar?year=${year}&month=${month}&filter=${filter}`
-      if (teamMembers.length > 0) {
+      if (teamMembers && teamMembers.length > 0) {
         url += `&members=${encodeURIComponent(teamMembers.join(','))}`
       }
       const res = await fetch(url)
@@ -106,7 +106,7 @@ export default function TeamCalendarPage() {
       <div className="page-header">
         <h1 className="page-title flex items-center gap-2">
           <Calendar className="w-6 h-6" /> 팀 캘린더
-          {teamMembers.length > 0 && (
+          {teamMembers && teamMembers.length > 0 && (
             <span className="text-xs font-normal text-text-tertiary ml-2">({teamMembers.length}명)</span>
           )}
         </h1>
