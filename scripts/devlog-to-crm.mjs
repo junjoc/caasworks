@@ -2,7 +2,7 @@
 // docs/DEV_LOG/YYYY-MM-DD.md 의 번호 섹션("## N. 제목 (커밋)")을 CRM 피드백 > 개발일지(user_feedbacks, status=done)에 넣는다. 2026-10-20
 // - 같은 완료일 + 같은 제목이 이미 있으면 건너뜀 (여러 번 실행해도 안전). 삭제·수정 없음
 // - 번호 없는 섹션(세션 요약, 기타 등)은 무시
-// usage: node scripts/devlog-to-crm.mjs [docs/DEV_LOG/2026-10-20.md ...] [--live]   (파일 생략 시 전체)
+// usage: node scripts/devlog-to-crm.mjs [docs/DEV_LOG/2026-10-20.md ...] [--live]   (파일 생략 시 docs/DEV_LOG/*.md 전체. 과거 사후 요약은 docs/DEV_LOG/backfill/)
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync, readdirSync } from 'fs'
 
