@@ -17,6 +17,9 @@ const pageTitles: Record<string, string> = {
   '/marketing/campaigns': '캠페인 관리',
   '/marketing/report': '마케팅 리포트',
   '/marketing/history': '마케팅 연간 비교',
+  '/analytics': '분석 개요',
+  '/analytics/conversion': '전환 소요 기간',
+  '/analytics/cohort': '유입 코호트',
   // 세일즈
   '/pipeline/board': '세일즈 · 보드뷰',
   '/pipeline/list': '세일즈 · 리스트',

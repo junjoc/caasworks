@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -205,12 +205,15 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
             </button>
             <div className={cn(
               'overflow-hidden transition-all duration-200',
-              isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+              isExpanded ? 'max-h-[40rem] opacity-100' : 'max-h-0 opacity-0'
             )}>
               <div className="py-0.5">
-                {item.children!.map((child) => (
+                {item.children!.map((child, idx) => (
+                  <Fragment key={child.href}>
+                  {child.group && child.group !== item.children![idx - 1]?.group && (
+                    <div className="pl-12 pr-3 pt-2 pb-0.5 text-[10px] font-semibold tracking-wide text-text-tertiary uppercase">{child.group}</div>
+                  )}
                   <Link
-                    key={child.href}
                     href={child.href}
                     onClick={() => setMobileOpen(false)}
                     className={cn(
@@ -226,6 +229,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                     )} />
                     {child.label}
                   </Link>
+                  </Fragment>
                 ))}
               </div>
             </div>

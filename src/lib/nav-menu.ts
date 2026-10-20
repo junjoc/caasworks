@@ -8,6 +8,7 @@
 export interface NavChild {
   label: string
   href: string
+  group?: string          // 사이드바에서 소제목으로 묶어 보여줄 때 (분석 메뉴)
 }
 
 export interface NavSection {
@@ -18,17 +19,27 @@ export interface NavSection {
 
 export const NAV_MENU: NavSection[] = [
   { label: '대시보드', href: '/' },
-  { label: '분석', href: '/analytics' },
+  {
+    // 분석은 한 곳에서: 보는 화면만 여기로 모으고 입력·운영 화면은 각 메뉴에 둔다 (2026-10-20). 주소는 그대로라 권한·북마크 유지
+    label: '분석',
+    children: [
+      { label: '개요', href: '/analytics' },
+      { label: '마케팅 분석', href: '/marketing/analytics', group: '마케팅' },
+      { label: '방문자 여정', href: '/marketing/journey', group: '마케팅' },
+      { label: '연간 비교', href: '/marketing/history', group: '마케팅' },
+      { label: '파이프라인 분석', href: '/pipeline/analytics', group: '세일즈' },
+      { label: '마케팅 리포트', href: '/marketing/report', group: '세일즈' },
+      { label: '전환 소요 기간', href: '/analytics/conversion', group: '세일즈' },
+      { label: '손익 분석', href: '/finance/analysis', group: '매출/재무' },
+      { label: '유입 코호트', href: '/analytics/cohort', group: '고객 생애주기' },
+    ],
+  },
   {
     label: '마케팅',
     children: [
       { label: '캠페인 관리', href: '/marketing/campaigns' },
       { label: '광고 성과', href: '/marketing/ads' },
       { label: '콘텐츠 성과', href: '/marketing/content' },
-      { label: '방문자 여정', href: '/marketing/journey' },
-      { label: '마케팅 분석', href: '/marketing/analytics' },
-      { label: '마케팅 리포트', href: '/marketing/report' },
-      { label: '연간 비교', href: '/marketing/history' },
     ],
   },
   {
@@ -36,7 +47,6 @@ export const NAV_MENU: NavSection[] = [
     children: [
       { label: '보드뷰', href: '/pipeline/board' },
       { label: '리스트', href: '/pipeline/list' },
-      { label: '파이프라인 분석', href: '/pipeline/analytics' },
       { label: '견적서', href: '/quotations' },
       { label: '견적 모의계산', href: '/quotations/simulator' },
       { label: '단가표', href: '/quotations/price-list' },
@@ -58,7 +68,6 @@ export const NAV_MENU: NavSection[] = [
       { label: '미납 현황', href: '/finance/unpaid' },
       { label: '납부 관리', href: '/finance/payments' },
       { label: '매입/비용', href: '/finance/purchases' },
-      { label: '손익 분석', href: '/finance/analysis' },
     ],
   },
   {
