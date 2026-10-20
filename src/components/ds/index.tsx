@@ -105,7 +105,7 @@ export function DsButton({ variant = 'secondary', size = 'md', loading, icon, cl
 }
 
 /* ─── Drawer: 오른쪽 400px · Esc·바깥 클릭 닫힘 ─── */
-export function Drawer({ open, onClose, title, meta, footer, children, width = 400 }: { open: boolean; onClose: () => void; title: ReactNode; meta?: ReactNode; footer?: ReactNode; children: ReactNode; width?: number }) {
+export function Drawer({ open, onClose, title, meta, footer, children, width = 400 }: { open: boolean; onClose: () => void; title: ReactNode; meta?: ReactNode; footer?: ReactNode; children: ReactNode; width?: number | string }) {
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -116,7 +116,7 @@ export function Drawer({ open, onClose, title, meta, footer, children, width = 4
   return (
     <div className="fixed inset-0 z-50" onClick={onClose}>
       <div className="absolute inset-0 bg-black/10" />
-      <aside onClick={e => e.stopPropagation()} style={{ width }} className="absolute right-0 top-0 h-full max-w-full bg-ds-bg border-l border-ds-line shadow-[0_8px_24px_rgba(0,0,0,.08)] flex flex-col">
+      <aside onClick={e => e.stopPropagation()} style={{ width, minWidth: typeof width === 'string' ? 720 : undefined }} className="absolute right-0 top-0 h-full max-w-full bg-ds-bg border-l border-ds-line shadow-[0_8px_24px_rgba(0,0,0,.08)] flex flex-col">
         <div className="px-4 py-3.5 border-b border-ds-line flex items-start justify-between gap-2">
           <div className="min-w-0"><div className="text-[15px] font-semibold text-ds-fg truncate">{title}</div>{meta && <div className="text-[12px] text-ds-fg2 mt-0.5">{meta}</div>}</div>
           <button onClick={onClose} className="w-7 h-7 inline-grid place-items-center rounded-md text-ds-fg2 hover:bg-ds-subtle" title="닫기"><X className="w-4 h-4" /></button>

@@ -1,11 +1,11 @@
 'use client'
 
-// 분석 > 고객 생애주기 > 채널별 생애 가치 (디자인 정의 v1 시범 적용)
+// 분석 > 고객 생애주기 > 채널별 생애 가치 (디자인 정의 v1). 행 클릭 → 오른쪽 넓은 드로어에 회사 목록
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { fetchLifecycle, fmtWon, fmtPct, median, type LifecycleRow } from '@/lib/lifecycle'
-import { PageHeader, Toolbar, DsSelect, Check, Skeleton, Empty, SectionTitle, StatusChip } from '@/components/ds'
+import { PageHeader, Toolbar, DsSelect, Check, Skeleton, Empty, StatusChip, Drawer } from '@/components/ds'
 
 export default function ChannelValuePage() {
   const [rows, setRows] = useState<LifecycleRow[]>([])
@@ -36,7 +36,7 @@ export default function ChannelValuePage() {
     <div>
       <PageHeader title="채널별 생애 가치"
         kpis={[{ label: '유입 회사', value: tot.n }, { label: '도입', value: `${tot.won} (${fmtPct(tot.won, tot.n)})` }, { label: '누적 매출', value: `${fmtWon(tot.rev)}원` }, { label: '광고비', value: tot.cost ? `${fmtWon(tot.cost)}원` : '—' }, { label: '매출/광고비', value: tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—' }]}
-        subtitle="첫 리드의 유입 채널 기준 · 매출은 유입 이후 공급가 누적 · 광고비는 광고 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 —" />
+        subtitle="첫 리드의 유입 채널 기준 · 매출은 유입 이후 공급가 누적 · 광고비는 광고 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 — · 행을 누르면 회사 목록" />
       <Toolbar right={<>
         <DsSelect value={year} onChange={e => { setYear(e.target.value); setOpen(null) }}><option value="all">전체 연도</option>{years.map(y => <option key={y} value={y}>{y}년 유입</option>)}</DsSelect>
         <Check label="유입경로까지" checked={sub} onChange={v => { setSub(v); setOpen(null) }} />
@@ -44,44 +44,45 @@ export default function ChannelValuePage() {
       </>} />
 
       {loading ? <Skeleton rows={8} /> : table.length === 0 ? <Empty text="조건에 맞는 유입이 없습니다" /> : (
-        <div className="ds-wrap">
+        <div className="ds-wrap max-h-[70vh]">
           <table className="ds-table is-clickable">
-            <thead><tr><th>채널{sub ? ' › 유입경로' : ''}</th><th className="num">회사</th><th className="num">도입</th><th className="num">도입률</th><th className="num">소요일 중앙값</th><th className="num">누적 매출</th><th className="num">도입 회사당</th><th className="num">광고비</th><th className="num" title="누적 매출 ÷ 광고비">매출/광고비</th></tr></thead>
+            <thead><tr><th>채널{sub ? ' › 유입경로' : ''}</th><th>회사</th><th>도입</th><th>도입률</th><th>소요일 중앙값</th><th>누적 매출</th><th>도입 회사당</th><th>광고비</th><th title="누적 매출 ÷ 광고비">매출/광고비</th></tr></thead>
             <tbody>
               {table.map(t => (
-                <tr key={t.key} className={`ds-row ${open === t.key ? 'is-active' : ''}`} onClick={() => setOpen(open === t.key ? null : t.key)}>
-                  <td className="font-medium">{t.key}</td><td className="num">{t.n}</td><td className="num">{t.won}</td><td className="num">{fmtPct(t.won, t.n)}</td>
-                  <td className="num">{t.days != null ? `${t.days}일` : '—'}</td><td className="num font-medium">{fmtWon(t.rev)}</td><td className="num">{fmtWon(t.perWon)}</td>
-                  <td className="num">{t.cost ? fmtWon(t.cost) : '—'}</td><td className="num">{t.roas != null ? `${t.roas.toFixed(1)}배` : '—'}</td>
+                <tr key={t.key} className={`ds-row ${open === t.key ? 'is-active' : ''}`} onClick={() => setOpen(t.key)}>
+                  <td className="font-medium">{t.key}</td><td className="c">{t.n}</td><td className="c">{t.won}</td><td className="c">{fmtPct(t.won, t.n)}</td>
+                  <td className="c">{t.days != null ? `${t.days}일` : '—'}</td><td className="num font-medium">{fmtWon(t.rev)}</td><td className="num">{fmtWon(t.perWon)}</td>
+                  <td className="num">{t.cost ? fmtWon(t.cost) : '—'}</td><td className="c">{t.roas != null ? `${t.roas.toFixed(1)}배` : '—'}</td>
                 </tr>
               ))}
-              <tr className="ds-sum"><td>합계</td><td className="num">{tot.n}</td><td className="num">{tot.won}</td><td className="num">{fmtPct(tot.won, tot.n)}</td><td></td><td className="num">{fmtWon(tot.rev)}</td><td className="num">{tot.won ? fmtWon(tot.rev / tot.won) : '—'}</td><td className="num">{tot.cost ? fmtWon(tot.cost) : '—'}</td><td className="num">{tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—'}</td></tr>
+              <tr className="ds-sum"><td>합계</td><td className="c">{tot.n}</td><td className="c">{tot.won}</td><td className="c">{fmtPct(tot.won, tot.n)}</td><td></td><td className="num">{fmtWon(tot.rev)}</td><td className="num">{tot.won ? fmtWon(tot.rev / tot.won) : '—'}</td><td className="num">{tot.cost ? fmtWon(tot.cost) : '—'}</td><td className="c">{tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—'}</td></tr>
             </tbody>
           </table>
         </div>
       )}
 
-      {sel && (
-        <>
-          <SectionTitle>{sel.key} — {sel.n}곳</SectionTitle>
-          <div className="ds-wrap max-h-[480px] overflow-auto">
-            <table className="ds-table">
-              <thead><tr><th>회사</th><th>유입일</th><th>유입경로</th><th className="text-center">상태</th><th>도입일</th><th className="num">소요일</th><th>서비스</th><th className="num">누적 매출</th></tr></thead>
-              <tbody>
-                {[...sel.rows].sort((a, b) => b.rev_total - a.rev_total).map(r => (
-                  <tr key={r.key} className="ds-row">
-                    <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} className="hover:text-ds-accent">{r.company_name}</Link> : r.company_name}</td>
-                    <td className="muted">{r.inquiry_date}</td><td className="muted">{r.inquiry_source || '—'}</td>
-                    <td><StatusChip cell tone={r.won ? 'ok' : 'info'}>{r.won ? '도입완료' : '진행'}</StatusChip></td>
-                    <td className="muted">{r.converted_at || '—'}</td><td className="num">{r.days_to_convert ?? '—'}</td>
-                    <td className="text-[12px] text-ds-fg2">{r.services.join(', ') || '—'}</td><td className="num font-medium">{fmtWon(r.rev_total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <Drawer open={!!sel} onClose={() => setOpen(null)} width="60vw" title={sel ? `${sel.key} — ${sel.n}곳` : ''} meta={sel ? `도입 ${sel.won}곳 · 누적 매출 ${fmtWon(sel.rev)}원` : ''}>
+        {sel && (
+          <div className="p-4">
+            <div className="ds-wrap max-h-[calc(100vh-140px)]">
+              <table className="ds-table">
+                <thead><tr><th>회사</th><th>유입일</th><th>유입경로</th><th>상태</th><th>도입일</th><th>소요일</th><th>서비스</th><th>누적 매출</th></tr></thead>
+                <tbody>
+                  {[...sel.rows].sort((a, b) => b.rev_total - a.rev_total).map(r => (
+                    <tr key={r.key} className="ds-row">
+                      <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} className="hover:text-ds-accent">{r.company_name}</Link> : r.company_name}</td>
+                      <td className="c muted">{r.inquiry_date}</td><td>{r.inquiry_source || '—'}</td>
+                      <td><StatusChip cell tone={r.won ? 'ok' : 'info'}>{r.won ? '도입완료' : '진행'}</StatusChip></td>
+                      <td className="c muted">{r.converted_at || '—'}</td><td className="c">{r.days_to_convert ?? '—'}</td>
+                      <td className="text-[12px] text-ds-fg2">{r.services.join(', ') || '—'}</td><td className="num font-medium">{fmtWon(r.rev_total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </>
-      )}
+        )}
+      </Drawer>
     </div>
   )
 }

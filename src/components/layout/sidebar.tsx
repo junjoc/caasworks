@@ -219,13 +219,13 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                     className={cn(
                       'flex items-center gap-2 pl-12 pr-3 py-2 mx-2 rounded-md text-[13px] transition-all duration-100',
                       isActive(child.href)
-                        ? 'text-primary-500 bg-primary-50 font-medium'
+                        ? 'text-ds-fg bg-ds-subtle font-semibold shadow-[inset_2px_0_0_var(--ds-accent)]'
                         : 'text-text-secondary hover:text-text-primary hover:bg-surface-tertiary'
                     )}
                   >
                     <span className={cn(
                       'w-1.5 h-1.5 rounded-full transition-colors',
-                      isActive(child.href) ? 'bg-primary-500' : 'bg-text-tertiary/40'
+                      isActive(child.href) ? 'bg-ds-accent' : 'bg-text-tertiary/40'
                     )} />
                     {child.label}
                   </Link>

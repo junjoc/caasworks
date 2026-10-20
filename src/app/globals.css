@@ -50,20 +50,27 @@
 }
 
 @layer components {
-  /* ─── 디자인 정의 v1 표 ─── 행 36 · 머리 34 · 셀 좌우 12 · 가로선만 */
-  .ds-table { @apply w-full border-collapse text-[13px] text-ds-fg; }
-  .ds-table th { @apply text-left font-medium text-ds-fg3 text-[12px] px-3 h-[34px] border-b border-ds-line whitespace-nowrap; }
-  .ds-table td { @apply px-3 h-9 border-b border-ds-line2 whitespace-nowrap align-middle; }
-  .ds-table tbody tr.ds-row:hover td { background: var(--ds-subtle); }
-  .ds-table tbody tr.ds-row.is-active td { background: var(--ds-accent-soft); }
+  /* ─── 디자인 정의 v1 표 (2026-10-21 사용자 규칙 반영) ───
+     머리 행 고정 + 첫 열 고정 · 머리 글자 중앙 · 긴 글 왼쪽 / 금액 오른쪽(.num) / 짧은 값 중앙(.c)
+     열 폭은 내용에 맞춤(화면 폭에 늘리지 않음) · 짝수 줄 줄무늬 · 가로선 #E5E5E8 */
+  .ds-table { @apply border-collapse text-[13px] text-ds-fg; width: auto; min-width: 0; }
+  .ds-table th { @apply text-center font-medium text-ds-fg2 text-[12px] px-3 h-[34px] border-b border-ds-line whitespace-nowrap bg-ds-subtle; position: sticky; top: 0; z-index: 2; }
+  .ds-table td { @apply px-3 h-9 border-b border-ds-line whitespace-nowrap align-middle bg-ds-bg; }
+  .ds-table th:first-child, .ds-table td:first-child { position: sticky; left: 0; z-index: 1; box-shadow: 1px 0 0 var(--ds-line); }
+  .ds-table th:first-child { z-index: 3; }
+  .ds-table td:first-child { @apply max-w-[260px] overflow-hidden text-ellipsis; }
+  .ds-table tbody tr.ds-row:nth-child(even) td { background: var(--ds-subtle); }
+  .ds-table tbody tr.ds-row:hover td { background: var(--ds-accent-soft); }
+  .ds-table tbody tr.ds-row.is-active td { background: var(--ds-accent-soft); box-shadow: inset 2px 0 0 var(--ds-accent); }
   .ds-table .num { @apply text-right tabular-nums; }
+  .ds-table .c { @apply text-center tabular-nums; }
   .ds-table .muted { color: var(--ds-fg3); }
-  .ds-table tr.ds-group-h td { @apply h-[30px] font-semibold border-b border-ds-line; color: var(--grp, var(--ds-accent)); }
+  .ds-table tr.ds-group-h td { @apply h-[30px] font-semibold text-left; color: var(--grp, var(--ds-accent)); background: var(--ds-bg); }
   .ds-table tr.ds-group td:first-child { border-left: 4px solid var(--grp, var(--ds-accent)); }
-  .ds-table tr.ds-sum td { @apply font-semibold border-b-0 border-t border-ds-line; color: var(--ds-fg); }
+  .ds-table tr.ds-sum td { @apply font-semibold border-b-0 border-t-2 border-ds-line; color: var(--ds-fg); background: var(--ds-bg); }
   .ds-table td .ds-cell-status { @apply block -mx-3 h-9 leading-9 text-center text-white font-medium; }
   .ds-table.is-clickable tbody tr.ds-row { cursor: pointer; }
-  .ds-wrap { @apply overflow-x-auto border border-ds-line rounded-lg bg-ds-bg; }
+  .ds-wrap { @apply overflow-auto border border-ds-line rounded-lg bg-ds-bg; }
   .ds-edit { @apply border-b border-dashed border-ds-line cursor-text; }
   /* ─── Page Layout ─── */
   .page-header {

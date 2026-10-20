@@ -102,9 +102,9 @@ export default function CompanyLifecyclePage({ params }: { params: { id: string 
               <SectionTitle>리드 {leads.length}</SectionTitle>
               <div className="ds-wrap">
                 <table className="ds-table">
-                  <thead><tr><th>리드</th><th>유입일</th><th>채널</th><th className="text-center">단계</th><th>도입일</th><th>담당</th><th>주제</th></tr></thead>
+                  <thead><tr><th>리드</th><th>유입일</th><th>채널</th><th>단계</th><th>도입일</th><th>담당</th><th>주제</th></tr></thead>
                   <tbody>{leads.map((l, i) => (
-                    <tr key={l.id} className="ds-row"><td><Link href={`/pipeline/${l.id}`} className="font-medium hover:text-ds-accent">{i === 0 ? '첫 문의' : `추가 ${i}`}</Link></td><td className="muted">{l.inquiry_date || formatDate(l.created_at)}</td><td className="muted">{l.inquiry_channel || '—'}{l.inquiry_source ? ` / ${l.inquiry_source}` : ''}</td><td><StatusChip cell tone={stageTone(l.stage)}>{l.stage}</StatusChip></td><td className="muted">{l.converted_at?.slice(0, 10) || '—'}</td><td><Avatar name={l.assigned_to ? users.get(l.assigned_to) : null} /></td><td>{l.topic_tags?.map(t => <Tag key={t}>{t}</Tag>)}</td></tr>
+                    <tr key={l.id} className="ds-row"><td><Link href={`/pipeline/${l.id}`} className="font-medium hover:text-ds-accent">{i === 0 ? '첫 문의' : `추가 ${i}`}</Link></td><td className="c muted">{l.inquiry_date || formatDate(l.created_at)}</td><td className="muted">{l.inquiry_channel || '—'}{l.inquiry_source ? ` / ${l.inquiry_source}` : ''}</td><td><StatusChip cell tone={stageTone(l.stage)}>{l.stage}</StatusChip></td><td className="c muted">{l.converted_at?.slice(0, 10) || '—'}</td><td><Avatar name={l.assigned_to ? users.get(l.assigned_to) : null} /></td><td>{l.topic_tags?.map(t => <Tag key={t}>{t}</Tag>)}</td></tr>
                   ))}</tbody>
                 </table>
               </div>
