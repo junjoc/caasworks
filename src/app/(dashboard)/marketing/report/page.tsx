@@ -13,7 +13,7 @@ import { DateRangePicker, type DateRange } from '@/components/ui/date-range-pick
 import { STAGE_COLORS, STAGE_ORDER, ACTIVITY_TYPE_LABELS, formatDate } from '@/lib/utils'
 import { classifyTopics, TOPIC_TAGS } from '@/lib/topic-tags'
 import {
-  CHANNEL_GROUPS, PRESETS, presetRange, channelGroup, extractReferrer, referrerKey, blogIdOf, naverLogNoOf, inquiryBody,
+  CHANNEL_GROUPS, PRESETS, presetRange, channelGroup, extractReferrer, referrerKey, blogIdOf, naverLogNoOf,
   NO_REFERRER, toCsv, downloadText, type ChannelGroup, type PresetKey,
 } from '@/lib/marketing-report'
 import { toast } from 'sonner'
@@ -444,7 +444,7 @@ export default function MarketingReportPage() {
               <tbody>
                 {pageRows.map(r => {
                   const la = lastActivity.get(r.id)
-                  const body = inquiryBody(r.inquiry_content)
+                  const body = (r.inquiry_content || '').trim()
                   const open = expanded.has(r.id)
                   return (
                     <Fragment key={r.id}>

@@ -28,16 +28,6 @@ export function extractReferrer(referrer: string | null, inquiryContent: string 
 
 export const NO_REFERRER = '(없음)'
 
-// 문의내용에서 사람이 쓴 글만: 문의폼이 붙인 "레퍼러 주소: …", "실제 레퍼러: …", utm 줄은 빼고 줄 앞 ">" 인용 표시 제거
-// (레퍼러는 리포트의 레퍼러 열에 따로 보인다)
-const META_LINE = /^\s*>?\s*(레퍼러(?: 주소)?|실제\s*레퍼러|utm_\w+|landing_page)\s*:/i
-export function inquiryBody(content: string | null): string {
-  return (content || '').split('\n')
-    .filter(line => !META_LINE.test(line))
-    .map(line => line.replace(/^\s*>\s?/, ''))
-    .join('\n').trim()
-}
-
 // 집계 키 = 호스트 + 경로 (쿼리·해시·끝 슬래시 제거). URL 이 아니면 (없음).
 export function referrerKey(url: string | null): string {
   if (!url) return NO_REFERRER
