@@ -13,7 +13,7 @@ import { DateRangePicker, type DateRange } from '@/components/ui/date-range-pick
 import { STAGE_COLORS, STAGE_ORDER, ACTIVITY_TYPE_LABELS, formatDate } from '@/lib/utils'
 import { classifyTopics, TOPIC_TAGS } from '@/lib/topic-tags'
 import {
-  CHANNEL_GROUPS, PRESETS, presetRange, channelGroup, extractReferrer, referrerKey, blogIdOf, naverLogNoOf,
+  CHANNEL_GROUPS, PRESETS, presetRange, channelGroup, extractReferrer, referrerKey, blogIdOf, naverLogNoOf, inquiryBody,
   NO_REFERRER, toCsv, downloadText, type ChannelGroup, type PresetKey,
 } from '@/lib/marketing-report'
 import { toast } from 'sonner'
@@ -444,7 +444,7 @@ export default function MarketingReportPage() {
               <tbody>
                 {pageRows.map(r => {
                   const la = lastActivity.get(r.id)
-                  const body = (r.inquiry_content || '').trim()
+                  const body = inquiryBody(r.inquiry_content)
                   const open = expanded.has(r.id)
                   return (
                     <Fragment key={r.id}>
@@ -478,8 +478,8 @@ export default function MarketingReportPage() {
                         </td>
                         <td className="max-w-[320px] text-xs text-text-secondary">
                           {body ? (
-                            <button className="text-left hover:text-text-primary" onClick={() => setExpanded(toggle(expanded, r.id))}>
-                              {open ? '접기' : (body.length > 120 ? `${body.slice(0, 120)}…` : body)}
+                            <button className="text-left hover:text-text-primary break-all line-clamp-2" onClick={() => setExpanded(toggle(expanded, r.id))}>
+                              {open ? '접기' : (body.length > 80 ? `${body.slice(0, 80)}…` : body)}
                             </button>
                           ) : '-'}
                         </td>
@@ -492,7 +492,7 @@ export default function MarketingReportPage() {
                       </tr>
                       {open && (
                         <tr className="bg-gray-50">
-                          <td colSpan={11} className="text-xs whitespace-pre-wrap text-text-secondary">{body}</td>
+                          <td colSpan={11} className="text-xs whitespace-pre-wrap break-all text-text-secondary">{body}</td>
                         </tr>
                       )}
                     </Fragment>
