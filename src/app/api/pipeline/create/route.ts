@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { inferLeadChannel, buildFirstTouch } from '@/lib/attribution'
 import { autoTagLead } from '@/lib/topic-tags'
+import { findOrCreateCustomer } from '@/lib/find-customer'
 
 function getSupabase() {
   return createClient(
@@ -31,33 +32,13 @@ export async function POST(request: NextRequest) {
       ].join('')
     }
 
-    // P0-6: customer_code 로 customers 매칭. 없으면 자동 생성 후 리드에 customer_id 연결.
-    // → 신규 문의 고객이 고객관리 목록에 즉시 반영됨.
-    const { data: existingCustomer } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('customer_code', body.customer_code)
-      .maybeSingle()
-    if (existingCustomer) {
-      body.customer_id = existingCustomer.id
-    } else {
-      const { data: newCust, error: custErr } = await supabase
-        .from('customers')
-        .insert({
-          customer_code: body.customer_code,
-          company_name: body.company_name,
-          contact_person: body.contact_person ?? null,
-          contact_phone: body.contact_phone ?? null,
-          contact_email: body.contact_email ?? null,
-          status: 'active',
-        })
-        .select('id')
-        .single()
-      if (custErr) {
-        return NextResponse.json({ error: `customer insert 실패: ${custErr.message}` }, { status: 500 })
-      }
-      body.customer_id = newCust.id
-    }
+    // P0-6: 고객사 ID → 회사명(정규화) 순으로 기존 고객을 찾고, 없을 때만 생성 (같은 회사가 문의마다 새 고객으로 생기던 문제, 2026-10-20)
+    const cust = await findOrCreateCustomer(supabase, {
+      customer_code: body.customer_code, company_name: body.company_name,
+      contact_person: body.contact_person ?? null, contact_phone: body.contact_phone ?? null, contact_email: body.contact_email ?? null,
+    })
+    if (cust.error) return NextResponse.json({ error: `customer insert 실패: ${cust.error}` }, { status: 500 })
+    body.customer_id = cust.id
 
     // 폼/웹 소스에서 body 에 session_id, utm_*, landing_page, referrer 전달 가능.
     const hasAttribution = body.utm_source || body.utm_medium || body.utm_campaign

@@ -20,7 +20,7 @@ if (!FILE) { console.log('usage: node scripts/sync/sync-invoices-xlsx.mjs "<xlsx
 const num = v => (typeof v === 'number' ? v : (v == null || v === '' ? 0 : Number(String(v).replace(/[,₩원\s]/g, '')) || 0))
 const date = v => { if (v == null || v === '') return null; if (typeof v === 'number') { const d = XLSX.SSF.parse_date_code(v); return d ? `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}` : null } const m = String(v).trim().replace(/\./g, '-').match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : null }
 const clean = v => (v == null ? null : String(v).trim() || null)
-const normalize = s => (s || '').toString().replace(/\s+/g, '').replace(/[()（）\-·・㈜]/g, '').toLowerCase()
+const normalize = s => (s || '').toString().replace(/\s+/g, '').replace(/[()（）\-·・㈜]/g, '').replace(/^주식회사|주식회사$|^유한회사|유한회사$/g, '').toLowerCase()
 const stripSuffix = s => (s || '').toString().replace(/\s*\((선납|선불|후불|후납|카드|현금)\)\s*$/g, '').trim()
 async function fetchAll(t, cols, ff) { let all = []; for (let f = 0; ; f += 1000) { let q = sb.from(t).select(cols).order('id').range(f, f + 999); if (ff) q = ff(q); const { data, error } = await q; if (error) throw new Error(error.message); all = all.concat(data || []); if (!data || data.length < 1000) break } return all }
 

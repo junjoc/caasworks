@@ -21,7 +21,7 @@ if (!FILE) { console.log('usage: node scripts/sync/sync-revenue-2026-xlsx.mjs "<
 const toMoney = v => (v == null || v === '' ? 0 : typeof v === 'number' ? Math.round(v) : (Number.isNaN(parseFloat(String(v).replace(/[,₩원\s]/g, ''))) ? 0 : Math.round(parseFloat(String(v).replace(/[,₩원\s]/g, '')))))
 const excelDate = v => { if (typeof v === 'number') { const d = XLSX.SSF.parse_date_code(v); return d ? `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}` : null } const s = String(v || '').trim().replace(/\./g, '-').replace(/\s+/g, ''); const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : null }
 const clean = v => (v == null ? null : String(v).trim() || null)
-const normalize = s => (s || '').toString().replace(/\s+/g, '').replace(/[()（）\-·・㈜]/g, '').toLowerCase()
+const normalize = s => (s || '').toString().replace(/\s+/g, '').replace(/[()（）\-·・㈜]/g, '').replace(/^주식회사|주식회사$|^유한회사|유한회사$/g, '').toLowerCase()
 const stripSuffix = s => (s || '').toString().replace(/\s*\((선납|선불|후불|후납|카드|현금)\)\s*$/g, '').trim()
 const SERVICE_MAP = { '플랫폼': '플랫폼', 'CCTV': 'AI CCTV', 'AI CCTV': 'AI CCTV', '운임비': '운임비', '근로자관리': '근로자관리', 'Wearable Cam': 'Wearable Cam', '기타': '기타', '안전관리': '안전관리', '실시간 안전관리': '실시간 안전관리', 'Story Book': 'Story Book', '편집studio': '편집studio', '풀타임 타임랩스': '풀타임 타임랩스', '기타 솔루션': '기타', 'Mobile APP': 'Mobile APP' }
 
