@@ -168,6 +168,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
             <Link
               key={item.label}
               href={item.href}
+              prefetch={false}
               onClick={() => setMobileOpen(false)}
               className={cn(
                 'sidebar-link',
@@ -215,6 +216,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                   )}
                   <Link
                     href={child.href}
+                    prefetch={false}
                     onClick={() => setMobileOpen(false)}
                     className={cn(
                       'flex items-center gap-2 pl-12 pr-3 py-2 mx-2 rounded-md text-[13px] transition-all duration-100',

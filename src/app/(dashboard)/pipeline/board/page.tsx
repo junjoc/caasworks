@@ -608,7 +608,7 @@ export default function PipelineBoardPage() {
                         </div>
                       ) : (
                         // Normal mode: card with Link
-                        <Link href={`/pipeline/${lead.id}`} className="block">
+                        <Link href={`/pipeline/${lead.id}`} className="block" prefetch={false}>
                           {/* Top: priority + conversion + industry */}
                           <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                             {followupIds.has(lead.id) && (
