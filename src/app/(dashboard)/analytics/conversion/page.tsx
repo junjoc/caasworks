@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { fetchLifecycle, fmtWon, BUCKETS, bucketOf, AXES, axisValues, median, type AxisKey, type LifecycleRow } from '@/lib/lifecycle'
-import { PageHeader, Toolbar, DsSelect, Check, Skeleton, Empty, SectionTitle, Avatar, Drawer } from '@/components/ds'
+import { PageHeader, Toolbar, DsSelect, Check, Skeleton, Empty, SectionTitle, Avatar, Drawer, DsButton } from '@/components/ds'
 
 export default function ConversionPage() {
   const [rows, setRows] = useState<LifecycleRow[]>([])
@@ -37,7 +37,8 @@ export default function ConversionPage() {
     <div>
       <PageHeader title="전환 소요 기간"
         kpis={[{ label: '도입 회사', value: won.length }, { label: '소요일 중앙값', value: med != null ? `${med}일` : '—' }, { label: '평균', value: won.length ? `${(won.reduce((s, r) => s + r.days_to_convert!, 0) / won.length).toFixed(0)}일` : '—' }, { label: '누적 매출', value: `${fmtWon(won.reduce((s, r) => s + r.rev_total, 0))}원` }]}
-        subtitle={<>소요 기간 = 첫 리드 유입일 → 도입일(단계 이력, 없으면 고객사 과금 시작일) · 매출은 유입 이후 공급가 누적 · 칸을 누르면 회사 목록{noDate > 0 && <> · <span className="text-ds-warn">도입일을 모르는 {noDate}곳 제외</span></>}</>} />
+        subtitle={noDate > 0 ? <span className="text-ds-warn">도입일을 모르는 {noDate}곳 제외</span> : undefined}
+        actions={<DsButton variant="ghost" size="sm" title="소요 기간 = 첫 리드 유입일 → 도입일(단계 이력, 없으면 고객사 과금 시작일) · 매출은 유입 이후 공급가 누적 · 칸을 누르면 회사 목록">ⓘ 기준</DsButton>} />
       <Toolbar right={<>
         <DsSelect value={year} onChange={e => { setYear(e.target.value); setSel(null) }}><option value="all">전체 연도</option>{years.map(y => <option key={y} value={y}>{y}년 유입</option>)}</DsSelect>
         <Check label="기존 고객 포함" checked={includeExisting} onChange={setIncludeExisting} />
@@ -49,8 +50,9 @@ export default function ConversionPage() {
       {loading ? <Skeleton rows={8} /> : won.length === 0 ? <Empty text="소요일을 알 수 있는 도입 회사가 없습니다" /> : (
         <>
           <div className="ds-wrap mb-6">
-            <table className="ds-table is-clickable">
-              <thead><tr><th>구간</th><th>회사</th><th>비중</th><th style={{ width: 220 }}></th><th>누적 매출</th><th>회사당</th></tr></thead>
+            <table className="ds-table is-clickable is-fixed">
+              <colgroup>{[14, 10, 10, 30, 20, 16].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
+              <thead><tr><th>구간</th><th>회사</th><th>비중</th><th></th><th>누적 매출</th><th>회사당</th></tr></thead>
               <tbody>
                 {buckets.map(b => (
                   <tr key={b.key} className={`ds-row ${sel?.axis === '*' && sel.bucket === b.key ? 'is-active' : ''}`} onClick={() => setSel({ axis: '*', bucket: b.key })}>
@@ -65,12 +67,13 @@ export default function ConversionPage() {
 
           <SectionTitle>{axisLabel}별 소요 기간 <span className="text-ds-fg3 font-normal text-[12px]">칸: 회사 수 / 누적 매출 · 칸을 누르면 회사 목록</span></SectionTitle>
           <div className="ds-wrap max-h-[60vh]">
-            <table className="ds-table">
+            <table className="ds-table is-fixed">
+              <colgroup>{[14, 7, 8, 13, 13, 13, 13, 19].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
               <thead><tr><th>{axisLabel}</th><th>회사</th><th>중앙값</th>{BUCKETS.map(b => <th key={b.key}>{b.label}</th>)}<th>누적 매출</th></tr></thead>
               <tbody>
                 {matrix.map(m => (
                   <tr key={m.value} className="ds-row">
-                    <td className="font-medium">{m.value}</td><td className="c">{m.n}</td><td className="c">{m.median ?? '—'}일</td>
+                    <td className="font-medium" title={m.value}>{m.value}</td><td className="c">{m.n}</td><td className="c">{m.median ?? '—'}일</td>
                     {BUCKETS.map(b => { const rs = m.byB[b.key] || []; const active = sel?.axis === m.value && sel.bucket === b.key
                       return <td key={b.key} onClick={() => rs.length && setSel({ axis: m.value, bucket: b.key })} className={`c ${rs.length ? 'cursor-pointer hover:!bg-ds-accent-soft' : 'muted'} ${active ? '!bg-ds-accent-soft font-medium' : ''}`}>
                         {rs.length ? <>{rs.length} <span className="text-[11px] text-ds-fg3">/ {fmtWon(rs.reduce((s, r) => s + r.rev_total, 0))}</span></> : '—'}
