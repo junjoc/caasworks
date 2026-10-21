@@ -83,7 +83,7 @@ export function LeadDrawer({ leadId, users, onClose, onChanged }: { leadId: stri
 
   return (
     <Drawer open={!!leadId} onClose={onClose} width={480}
-      title={lead ? <span className="inline-flex items-center gap-2">{lead.company_name}<StatusChip tone={stageTone(lead.stage)}>{lead.stage}</StatusChip></span> : '불러오는 중'}
+      title={lead ? <span className="inline-flex items-center gap-2">{lead.company_name}{(lead.site_name || lead.contact_team) && <span className="font-normal text-ds-fg3 text-[13px]">· {lead.site_name || `본사 ${lead.contact_team}`}</span>}<StatusChip tone={stageTone(lead.stage)}>{lead.stage}</StatusChip></span> : '불러오는 중'}
       meta={lead ? (() => { const f = classifyLead(lead.inquiry_channel, lead.inquiry_source); const d = lead.inquiry_date || kstDate(String(lead.created_at)); return <span><span className="inline-block w-[7px] h-[7px] rounded-full mr-1 align-[1px]" style={{ background: INFLOW_COLOR[f.group] }} />{f.group} › {f.sub} · 유입 {mmdd(d)} ({since(d, today)}){lead.lead_number ? ` · No.${lead.lead_number}` : ''}</span> })() : null}
       footer={lead && <>
         {lead.stage !== '이탈' && <DsButton variant="danger" size="sm" onClick={() => setStage('이탈')}>이탈 처리</DsButton>}

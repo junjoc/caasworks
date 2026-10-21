@@ -119,7 +119,7 @@ export function RecordComposer({ lead, onDone, compact }: { lead: Record<string,
 
 /* ─── 타임라인 ─── */
 const FIELD_LABEL: Record<string, string> = {
-  priority: '우선순위', conversion_probability: '도입가능성', company_name: '회사명', customer_code: '코드', site_category: '발주', industry: '사업분류',
+  priority: '우선순위', conversion_probability: '도입가능성', company_name: '회사명', customer_code: 'ID', site_name: '현장명', site_region: '지역', contact_team: '본사 팀', site_category: '발주', industry: '사업분류',
   contact_person: '문의자', contact_position: '직급', contact_phone: '연락처', contact_email: '이메일', inquiry_date: '유입일', inquiry_channel: '유입 채널',
   inquiry_source: '유입 경로', interest_service: '관심 서비스', core_need: '핵심 니즈', inquiry_content: '문의 내용', notes: '메모', customer_id: '고객사 연결',
 }

@@ -13,13 +13,14 @@ import { useFollowupLeadIds } from '@/hooks/useFollowupLeadIds'
 import { INFLOW_ORDER, INFLOW_COLOR, type InflowGroup } from '@/lib/inflow-taxonomy'
 import { SelectionBar, Toolbar, Tabs, KpiRow, DsButton, DsSelect, Check, StatusChip, Avatar, Skeleton, Empty, stageTone, dsInput } from '@/components/ds'
 import { LeadDrawer, STAGE_OPTIONS } from '@/components/pipeline/lead-drawer'
+import { NewLeadDrawer } from '@/components/pipeline/new-lead-drawer'
 import { toast } from 'sonner'
 import { fetchJson, getCached, prefetchLead } from '@/lib/swr-cache'
 import { useActiveUsers } from '@/hooks/useActiveUsers'
 import { Plus, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Info, Trash2 } from 'lucide-react'
 
 type Tab = '전체' | '진행' | '예정' | '도입완료' | '이탈'
-type Row = { id: string; company_name: string; stage: string; priority: string | null; date: string; assigned_to: string | null; site_category: string | null; industry: string | null; conversion_probability: string | null; next_action: string | null; next_action_date: string | null; group: InflowGroup; sub: string }
+type Row = { id: string; company_name: string; stage: string; priority: string | null; date: string; assigned_to: string | null; site_category: string | null; industry: string | null; conversion_probability: string | null; next_action: string | null; next_action_date: string | null; group: InflowGroup; sub: string; site_name: string | null; contact_team: string | null }
 type Res = { rows: Row[]; total: number; page: number; pageSize: number; counts: Record<Tab, number>; kpi: { month: number; prevMonth: number; prog: number; plan: number; wonMonth: number; yLeads: number; yWon: number }; today: string }
 
 const TABS: Tab[] = ['전체', '진행', '예정', '도입완료', '이탈']
@@ -57,6 +58,9 @@ export default function PipelineListPage() {
   const users = useActiveUsers()
   const [openId, setOpenId] = useState<string | null>(null)
   const [showHelp, setShowHelp] = useState(false)
+  const [newOpen, setNewOpen] = useState(false)
+  // /pipeline/new 로 들어오면(예전 링크) 등록 드로어를 연다
+  useEffect(() => { if (window.location.search.includes('new=1')) setNewOpen(true) }, [])
 
   // 일괄 작업
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -181,7 +185,7 @@ export default function PipelineListPage() {
               </div>
             )}
           </div>
-          <Link href="/pipeline/new"><DsButton variant="primary" icon={<Plus className="w-3.5 h-3.5" />}>새 리드</DsButton></Link>
+          <DsButton variant="primary" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => setNewOpen(true)}>새 리드</DsButton>
         </>}>
         <Tabs value={tab} onChange={setTab} options={TABS.map(t => ({ value: t, label: t, count: data?.counts[t] }))} />
       </Toolbar>
@@ -224,7 +228,7 @@ export default function PipelineListPage() {
                 <td className="c">{md(l.date)}</td>
                 <td className="truncate" title={l.company_name}>
                   {(l.priority === '높음' || l.priority === '긴급') && <span className="inline-block w-1.5 h-1.5 rounded-full bg-ds-bad mr-1.5 align-[2px]" title={`우선순위 ${l.priority}`} />}
-                  <span className="font-medium">{l.company_name}</span>
+                  <span className="font-medium">{l.company_name}</span>{(l.site_name || l.contact_team) && <span className="text-ds-fg3"> · {l.site_name || `본사 ${l.contact_team}`}</span>}
                 </td>
                 <td className="c"><StatusChip tone={stageTone(l.stage)}>{l.stage}</StatusChip></td>
                 <td className="truncate" title={`${l.group} › ${l.sub}`}><span className="inline-block w-[7px] h-[7px] rounded-full mr-1.5 align-[1px]" style={{ background: INFLOW_COLOR[l.group] }} />{l.group} <span className="text-ds-fg3">› {l.sub}</span></td>
@@ -242,7 +246,7 @@ export default function PipelineListPage() {
           </tbody>
         </table>
         {!data && loading && <div className="px-4"><Skeleton rows={10} /></div>}
-        {data && rows.length === 0 && <Empty text="조건에 맞는 리드가 없습니다." action={<Link href="/pipeline/new"><DsButton size="sm" icon={<Plus className="w-3.5 h-3.5" />}>새 리드</DsButton></Link>} />}
+        {data && rows.length === 0 && <Empty text="조건에 맞는 리드가 없습니다." action={<DsButton size="sm" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => setNewOpen(true)}>새 리드</DsButton>} />}
         {data && data.total > 0 && (
           <div className="flex items-center justify-end gap-2 px-3 h-10 border-t border-ds-line text-[12.5px] text-ds-fg2">
             <span className="tabular-nums">{(from + 1).toLocaleString()}–{Math.min(from + data.pageSize, data.total).toLocaleString()} / {data.total.toLocaleString()}</span>
@@ -254,6 +258,8 @@ export default function PipelineListPage() {
       </div>
 
       <LeadDrawer leadId={openId} users={users} onClose={() => setOpenId(null)} onChanged={fetchLeads} />
+      <NewLeadDrawer open={newOpen} users={users} onClose={() => setNewOpen(false)}
+        onCreated={id => { setNewOpen(false); fetchLeads(); setOpenId(id) }} onOpenLead={id => { setNewOpen(false); fetchLeads(); setOpenId(id) }} />
     </div>
   )
 }

@@ -7,7 +7,7 @@ import { classifyLead } from '@/lib/inflow-taxonomy'
 export const dynamic = 'force-dynamic'
 
 const STAGES = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
-const COLS = 'id, company_name, contact_person, contact_phone, stage, priority, inquiry_date, created_at, inquiry_channel, inquiry_source, assigned_to, industry, next_action, next_action_date'
+const COLS = 'id, company_name, contact_person, contact_phone, stage, priority, inquiry_date, created_at, inquiry_channel, inquiry_source, assigned_to, industry, next_action, next_action_date, site_name, contact_team'
 type Row = Record<string, string | null> & { id: string; company_name: string; stage: string; created_at: string }
 
 export async function POST(request: Request) {
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const d = (l: Row) => l.inquiry_date || l.created_at.slice(0, 10)
     const q = (p.q || '').trim().toLowerCase().replace(/-/g, '')
     const vis = leads.filter(l => {
-      if (q && ![l.company_name, l.contact_person, l.industry, l.next_action].some(v => (v || '').toLowerCase().includes(q)) && !(l.contact_phone || '').replace(/-/g, '').includes(q)) return false
+      if (q && ![l.company_name, l.contact_person, l.industry, l.next_action, l.site_name, l.contact_team].some(v => (v || '').toLowerCase().includes(q)) && !(l.contact_phone || '').replace(/-/g, '').includes(q)) return false
       if (p.assignee && p.assignee !== '전체' && (p.assignee === '미배정' ? !!l.assigned_to : l.assigned_to !== p.assignee)) return false
       if (p.year && p.year !== '전체' && !d(l).startsWith(p.year)) return false
       return true
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         n: list.length,
         cards: list.slice(0, p.limits?.[s] ?? 30).map(l => {
           const f = classifyLead(l.inquiry_channel, l.inquiry_source)
-          return { id: l.id, company_name: l.company_name, stage: l.stage, priority: l.priority, date: d(l), assigned_to: l.assigned_to, next_action: l.next_action, next_action_date: l.next_action_date, group: f.group, sub: f.sub }
+          return { id: l.id, company_name: l.company_name, stage: l.stage, priority: l.priority, date: d(l), assigned_to: l.assigned_to, next_action: l.next_action, next_action_date: l.next_action_date, group: f.group, sub: f.sub, site_name: l.site_name, contact_team: l.contact_team }
         }),
       }
     }

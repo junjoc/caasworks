@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 const PAGE = 50
 const PROG = ['신규리드', '컨텍', '제안', '미팅', '도입직전']
 const TAB_STAGES: Record<string, string[] | null> = { 전체: null, 진행: PROG, 예정: ['예정'], 도입완료: ['도입완료'], 이탈: ['이탈'] }
-const COLS = 'id, customer_code, company_name, contact_person, contact_phone, contact_email, stage, priority, inquiry_date, created_at, inquiry_channel, inquiry_source, assigned_to, site_category, industry, conversion_probability, next_action, next_action_date, converted_at, notes'
+const COLS = 'id, customer_code, company_name, contact_person, contact_phone, contact_email, stage, priority, inquiry_date, created_at, inquiry_channel, inquiry_source, assigned_to, site_category, industry, conversion_probability, next_action, next_action_date, converted_at, notes, site_name, site_region, contact_team'
 
 type Row = Record<string, string | null> & { id: string; company_name: string; stage: string; created_at: string }
 const kst = (d = new Date()) => new Date(d.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10)
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     const q = (p.q || '').trim().toLowerCase().replace(/-/g, '')
     const follow = p.followIds ? new Set(p.followIds) : null
     const base = leads.filter(l => {
-      if (q && ![l.company_name, l.customer_code, l.contact_person, l.contact_email, l.industry, l.next_action, l.notes]
+      if (q && ![l.company_name, l.customer_code, l.contact_person, l.contact_email, l.industry, l.next_action, l.notes, l.site_name, l.site_region, l.contact_team]
         .some(v => (v || '').toLowerCase().includes(q)) && !(l.contact_phone || '').replace(/-/g, '').includes(q)) return false
       if (p.assignee && p.assignee !== '전체' && (p.assignee === '미배정' ? !!l.assigned_to : l.assigned_to !== p.assignee)) return false
       if (p.inflow && p.inflow !== '전체' && inf.get(l.id)!.group !== p.inflow) return false
@@ -74,6 +74,7 @@ export async function POST(request: Request) {
         id: l.id, company_name: l.company_name, stage: l.stage, priority: l.priority, date: d(l),
         assigned_to: l.assigned_to, site_category: l.site_category, industry: l.industry, conversion_probability: l.conversion_probability,
         next_action: l.next_action, next_action_date: l.next_action_date, group: f.group, sub: f.sub,
+        site_name: l.site_name, contact_team: l.contact_team,
       }
     })
     return NextResponse.json({ rows, total: list.length, page, pageSize: PAGE, counts, kpi, today })

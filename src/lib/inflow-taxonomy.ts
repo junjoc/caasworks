@@ -29,6 +29,12 @@ const AI: [string[], string][] = [[['chatgpt', 'openai', 'searchgpt'], 'ChatGPT'
 
 /** 경로 글자(출처·유입경로)만 보고 분류. 모르면 null */
 function bySource(srcRaw: string): Omit<Inflow, 'raw'> | null {
+  // 10/21 새 리드 등록: "검색 › 네이버", "자사 블로그 › 기타: 이름 | 링크" 형태는 그대로
+  const exact = srcRaw.match(/^(.+?) › (.+)$/)
+  if (exact) {
+    const g = INFLOW_GROUPS.find(x => x.key === exact[1].trim())
+    if (g) { const sub = exact[2].trim(); return { group: g.key, sub: sub.startsWith('기타') ? '기타' : sub } }
+  }
   const s = srcRaw.toLowerCase().trim()
   if (!s || s === '(빈값)' || s === '알수없음' || s === '기타') return null
   for (const [ks, name] of AI) if (has(s, ...ks)) return { group: '생성형 AI', sub: name }

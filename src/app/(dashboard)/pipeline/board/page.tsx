@@ -15,6 +15,7 @@ import { useFollowupLeadIds } from '@/hooks/useFollowupLeadIds'
 import { INFLOW_COLOR, type InflowGroup } from '@/lib/inflow-taxonomy'
 import { SelectionBar, Toolbar, Tabs, DsButton, DsSelect, Check, Skeleton, stageTone, toneVar, dsInput } from '@/components/ds'
 import { LeadDrawer, STAGE_OPTIONS } from '@/components/pipeline/lead-drawer'
+import { NewLeadDrawer } from '@/components/pipeline/new-lead-drawer'
 import { toast } from 'sonner'
 import { since } from '@/lib/elapsed'
 import { fetchJson, getCached, prefetchLead } from '@/lib/swr-cache'
@@ -24,7 +25,7 @@ import { Plus, Search, Info, ChevronsRight } from 'lucide-react'
 const OPEN = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전'] // 10/21: 팀 원래 순서
 const CLOSED = ['도입완료', '이탈']
 const STEP = 30
-type Card = { id: string; company_name: string; stage: string; priority: string | null; date: string; assigned_to: string | null; next_action: string | null; next_action_date: string | null; group: InflowGroup; sub: string }
+type Card = { id: string; company_name: string; stage: string; priority: string | null; date: string; assigned_to: string | null; next_action: string | null; next_action_date: string | null; group: InflowGroup; sub: string; site_name?: string | null; contact_team?: string | null }
 type Cols = Record<string, { n: number; cards: Card[] }>
 
 const thisYear = new Date().getFullYear()
@@ -37,7 +38,7 @@ function CardBody({ c, uname, follow, today: t }: { c: Card; uname: string; foll
   return <>
     <div className="flex items-center gap-1.5 min-w-0">
       {(c.priority === '높음' || c.priority === '긴급') && <span className="w-1.5 h-1.5 rounded-full bg-ds-bad flex-none" title={`우선순위 ${c.priority}`} />}
-      <b className="flex-1 min-w-0 truncate text-[13px] font-medium text-ds-fg">{c.company_name}</b>
+      <b className="flex-1 min-w-0 truncate text-[13px] font-medium text-ds-fg" title={[c.company_name, c.site_name || (c.contact_team && `본사 ${c.contact_team}`)].filter(Boolean).join(' · ')}>{c.company_name}{(c.site_name || c.contact_team) && <span className="font-normal text-ds-fg3"> · {c.site_name || `본사 ${c.contact_team}`}</span>}</b>
       {follow && <span className="text-[10.5px] text-ds-accent flex-none">추가 진행</span>}
       {uname && <span className="inline-grid place-items-center w-5 h-5 rounded-full bg-ds-line text-ds-fg2 text-[10.5px] font-semibold flex-none" title={uname}>{uname[0]}</span>}
     </div>
@@ -108,6 +109,7 @@ export default function PipelineBoardPage() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
   const [showHelp, setShowHelp] = useState(false)
+  const [newOpen, setNewOpen] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkStage, setBulkStage] = useState('')
   const [bulkAssignee, setBulkAssignee] = useState('')
@@ -234,7 +236,7 @@ export default function PipelineBoardPage() {
               </div>
             )}
           </div>
-          <Link href="/pipeline/new"><DsButton variant="primary" icon={<Plus className="w-3.5 h-3.5" />}>새 리드</DsButton></Link>
+          <DsButton variant="primary" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => setNewOpen(true)}>새 리드</DsButton>
         </>}>
         <Tabs value="board" onChange={v => v === 'list' && router.push('/pipeline/list')} options={[{ value: 'list', label: '리스트' }, { value: 'board', label: '보드' }]} />
       </Toolbar>
@@ -270,6 +272,8 @@ export default function PipelineBoardPage() {
       )}
 
       <LeadDrawer leadId={openId} users={users} onClose={() => setOpenId(null)} onChanged={fetchBoard} />
+      <NewLeadDrawer open={newOpen} users={users} onClose={() => setNewOpen(false)}
+        onCreated={id => { setNewOpen(false); fetchBoard(); setOpenId(id) }} onOpenLead={id => { setNewOpen(false); fetchBoard(); setOpenId(id) }} />
     </div>
   )
 }

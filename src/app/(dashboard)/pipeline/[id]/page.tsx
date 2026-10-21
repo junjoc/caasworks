@@ -188,7 +188,7 @@ export default function LeadDetailPage() {
         </div>
       </div>
       <div className="flex items-center gap-2 flex-wrap mt-0.5">
-        <h1 className="text-[20px] font-semibold text-ds-fg">{lead.company_name}</h1>
+        <h1 className="text-[20px] font-semibold text-ds-fg">{lead.company_name}{(lead.site_name || lead.contact_team) && <span className="font-normal text-ds-fg2 text-[16px]"> · {lead.site_name || `본사 ${lead.contact_team}`}</span>}</h1>
         <StatusChip tone={stageTone(lead.stage)}>{lead.stage}</StatusChip>
         {followupIds.has(lead.id) && <span className="text-[12px] text-ds-accent">추가 진행</span>}
         {(lead.priority === '높음' || lead.priority === '긴급') && <span className="text-[12px] text-ds-bad">● {lead.priority}</span>}
@@ -282,13 +282,14 @@ export default function LeadDetailPage() {
                 { label: '관심', value: lead.interest_service }, { label: '니즈', value: lead.core_need }]} /></div>
             </>}
           </EditCard>
-          <EditCard title="회사 · 유입" lead={lead} onSave={saveFields} fields={[
-            { key: 'company_name', label: '회사명' }, { key: 'customer_code', label: '코드' },
+          <EditCard title="회사 · 현장 · 유입" lead={lead} onSave={saveFields} fields={[
+            { key: 'company_name', label: '회사명' }, { key: 'site_name', label: '현장명' }, { key: 'site_region', label: '지역' }, { key: 'contact_team', label: '본사 팀' }, { key: 'customer_code', label: 'ID' },
             { key: 'site_category', label: '발주', kind: 'select', options: ['민간', '공공'] }, { key: 'industry', label: '사업분류', kind: 'select', options: INDUSTRY_OPTIONS },
             { key: 'inquiry_date', label: '유입일', kind: 'date' }, { key: 'inquiry_channel', label: '채널', kind: 'select', options: CHANNEL_OPTIONS },
             { key: 'inquiry_source', label: '경로' }, { key: 'notes', label: '메모', kind: 'textarea' }]}>
             {fill => <Rows onFill={fill} rows={[
-              { label: '코드', value: lead.customer_code }, { label: '발주', value: lead.site_category }, { label: '사업분류', value: lead.industry },
+              { label: '현장', value: [lead.site_name, lead.site_region].filter(Boolean).join(' · ') || null }, { label: '본사 팀', value: lead.contact_team },
+              { label: 'ID', value: lead.customer_code }, { label: '발주', value: lead.site_category }, { label: '사업분류', value: lead.industry },
               { label: '유입', value: <><span className="inline-block w-[7px] h-[7px] rounded-full mr-1 align-[1px]" style={{ background: INFLOW_COLOR[f.group] }} />{f.group} › {f.sub}</> },
               { label: '메모', value: lead.notes ? <span className="whitespace-pre-wrap">{lead.notes}</span> : null },
             ]} />}

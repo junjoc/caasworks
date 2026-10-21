@@ -33,12 +33,26 @@ export async function POST(request: NextRequest) {
     }
 
     // P0-6: 고객사 ID → 회사명(정규화) 순으로 기존 고객을 찾고, 없을 때만 생성 (같은 회사가 문의마다 새 고객으로 생기던 문제, 2026-10-20)
-    const cust = await findOrCreateCustomer(supabase, {
-      customer_code: body.customer_code, company_name: body.company_name,
-      contact_person: body.contact_person ?? null, contact_phone: body.contact_phone ?? null, contact_email: body.contact_email ?? null,
-    })
-    if (cust.error) return NextResponse.json({ error: `customer insert 실패: ${cust.error}` }, { status: 500 })
-    body.customer_id = cust.id
+    // 10/21 새 리드 등록: "같은 회사의 새 문의"면 고른 고객사(customer_id)에, "다른 회사"면 이름이 같아도 새 고객으로
+    const newCustomer = !!body.new_customer
+    delete body.new_customer
+    if (!body.customer_id) {
+      if (newCustomer) {
+        const { data: c, error: ce } = await supabase.from('customers').insert({
+          customer_code: body.customer_code, company_name: body.company_name, status: 'active',
+          contact_person: body.contact_person ?? null, contact_phone: body.contact_phone ?? null, contact_email: body.contact_email ?? null,
+        }).select('id').single()
+        if (ce) return NextResponse.json({ error: `customer insert 실패: ${ce.message}` }, { status: 500 })
+        body.customer_id = c.id
+      } else {
+        const cust = await findOrCreateCustomer(supabase, {
+          customer_code: body.customer_code, company_name: body.company_name,
+          contact_person: body.contact_person ?? null, contact_phone: body.contact_phone ?? null, contact_email: body.contact_email ?? null,
+        })
+        if (cust.error) return NextResponse.json({ error: `customer insert 실패: ${cust.error}` }, { status: 500 })
+        body.customer_id = cust.id
+      }
+    }
 
     // 폼/웹 소스에서 body 에 session_id, utm_*, landing_page, referrer 전달 가능.
     const hasAttribution = body.utm_source || body.utm_medium || body.utm_campaign
