@@ -13,7 +13,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { confirmConvertedStageChange, confirmBulkConvertedStageChange, cn } from '@/lib/utils'
 import { useFollowupLeadIds } from '@/hooks/useFollowupLeadIds'
 import { INFLOW_COLOR, type InflowGroup } from '@/lib/inflow-taxonomy'
-import { Toolbar, Tabs, DsButton, DsSelect, Check, Skeleton, stageTone, toneVar, dsInput } from '@/components/ds'
+import { SelectionBar, Toolbar, Tabs, DsButton, DsSelect, Check, Skeleton, stageTone, toneVar, dsInput } from '@/components/ds'
 import { LeadDrawer, STAGE_OPTIONS } from '@/components/pipeline/lead-drawer'
 import { toast } from 'sonner'
 import { since } from '@/lib/elapsed'
@@ -237,16 +237,12 @@ export default function PipelineBoardPage() {
         <Tabs value="board" onChange={v => v === 'list' && router.push('/pipeline/list')} options={[{ value: 'list', label: '리스트' }, { value: 'board', label: '보드' }]} />
       </Toolbar>
 
-      {selected.size > 0 && (
-        <div className="mb-3 flex items-center gap-2 flex-wrap px-3 py-2 rounded-lg border border-ds-line bg-ds-subtle text-[12.5px] flex-none">
-          <b className="font-medium text-ds-fg">{selected.size}건 선택</b>
-          <span className="w-px h-4 bg-ds-line mx-1" />
+      <SelectionBar count={selected.size} onClear={clearSel}>
           <DsSelect value={bulkStage} onChange={e => setBulkStage(e.target.value)} className="h-7 text-[12.5px]"><option value="">단계 선택</option>{STAGE_OPTIONS.map(s => <option key={s}>{s}</option>)}</DsSelect>
           <DsSelect value={bulkAssignee} onChange={e => setBulkAssignee(e.target.value)} className="h-7 text-[12.5px]"><option value="">담당자 선택</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</DsSelect>
           <DsButton size="sm" variant="primary" loading={busy} disabled={!bulkStage && !bulkAssignee} onClick={runBulk}>변경</DsButton>
-          <button onClick={clearSel} className="ml-auto text-ds-fg2 hover:text-ds-fg">선택 해제</button>
-        </div>
-      )}
+          
+      </SelectionBar>
 
       {!cols ? <Skeleton rows={10} /> : (
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragId(null)}>

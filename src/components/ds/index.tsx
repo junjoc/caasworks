@@ -162,3 +162,16 @@ export function Skeleton({ rows = 6 }: { rows?: number }) {
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return <div className="flex items-center justify-between gap-2 mt-6 mb-2"><h2 className="text-[14px] font-medium text-ds-fg">{children}</h2>{right}</div>
 }
+
+/* ─── 선택 바: 행·카드를 고르면 화면 아래 가운데에 떠서 나타남 (10/21 — 표가 밀려 내려가지 않게) ─── */
+export function SelectionBar({ count, onClear, children }: { count: number; onClear: () => void; children: ReactNode }) {
+  if (count === 0) return null
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 h-11 px-3 rounded-lg border border-ds-line bg-ds-bg shadow-[0_8px_24px_rgba(0,0,0,.12)] text-[12.5px] max-w-[calc(100vw-32px)]">
+      <b className="font-medium text-ds-fg whitespace-nowrap">{count}건 선택</b>
+      <span className="w-px h-4 bg-ds-line mx-1" />
+      {children}
+      <button onClick={onClear} className="ml-1 text-ds-fg2 hover:text-ds-fg whitespace-nowrap">선택 해제</button>
+    </div>
+  )
+}

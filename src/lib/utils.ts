@@ -60,15 +60,16 @@ export const STAGE_LABELS: Record<string, string> = {
   '이탈': '이탈',
 }
 
+// 단계 색 — 화면 문법 v2: 어디서나 상태 칩과 같은 색 (신규 빨강 · 진행 파랑 · 예정 주황 · 도입 초록 · 이탈 회색)
 export const STAGE_COLORS: Record<string, string> = {
-  '신규리드': 'bg-gray-100 text-gray-700',
-  '컨텍': 'bg-blue-100 text-blue-700',
-  '예정': 'bg-cyan-100 text-cyan-700',
-  '미팅': 'bg-yellow-100 text-yellow-700',
-  '제안': 'bg-purple-100 text-purple-700',
-  '도입직전': 'bg-green-100 text-green-700',
-  '도입완료': 'bg-emerald-100 text-emerald-700',
-  '이탈': 'bg-red-100 text-red-700',
+  '신규리드': 'bg-ds-bad text-white min-w-[64px]',
+  '컨텍': 'bg-ds-info text-white min-w-[64px]',
+  '예정': 'bg-ds-warn text-white min-w-[64px]',
+  '미팅': 'bg-ds-info text-white min-w-[64px]',
+  '제안': 'bg-ds-info text-white min-w-[64px]',
+  '도입직전': 'bg-ds-info text-white min-w-[64px]',
+  '도입완료': 'bg-ds-ok text-white min-w-[64px]',
+  '이탈': 'bg-ds-na text-white min-w-[64px]',
 }
 
 export const PRIORITY_COLORS: Record<string, string> = {

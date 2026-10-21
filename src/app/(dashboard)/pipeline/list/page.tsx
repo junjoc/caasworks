@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { confirmBulkConvertedStageChange, cn } from '@/lib/utils'
 import { useFollowupLeadIds } from '@/hooks/useFollowupLeadIds'
 import { INFLOW_ORDER, INFLOW_COLOR, type InflowGroup } from '@/lib/inflow-taxonomy'
-import { Toolbar, Tabs, KpiRow, DsButton, DsSelect, Check, StatusChip, Avatar, Skeleton, Empty, stageTone, dsInput } from '@/components/ds'
+import { SelectionBar, Toolbar, Tabs, KpiRow, DsButton, DsSelect, Check, StatusChip, Avatar, Skeleton, Empty, stageTone, dsInput } from '@/components/ds'
 import { LeadDrawer, STAGE_OPTIONS } from '@/components/pipeline/lead-drawer'
 import { toast } from 'sonner'
 import { Plus, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Info, Trash2 } from 'lucide-react'
@@ -194,17 +194,13 @@ export default function PipelineListPage() {
         { label: '올해 도입률', value: `${k.yLeads ? ((k.yWon / k.yLeads) * 100).toFixed(1) : '0.0'}%`, sub: `${k.yWon} / ${k.yLeads}` },
       ]} />}
 
-      {selectedIds.size > 0 && (
-        <div className="mb-3 flex items-center gap-2 flex-wrap px-3 py-2 rounded-lg border border-ds-line bg-ds-subtle text-[12.5px]">
-          <b className="font-medium text-ds-fg">{selectedIds.size}건 선택</b>
-          <span className="w-px h-4 bg-ds-line mx-1" />
+      <SelectionBar count={selectedIds.size} onClear={clearSelection}>
           <DsSelect value={bulkStage} onChange={e => setBulkStage(e.target.value)} className="h-7 text-[12.5px]"><option value="">단계 선택</option>{STAGE_OPTIONS.map(s => <option key={s}>{s}</option>)}</DsSelect>
           <DsSelect value={bulkAssignee} onChange={e => setBulkAssignee(e.target.value)} className="h-7 text-[12.5px]"><option value="">담당자 선택</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</DsSelect>
           <DsButton size="sm" variant="primary" loading={bulkProcessing} disabled={!bulkStage && !bulkAssignee} onClick={executeBulk}>변경</DsButton>
           <DsButton size="sm" variant="danger" icon={<Trash2 className="w-3.5 h-3.5" />} loading={bulkProcessing} onClick={executeBulkDelete}>삭제</DsButton>
-          <button onClick={clearSelection} className="ml-auto text-ds-fg2 hover:text-ds-fg">선택 해제</button>
-        </div>
-      )}
+          
+      </SelectionBar>
 
       <div className="ds-wrap">
         <table className="ds-table is-fixed is-clickable">
