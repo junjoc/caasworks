@@ -52,16 +52,37 @@ function List({ rows }: { rows: ReactNode[][] }) {
     </tbody></table>
   )
 }
+// 월별 매출 — 가로 기준선(눈금) + 막대 위 금액 표시(마우스 없이 읽힘). 이번 달 진한 파랑, 남은 달은 계약 기준이라 흐리게 (10/21)
 function RevTrend({ rev, month }: { rev: [number, number][]; month: number }) {
   const mx = Math.max(1, ...rev.map(r => r[1]))
+  const unit = mx > 4e8 ? 1e8 : mx > 1.6e8 ? 5e7 : mx > 4e7 ? 2e7 : 1e7          // 눈금 3~5개
+  const top = Math.ceil(mx / unit) * unit
+  const ticks = Array.from({ length: Math.round(top / unit) + 1 }, (_, i) => i * unit)
+  const lab = (v: number) => (v >= 1e8 ? `${(v / 1e8).toFixed(v % 1e8 ? 1 : 0)}억` : `${Math.round(v / 1e4).toLocaleString()}만`)
+  const bar = (v: number) => (v >= 1e8 ? `${(v / 1e8).toFixed(1)}억` : v ? `${Math.round(v / 1e6) / 10}천` : '')
   return (
-    <div className="flex items-end gap-1.5 h-[180px] pt-2">
-      {rev.map(([m, v]) => (
-        <div key={m} className="flex-1 h-full flex flex-col items-center justify-end gap-1" title={`${m}월 ${won(v)}원`}>
-          <div className="w-full max-w-[40px] rounded-t-sm" style={{ height: `${Math.max(2, v / mx * 100)}%`, background: m === month ? 'var(--ds-accent)' : 'var(--ds-info)', opacity: m > month ? 0.45 : 1 }} />
-          <span className="text-[10.5px] text-ds-fg3">{m}</span>
+    <div>
+      <div className="relative h-[190px] ml-9 mt-3">
+        {ticks.map(tv => (
+          <div key={tv} className="absolute left-0 right-0 border-t border-ds-line2" style={{ bottom: `${tv / top * 100}%` }}>
+            <span className="absolute -left-9 -translate-y-1/2 w-8 text-right text-[10.5px] text-ds-fg3 tabular-nums">{tv ? lab(tv) : '0'}</span>
+          </div>
+        ))}
+        <div className="absolute inset-0 flex items-end gap-1.5">
+          {rev.map(([m, v]) => (
+            <div key={m} className="flex-1 h-full flex flex-col items-center justify-end" title={`${m}월 ${won(v)}원`}>
+              <span className={`text-[10.5px] tabular-nums mb-0.5 ${m === month ? 'text-ds-accent font-semibold' : m > month ? 'text-ds-fg3' : 'text-ds-fg2'}`}>{bar(v)}</span>
+              <div className="w-full max-w-[40px] rounded-t-sm" style={{ height: `${Math.max(1, v / top * 100)}%`, background: m === month ? 'var(--ds-accent)' : 'var(--ds-info)', opacity: m > month ? 0.4 : 1 }} />
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
+      <div className="flex gap-1.5 ml-9 mt-1">{rev.map(([m]) => <span key={m} className={`flex-1 text-center text-[10.5px] ${m === month ? 'text-ds-accent font-semibold' : 'text-ds-fg3'}`}>{m}월</span>)}</div>
+      <div className="flex gap-3 ml-9 mt-1.5 text-[11px] text-ds-fg3">
+        <span className="inline-flex items-center gap-1"><i className="inline-block w-2.5 h-2.5 rounded-sm bg-ds-info" />실적</span>
+        <span className="inline-flex items-center gap-1"><i className="inline-block w-2.5 h-2.5 rounded-sm bg-ds-accent" />이번 달</span>
+        <span className="inline-flex items-center gap-1"><i className="inline-block w-2.5 h-2.5 rounded-sm bg-ds-info opacity-40" />남은 달 (계약 기준)</span>
+      </div>
     </div>
   )
 }
