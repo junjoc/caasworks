@@ -51,12 +51,12 @@ export default function ChannelValuePage() {
             <tbody>
               {table.map(t => (
                 <tr key={t.key} className={`ds-row ${open === t.key ? 'is-active' : ''}`} onClick={() => setOpen(t.key)}>
-                  <td className="font-medium" title={t.key}>{t.key}</td><td className="c">{t.n}</td><td className="c">{t.won}</td><td className="c">{fmtPct(t.won, t.n)}</td>
-                  <td className="c">{t.days != null ? `${t.days}일` : '—'}</td><td className="num font-medium">{fmtWon(t.rev)}</td><td className="num">{fmtWon(t.perWon)}</td>
-                  <td className="num">{t.cost ? fmtWon(t.cost) : '—'}</td><td className="c">{t.roas != null ? `${t.roas.toFixed(1)}배` : '—'}</td>
+                  <td className="font-medium" title={t.key}>{t.key}</td><td className="num">{t.n}</td><td className="num">{t.won}</td><td className="num">{fmtPct(t.won, t.n)}</td>
+                  <td className="num">{t.days != null ? `${t.days}일` : '—'}</td><td className="num font-medium">{fmtWon(t.rev)}</td><td className="num">{fmtWon(t.perWon)}</td>
+                  <td className="num">{t.cost ? fmtWon(t.cost) : '—'}</td><td className="num">{t.roas != null ? `${t.roas.toFixed(1)}배` : '—'}</td>
                 </tr>
               ))}
-              <tr className="ds-sum"><td>합계</td><td className="c">{tot.n}</td><td className="c">{tot.won}</td><td className="c">{fmtPct(tot.won, tot.n)}</td><td></td><td className="num">{fmtWon(tot.rev)}</td><td className="num">{tot.won ? fmtWon(tot.rev / tot.won) : '—'}</td><td className="num">{tot.cost ? fmtWon(tot.cost) : '—'}</td><td className="c">{tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—'}</td></tr>
+              <tr className="ds-sum"><td>합계</td><td className="num">{tot.n}</td><td className="num">{tot.won}</td><td className="num">{fmtPct(tot.won, tot.n)}</td><td></td><td className="num">{fmtWon(tot.rev)}</td><td className="num">{tot.won ? fmtWon(tot.rev / tot.won) : '—'}</td><td className="num">{tot.cost ? fmtWon(tot.cost) : '—'}</td><td className="num">{tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—'}</td></tr>
             </tbody>
           </table>
         </div>
@@ -74,7 +74,7 @@ export default function ChannelValuePage() {
                       <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} className="hover:text-ds-accent">{r.company_name}</Link> : r.company_name}</td>
                       <td className="c muted">{r.inquiry_date}</td><td>{r.inquiry_source || '—'}</td>
                       <td><StatusChip cell tone={r.won ? 'ok' : 'info'}>{r.won ? '도입완료' : '진행'}</StatusChip></td>
-                      <td className="c muted">{r.converted_at || '—'}</td><td className="c">{r.days_to_convert ?? '—'}</td>
+                      <td className="c muted">{r.converted_at || '—'}</td><td className="num">{r.days_to_convert ?? '—'}</td>
                       <td className="text-[12px] text-ds-fg2">{r.services.join(', ') || '—'}</td><td className="num font-medium">{fmtWon(r.rev_total)}</td>
                     </tr>
                   ))}

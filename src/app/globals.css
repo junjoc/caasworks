@@ -60,7 +60,7 @@
   .ds-table th:first-child, .ds-table td:first-child { position: sticky; left: 0; z-index: 1; box-shadow: 1px 0 0 var(--ds-line); }
   .ds-table th:first-child { z-index: 3; }
   /* 10/21 피드백: 첫 열이 남는 폭을 다 먹지 않게 — 폭은 브라우저가 내용 비율로 나눔(마케팅 리포트 리드 목록과 같은 방식) */
-  .ds-table th:first-child, .ds-table td:first-child { text-align: left; }
+  .ds-table td:first-child { text-align: left; }
   .ds-table td:first-child { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
   /* 집계 표: 열 비율 고정 (colgroup %) — 보기 전환해도 열 위치가 그대로 */
   .ds-table.is-fixed { table-layout: fixed; }

@@ -84,14 +84,14 @@ export default function CohortPage() {
               <thead><tr><th>유입{group === 'month' ? '월' : '분기'}</th><th>유입</th><th>도입</th><th>도입률</th><th>소요일 중앙값</th><th>누적 매출</th><th>도입당</th></tr></thead>
               <tbody>
                 {cohorts.map(c => c.n === 0 ? (
-                  <tr key={c.key} className="ds-row"><td className="muted">{c.label}</td><td className="c muted">—</td><td className="c muted">—</td><td className="c muted">—</td><td className="c muted">—</td><td className="num muted">—</td><td className="num muted">—</td></tr>
+                  <tr key={c.key} className="ds-row"><td className="muted">{c.label}</td><td className="num muted">—</td><td className="num muted">—</td><td className="num muted">—</td><td className="num muted">—</td><td className="num muted">—</td><td className="num muted">—</td></tr>
                 ) : (
                   <tr key={c.key} className={`ds-row ${open === c.key ? 'is-active' : ''}`} onClick={() => setOpen(c.key)}>
-                    <td className="font-medium">{c.label}</td><td className="c">{c.n}</td><td className="c">{c.won}</td><td className="c"><RateBar won={c.won} n={c.n} /></td>
-                    <td className="c">{c.days != null ? `${c.days}일` : '—'}</td><td className="num font-medium">{fmtWon(c.total)}</td><td className="num">{c.won ? fmtWon(c.total / c.won) : '—'}</td>
+                    <td className="font-medium">{c.label}</td><td className="num">{c.n}</td><td className="num">{c.won}</td><td className="num"><RateBar won={c.won} n={c.n} /></td>
+                    <td className="num">{c.days != null ? `${c.days}일` : '—'}</td><td className="num font-medium">{fmtWon(c.total)}</td><td className="num">{c.won ? fmtWon(c.total / c.won) : '—'}</td>
                   </tr>
                 ))}
-                <tr className="ds-sum"><td>합계</td><td className="c">{tot.n}</td><td className="c">{tot.won}</td><td className="c">{fmtPct(tot.won, tot.n)}</td><td className="c">{tot.days != null ? `${tot.days}일` : '—'}</td><td className="num">{fmtWon(tot.total)}</td><td className="num">{tot.won ? fmtWon(tot.total / tot.won) : '—'}</td></tr>
+                <tr className="ds-sum"><td>합계</td><td className="num">{tot.n}</td><td className="num">{tot.won}</td><td className="num">{fmtPct(tot.won, tot.n)}</td><td className="num">{tot.days != null ? `${tot.days}일` : '—'}</td><td className="num">{fmtWon(tot.total)}</td><td className="num">{tot.won ? fmtWon(tot.total / tot.won) : '—'}</td></tr>
               </tbody>
             </table>
           </div>
@@ -106,7 +106,7 @@ export default function CohortPage() {
                 <tbody>
                   {channels.map(c => (
                     <tr key={c.key} className={`ds-row ${channel === c.key ? 'is-active' : ''}`} onClick={() => { setChannel(channel === c.key ? 'all' : c.key); setOpen(null) }}>
-                      <td className="font-medium">{c.key}</td><td className="c">{c.n}</td><td className="c">{c.won}</td><td className="num font-medium">{fmtWon(c.rev)}</td>
+                      <td className="font-medium">{c.key}</td><td className="num">{c.n}</td><td className="num">{c.won}</td><td className="num font-medium">{fmtWon(c.rev)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -129,7 +129,7 @@ export default function CohortPage() {
                       <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} prefetch={false} className="hover:text-ds-accent">{r.company_name}</Link> : <>{r.company_name} <span className="text-[11px] text-ds-fg3">미연결</span></>}</td>
                       <td className="c"><StatusChip tone={r.won ? 'ok' : 'info'}>{r.won ? '도입완료' : '진행'}</StatusChip></td>
                       <td className="c muted">{r.inquiry_date}</td><td>{r.inquiry_channel || '—'}{r.inquiry_source ? <span className="text-ds-fg3"> / {r.inquiry_source}</span> : ''}</td><td>{r.industry || '—'}</td>
-                      <td className="c muted">{r.converted_at || '—'}</td><td className="c">{r.days_to_convert ?? '—'}</td>
+                      <td className="c muted">{r.converted_at || '—'}</td><td className="num">{r.days_to_convert ?? '—'}</td>
                       <td className="text-[12px] text-ds-fg2 max-w-[220px] truncate" title={r.services.join(', ')}>{r.services.join(', ') || '—'}</td><td className="num font-medium">{fmtWon(r.rev_total)}</td>
                     </tr>
                   ))}

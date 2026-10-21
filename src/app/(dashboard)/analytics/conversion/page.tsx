@@ -56,7 +56,7 @@ export default function ConversionPage() {
               <tbody>
                 {buckets.map(b => (
                   <tr key={b.key} className={`ds-row ${sel?.axis === '*' && sel.bucket === b.key ? 'is-active' : ''}`} onClick={() => setSel({ axis: '*', bucket: b.key })}>
-                    <td className="font-medium">{b.label}</td><td className="c">{b.n}</td><td className="c">{won.length ? `${(b.n / won.length * 100).toFixed(0)}%` : '—'}</td>
+                    <td className="font-medium">{b.label}</td><td className="num">{b.n}</td><td className="num">{won.length ? `${(b.n / won.length * 100).toFixed(0)}%` : '—'}</td>
                     <td><div className="h-2 rounded-sm bg-ds-info" style={{ width: `${b.n / maxN * 100}%`, minWidth: b.n ? 4 : 0 }} /></td>
                     <td className="num font-medium">{fmtWon(b.rev)}</td><td className="num">{b.n ? fmtWon(b.rev / b.n) : '—'}</td>
                   </tr>
@@ -73,9 +73,9 @@ export default function ConversionPage() {
               <tbody>
                 {matrix.map(m => (
                   <tr key={m.value} className="ds-row">
-                    <td className="font-medium" title={m.value}>{m.value}</td><td className="c">{m.n}</td><td className="c">{m.median ?? '—'}일</td>
+                    <td className="font-medium" title={m.value}>{m.value}</td><td className="num">{m.n}</td><td className="num">{m.median ?? '—'}일</td>
                     {BUCKETS.map(b => { const rs = m.byB[b.key] || []; const active = sel?.axis === m.value && sel.bucket === b.key
-                      return <td key={b.key} onClick={() => rs.length && setSel({ axis: m.value, bucket: b.key })} className={`c ${rs.length ? 'cursor-pointer hover:!bg-ds-accent-soft' : 'muted'} ${active ? '!bg-ds-accent-soft font-medium' : ''}`}>
+                      return <td key={b.key} onClick={() => rs.length && setSel({ axis: m.value, bucket: b.key })} className={`num ${rs.length ? 'cursor-pointer hover:!bg-ds-accent-soft' : 'muted'} ${active ? '!bg-ds-accent-soft font-medium' : ''}`}>
                         {rs.length ? <>{rs.length} <span className="text-[11px] text-ds-fg3">/ {fmtWon(rs.reduce((s, r) => s + r.rev_total, 0))}</span></> : '—'}
                       </td> })}
                     <td className="num font-medium">{fmtWon(m.rev)}</td>
@@ -99,8 +99,8 @@ export default function ConversionPage() {
                   {[...selRows].sort((a, b) => a.days_to_convert! - b.days_to_convert!).map(r => (
                     <tr key={r.key} className="ds-row">
                       <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} className="hover:text-ds-accent">{r.company_name}</Link> : r.company_name}</td>
-                      <td className="c muted">{r.inquiry_date}</td><td className="c muted">{r.converted_at}</td><td className="c">{r.days_to_convert}</td>
-                      <td>{r.inquiry_channel || '—'}</td><td>{r.industry || '—'}</td><td className="c">{r.site_category || '—'}</td><td className="text-[12px] text-ds-fg2">{r.services.join(', ') || '—'}</td><td><Avatar name={r.assigned_to} /></td>
+                      <td className="c muted">{r.inquiry_date}</td><td className="c muted">{r.converted_at}</td><td className="num">{r.days_to_convert}</td>
+                      <td>{r.inquiry_channel || '—'}</td><td>{r.industry || '—'}</td><td className="num">{r.site_category || '—'}</td><td className="text-[12px] text-ds-fg2">{r.services.join(', ') || '—'}</td><td><Avatar name={r.assigned_to} /></td>
                       <td className="num font-medium">{fmtWon(r.rev_total)}</td>
                     </tr>
                   ))}
