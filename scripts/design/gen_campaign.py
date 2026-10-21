@@ -25,7 +25,8 @@ rows = []
 for g, cs in groups.items():
     if not cs: continue
     gs = sum(P(c, 'cost') for c in cs); gb = sum(c['budget'] or 0 for c in cs if c['status'] == '진행중'); gi = sum(P(c, 'inq') for c in cs)
-    rows.append(f'<tr class="gh" style="--g:{GCOL[g]}"><td colspan="9"><b>{esc(g)}</b> <span class="muted">{len(cs)}개 · 진행 {sum(c["status"]=="진행중" for c in cs)}</span><span class="gsum">월 예산 {man(gb) if gb else "—"} · 누적 집행 {man(gs)} · 문의 {gi}</span></td></tr>')
+    ln = sum(c["status"]=="진행중" for c in cs); gc = sum(P(c, 'clicks') for c in cs); ga = sum(P(c, 'ad') for c in cs)
+    rows.append(f'<tr class="gh" style="--g:{GCOL[g]}"><td class="grp">▾ <b>{esc(g)}</b> <span class="muted">{len(cs)}개 · 진행 {ln}</span></td><td class="c muted">{"진행 "+str(ln) if ln else "—"}</td><td></td><td class="num">{won(gb) if gb else "—"}</td><td class="num">{won(gs) if gs else "—"}</td><td class="num">{won(gc) if gc else "—"}</td><td class="num">{gi or "—"}</td><td class="num">{ga or "—"}</td><td class="num muted">{man(gs/gi) if gi else "—"}</td></tr>')
     for c in cs:
         off = ' class="off"' if c['status'] != '진행중' else ''
         cpi = man(P(c, 'cost') / P(c, 'inq')) if P(c, 'inq') else '—'
@@ -48,7 +49,7 @@ FA = frame('캠페인 관리', '캠페인 관리', ('마케팅',), tableA, h=820
 FB = frame('캠페인 관리', '캠페인 관리', ('마케팅',), cardB, h=820)
 # 사이드바 메뉴에 마케팅 하위가 없으면 '캠페인 관리' 활성 표시를 위해 MENU 에 이미 포함돼 있음
 EXTRA = '''
-.ds.fixed{table-layout:fixed}.camp tr.gh td{height:34px;background:var(--bg)!important;border-bottom:1px solid var(--line);box-shadow:inset 4px 0 0 var(--g)}.camp tr.gh b{color:var(--fg);font-weight:600;margin-right:6px}
+.ds.fixed{table-layout:fixed}.camp tr.gh td{height:42px;background:var(--bg)!important;border-bottom:1px solid var(--line);font-weight:600;font-size:13.5px}.camp tr.gh td.grp{box-shadow:inset 4px 0 0 var(--g);padding-left:12px}.camp tr.gh .muted{font-weight:400;font-size:11.5px}.camp tr.gh b{color:var(--fg);font-weight:600;margin-right:6px}
 .gsum{float:right;color:var(--fg-2);font-size:12px}.camp td.grp{box-shadow:inset 4px 0 0 var(--g);padding-left:16px}.camp tr.off td{color:var(--fg-3)}.camp tr.off td b{color:var(--fg-3);font-weight:500}.camp tr.off .st{opacity:.7}
 .cwrap{overflow:hidden;max-height:600px}.cg{margin-bottom:14px}.cgh{display:flex;align-items:center;gap:8px;height:30px;padding-left:10px;box-shadow:inset 4px 0 0 var(--g);margin-bottom:8px}.cgh b{font-weight:600}.cgh .gsum{margin-left:auto}
 .cgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.cc{border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:12px;border-top:3px solid var(--g)}.cc.off{opacity:.55}
@@ -61,8 +62,8 @@ EXTRA = '''
 sec = f'''<section id="screens"><h2>7. 화면별 시안 — 캠페인 관리 (표형 vs 카드형)</h2>
 <p class="rule">둘 다 <b>채널별 그룹</b>(왼쪽 4px 색 줄 + 그룹 요약)이고, 실제 캠페인 {len(camps)}개로 그렸다. 진행중이 그룹 위, 중단·종료는 아래에 흐리게. 행·카드를 누르면 오른쪽 드로어에 광고그룹·일별 추이(시안엔 생략).</p>
 <div class="cmp"><div><h4>A. 표형 (엔조 추천)</h4><ul><li>21개 + 그룹 4줄이 한 화면</li><li>예산·집행·문의가 같은 열 → 위아래 비교</li><li>광고 성과·코호트와 같은 읽는 법</li></ul></div><div><h4>B. 카드형</h4><ul><li>한 줄 4장, 카드 높이 약 90</li><li>캠페인 하나씩 훑어보기 좋음, 덜 딱딱함</li><li>숫자 비교는 카드 사이를 눈으로 오가야 함</li></ul></div><div><h4>공통으로 고칠 것</h4><ul><li>지금 막대는 <b>누적 집행 ÷ 월 예산</b>이라 팀부스터가 900% 빨강 — 기준이 다름</li><li>시안은 <b>월 예산</b>과 <b>누적 집행</b>을 나눠 표시. 소진율 막대는 "이번 달 집행 ÷ 월 예산"으로 다시 계산</li></ul></div></div>
-<h3 style="margin:14px 0 6px;font-size:14px">A. 표형 — 채널별 그룹 표</h3><div class="fwrap">{FA}</div>
-<h3 style="margin:18px 0 6px;font-size:14px">B. 카드형 — 채널별 그룹 카드</h3><div class="fwrap">{FB}</div></section>
+<h3 style="margin:14px 0 6px;font-size:14px">A. 표형 — 채널별 그룹 표 <span class="chosen">선택</span> · 채널 머리 줄 = 열별 합계(접어도 보임)</h3><div class="fwrap">{FA}</div>
+<h3 style="margin:18px 0 6px;font-size:14px">B. 카드형 — 채널별 그룹 카드 <span class="rej">기각</span></h3><div class="fwrap">{FB}</div></section>
 '''
 P = '/Users/david/Desktop/클로드/004_CRM 웹개발/caasworks/docs/design/레이아웃정의_v1.html'
 doc = open(P, encoding='utf-8').read()
