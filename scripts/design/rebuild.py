@@ -36,6 +36,28 @@ dec = re.search(r'<div class="dec" id="decisions">.*?</ol></div>', s, re.S).grou
 S['pagehead'] = S['pagehead'].replace('보조 11.5', '보조 12')
 S['b-c'] = S['b-c']
 
+# 10/21 마케팅팀: "미납 진한 빨강을 더했으니 12색이 아니라 13색" — 옛 섹션(v1)에 남은 값을 v2 로 정리
+V2 = {
+  'b-c': [('<h2>색 — 12가지뿐</h2>', '<h2>색 — 13가지</h2>'),
+          ('중립 6 + 강조 1 + 상태 5.', '중립 6 + 강조 1 + 상태 6 (10/21 미납·연체 <b>due</b> 추가 — 마케팅팀 지적으로 12 → 13).'),
+          ('<b>bad</b><span class="bspec">#E2445C · 이탈, 미납, 오류, 삭제</span></div></div>',
+           '<b>bad</b><span class="bspec">#E2445C · 신규리드, 오류, 삭제</span></div></div>\n  <div class="sw"><i style="background:#b4233a"></i><div><b>due</b><span class="bspec">#B4233A · 미납·연체 (흰 글자 6.5:1)</span></div></div>')],
+  'common': [('<b>12색</b>(바탕 2 · 선 2 · 글자 3 · 강조 1 · 상태 4)', '<b>13색</b>(바탕 2 · 선 2 · 글자 3 · 강조 1 · 상태 5 — 10/21 미납 due 추가)')],
+  'kpirow': [('보조 11.5', '보조 12')],
+  'b-c#na': [],
+  'b-t': [('<h2>글자 — 한 벌, 5단계</h2>', '<h2>글자 — 한 벌, 6단계 (v2)</h2>'),
+          ('<span class="bspec">18 / 600 · 페이지 제목</span><span class="t18">파이프라인</span>', '<span class="bspec">20 / 600 · 상세 이름 (화면 제목은 헤더 14 / 600)</span><span class="t18">원하건설 주식회사</span>')],
+  'b-x': [('색 12개, 글자 5단계, 간격 6단계', '색 13개, 글자 6단계(최소 12), 간격 6단계')],
+  'inflow': [('왼쪽 색 줄 = 분류 색(디자인 정의 12색을 성격별로): <b>돈 쓰는 곳</b> 광고 accent·외주 블로그 warn / <b>우리 것</b> 자사 채널·자사 블로그 ok / <b>찾아온 것</b> 검색·생성형 AI info / <b>남이 퍼뜨린 것</b> 소셜 bad·언론 fg-2·외부 글 fg-3·커뮤니티 na / <b>사람</b> 직접 연락 fg / 미분류 line.',
+              '분류 점·줄은 <b>회색 하나</b>(10/21 유실장 검토 — 상태색을 빌려 쓰면 소셜이 빨강 = "나쁜 채널"로 읽힘), 묶음은 글자로 구분.')],
+}
+V2['b-c'].append(('<b>na</b><span class="bspec">#C4C4C4 · 신규, 미입력, 기타', '<b>na</b><span class="bspec">#C4C4C4 · 이탈, 미입력, 기타'))
+V2.pop('b-c#na')
+for sid, pairs in V2.items():
+    for a, b in pairs:
+        if sid in S and a in S[sid]: S[sid] = S[sid].replace(a, b)
+        else: print('v2 정리 못 찾음:', sid, a[:30])
+
 def stub(id, title, screens, note):
     return f'<section id="{id}"><h2>{title}</h2><p class="rule">{screens}</p><p class="rule" style="color:var(--fg-3)">{note}</p></section>'
 WAIT = '지금은 1차 일괄(옛 버튼·배지·카드·표·입력칸을 기준값으로)만 — 배치 교체 시안은 차례가 오면 여기에. 순서는 화면별 적용 현황 · 다음 작업.'
@@ -51,7 +73,7 @@ ORDER = [
   ('개요', None, [('decisions', '지금 정해진 것'), ('status', '화면별 적용 현황')]),
   ('1. 전역', '모든 화면 공통', None),
   (None, '화면 문법', [('unify', '★ 화면 문법 v2'), ('pagehead', '화면 머리 규칙')]),
-  (None, '색', [('b-c', '색 12가지'), ('common', '단계 색 · 상태 칩'), ('chip-alt', '칩 대비 대안 (보관)')]),
+  (None, '색', [('b-c', '색 13가지'), ('common', '단계 색 · 상태 칩'), ('chip-alt', '칩 대비 대안 (보관)')]),
   (None, '글자 · 간격 · 아이콘', [('b-t', '글자'), ('b-s', '간격 · 모서리'), ('b-i', '아이콘')]),
   (None, '부품', [('b-b', '버튼'), ('b-f', '입력'), ('b-st', '상태 · 태그 · 사람'), ('b-tb', '표'), ('kpirow', '숫자줄'), ('b-fb', '피드백')]),
   (None, '데이터 기준', [('inflow', '유입 분류 11 + 미분류'), ('ga-setup', 'GA · UTM 설정 (마케팅팀)')]),
