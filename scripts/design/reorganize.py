@@ -50,7 +50,7 @@ ORDER = [
   ('p-layout', part('p-layout', '3. 화면 구성', '화면 머리 · 뼈대 · 화면 유형 6')), 'pagehead', 'b-l',
   ('s-types', subh('s-types', '화면 유형 6', '실제 데이터 시안 · 치수 라벨은 체크박스로')), 'list', 'agg', 'detail', 'form', 'dash', 'board',
   'unify',
-  ('p-menu', part('p-menu', '4. 메뉴별 화면', '카테고리별 확정 시안과 적용 내용')), ('m-dash-h', subh('m-dash-h', '대시보드', '적용 10/21')), 'm-dashboard', ('m-marketing', subh('m-marketing', '마케팅')), 'm-campaign', 'm-inflow', 'm-content', ('m-sales-h', subh('m-sales-h', '세일즈', '리스트·보드 적용 · 상세 재기획 중')), 'm-sales', 'm-lead2', 'm-lead',
+  ('p-menu', part('p-menu', '4. 메뉴별 화면', '카테고리별 확정 시안과 적용 내용')), ('m-dash-h', subh('m-dash-h', '대시보드', '적용 10/21')), 'm-dashboard', ('m-marketing', subh('m-marketing', '마케팅')), 'm-campaign', 'm-inflow', 'm-content', ('m-sales-h', subh('m-sales-h', '세일즈', '적용 10/21 · 상세 v2')), 'm-sales', 'm-lead2', 'm-lead',
   ('p-data', part('p-data', '5. 데이터 기준', '화면이 따르는 분류·정의')), 'inflow', 'ga-setup',
   ('p-dont', part('p-dont', '6. 하지 않는 것', '지금 화면에서 걷어낼 것')), 'b-x',
   ('p-log', part('p-log', '7. 결정 기록', '무엇을 두고 무엇을 골랐는지, 왜. 기각된 안도 남김')), 'log-table', 'log-vline',
@@ -68,14 +68,14 @@ newmain = '\n'.join(out)
 
 def a(h, t, cls='i'): return f'<a href="#{h}" class="{cls}">{t}</a>'
 def nm(id): return re.sub(r'\s*—.*$', '', re.search(r'<h2>([^<]*)', S[id]).group(1)).strip()
-nav = ['<nav class="toc"><div class="h">카스웍스 CRM 디자인 정의</div>', a('decisions', '지금 정해진 것', ''), a('unify', '★ 화면 문법 v2 (제안)', ''),
+nav = ['<nav class="toc"><div class="h">카스웍스 CRM 디자인 정의</div>', a('decisions', '지금 정해진 것', ''), a('unify', '★ 화면 문법 v2', ''),
   '<div class="g">1. 기초</div>', a('b-c', '색'), a('common', '색·상태 칩 보강'), a('b-t', '글자'), a('b-s', '간격·모서리'), a('b-i', '아이콘'),
   '<div class="g">2. 부품</div>', a('b-b', '버튼'), a('b-f', '입력'), a('b-st', '상태·태그·사람'), a('b-tb', '표'), a('kpirow', '숫자줄'), a('b-fb', '피드백'),
   '<div class="g">3. 화면 구성</div>', a('pagehead', '화면 머리 규칙'), a('b-l', '화면 뼈대·드로어'), '<div class="g2">화면 유형 6</div>',
   a('list', '목록'), a('agg', '집계'), a('detail', '상세'), a('form', '입력'), a('dash', '대시보드'), a('board', '보드'),
   '<div class="g">4. 메뉴별 화면</div>', a('m-dashboard', '대시보드', 'i'), '<div class="g2">마케팅</div>', a('m-campaign', '캠페인 관리'), a('m-inflow', '유입 성과'), a('m-content', '콘텐츠 성과'),
   '<div class="g2">분석</div>', a('agg', '생애주기 3화면 → 집계', 'i ref'),
-  '<div class="g2">세일즈</div>', a('m-sales', '리스트 · 보드뷰'), a('m-lead2', '리드 상세 v2 (재기획 시안)'), a('m-lead', '리드 상세 (10/21 적용본)'), '<div class="g2">고객 · 재무 · 운영</div>', '<span class="i todo">메뉴별 정리 때 추가</span>',
+  '<div class="g2">세일즈</div>', a('m-sales', '리스트 · 보드뷰'), a('m-lead2', '리드 상세 · 드로어 v2'), a('m-lead', '리드 상세 v1 (지난 안)'), '<div class="g2">고객 · 재무 · 운영</div>', '<span class="i todo">메뉴별 정리 때 추가</span>',
   '<div class="g">5. 데이터 기준</div>', a('inflow', '유입 분류 11 + 미분류'), a('ga-setup', 'GA·UTM 설정 (마케팅팀)'),
   '<div class="g">6. 하지 않는 것</div>', a('b-x', '걷어낼 것'),
   '<div class="g">7. 결정 기록</div>', a('log-table', '결정 목록'), a('log-vline', '세로선 세 안 비교'),

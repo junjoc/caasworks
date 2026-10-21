@@ -35,7 +35,7 @@ TOK = [('글자', '20 이름 · 15 드로어 이름 · 14 섹션 · 13 본문·�
 ttab = ''.join(f'<tr><td><b>{a}</b></td><td>{b}</td><td class="muted">{c}</td></tr>' for a, b, c in TOK)
 CSS = '''<style>.wfs{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:10px 0 18px}.wf h4{margin:0 0 6px;font-size:13px}.wf p{margin:6px 0 0;font-size:12px;color:var(--fg-3)}.wfbox{border:1px solid var(--line);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:5px;height:270px}
 .wb{border:1px solid;border-radius:5px;display:flex;align-items:center;justify-content:center;min-width:0}.wb span{font-size:11px;font-weight:500}.wr{display:flex;gap:5px}.ug{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0 18px}.ug th,.ug td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}.ug th{background:var(--bg-subtle);font-weight:500;text-align:center}</style>'''
-SEC = f'''<section id="unify">{CSS}<h2>화면 문법 v2 — 통일성 (제안 · 결정 대기, 2026-10-21)</h2>
+SEC = f'''<section id="unify">{CSS}<h2>화면 문법 v2 — 통일성 (확정 · 적용 시작 2026-10-21)</h2>
 <p class="rule">10/21 피드백: "맥락이 있어야 하는데 다 따로 논다". 지금 상태: <b>82화면 중 11화면만 새 부품</b>, 71화면은 옛 버튼·배지·카드·표. 새 11화면도 단계 줄·칩·카드·수정 칸을 화면마다 따로 만듦.
 → 화면을 하나씩 고치기 전에 <b>화면 유형 6개 × 부품 10개 × 기준값 6개</b>를 먼저 고정하고, 모든 화면을 이것만으로 다시 짠다.</p>
 <h3 class="ph3">화면 유형 6 — 같은 부품, 같은 순서</h3><div class="wfs">{WF}</div>
@@ -43,6 +43,6 @@ SEC = f'''<section id="unify">{CSS}<h2>화면 문법 v2 — 통일성 (제안 ·
 <table class="ug"><colgroup><col style="width:14%"><col style="width:20%"><col style="width:36%"><col style="width:30%"></colgroup><thead><tr><th>부품</th><th>쓰는 곳</th><th>규칙</th><th>지금 어긋난 곳</th></tr></thead><tbody>{ptab}</tbody></table>
 <h3 class="ph3">기준값 6</h3><table class="ug"><colgroup><col style="width:12%"><col style="width:55%"><col style="width:33%"></colgroup><tbody>{ttab}</tbody></table>
 <div class="cmp"><div><h4>순서 (제안)</h4><ul><li>① 이 문법 확정</li><li>② 부품 10개를 코드 한 곳(components/ds)에 정리 — 상세 v2 의 속성 줄·카드·단계 줄 포함</li><li>③ 리드 상세 · 드로어 v2 (아래 A안)</li><li>④ 나머지 71화면을 유형별로 일괄 교체: 목록 → 상세 → 대시보드 순</li><li>⑤ 화면마다 "어느 유형 · 어느 부품" 을 이 문서 4장에 표시</li></ul></div>
-<div><h4>정해 주실 것</h4><ul><li>화면 유형 6 · 부품 10 · 기준값 6 그대로 / 고칠 것</li><li>경과 표기 (+n일 · n일 남음 · n일 지남)</li><li>리드 상세 배치 A / B / C (아래)</li></ul></div></div></section>'''
+<div><h4>진행 (10/21)</h4><ul><li>✔ ① 확정 ("일단 해봅시다")</li><li>✔ ② 부품: components/ds/detail (단계 줄 · 속성 줄/칩 · 카드 · 떠 있는 창) + 선택 바 + lib/elapsed (경과 표기)</li><li>✔ ③ 리드 상세·드로어 v2 (A안)</li><li>◐ ④ 1차 일괄: 옛 버튼·배지·카드·숫자 카드·표·입력칸을 기준값으로 → 71화면 같은 글자·선·색. 화면별 배치 교체는 유형별로 이어서</li><li>추가 규칙: <b>선택 바는 화면 아래에 떠 있음</b> (고르면 표가 밀리지 않게)</li></ul></div></div></section>'''
 open('unify_sec.html', 'w', encoding='utf-8').write(SEC)
 print('unify', len(SEC))

@@ -119,7 +119,7 @@ DIAG = '''<table class="dg"><colgroup><col style="width:24%"><col style="width:4
 <tr><td>다음 액션까지</td><td class="c">2026-10-23</td><td class="c">10.23 <span class="warn">2일 남음</span> · 지나면 <span class="bad">1일 지남</span></td></tr>
 <tr><td>마지막 활동</td><td class="c">43일 전</td><td class="c">그대로 (14일 넘으면 빨강)</td></tr>
 <tr><td>보드 카드</td><td class="c">D+9</td><td class="c">+9일</td></tr></tbody></table>'''
-SEC = f'''<section id="m-lead2">{CSS}<h2>세일즈 — 리드 상세 v2 재기획 (시안 · 결정 대기, 2026-10-21 · 전성환 테스트 리드)</h2>
+SEC = f'''<section id="m-lead2">{CSS}<h2>세일즈 — 리드 상세 v2 재기획 (A안 적용 2026-10-21 · 그림은 전성환 테스트 리드)</h2>
 <p class="rule">10/21 피드백: "오른쪽 정보칸이 너무 길다 · 전체적으로 급조된 느낌". 적용본을 실제로 보고 문제를 먼저 적고, 같은 리드로 세 가지 배치를 그림.</p>{DIAG}
 <div class="cmp"><div><h4>A. 머리 + 속성 줄 + 2단 (추천)</h4><ul><li>자주 바꾸는 5개(담당·우선순위·가능성·다음 액션·고객사)를 위 속성 줄에서 바로</li><li>왼쪽 기록·타임라인, 오른쪽 카드 3장 (값 있는 칸만)</li><li>오른쪽 높이 955 → 약 420</li></ul></div>
 <div><h4>B. 한 줄 960 + 탭</h4><ul><li>정보는 "정보" 탭 안 카드 4장 2열</li><li>가장 단순하지만 기록하면서 문의 내용을 같이 못 봄</li></ul></div>
