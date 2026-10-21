@@ -651,6 +651,7 @@ export default function CampaignsPage() {
                         </span>
                       </td>
                       <td className="c !font-normal text-ds-fg3 !text-[12px]">{liveN ? `진행 ${liveN}` : '—'}</td>
+                      <td />{/* 기간 칸 자리 — 빠지면 합계가 한 칸씩 밀린다 */}
                       <td className="num">{n(gBudget)}</td>
                       <td className="num">{n(gMonth)}</td>
                       <td className="num">{n(gCost)}</td>

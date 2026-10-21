@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, Fragment } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,7 +13,7 @@ import { DateRangePicker, type DateRange } from '@/components/ui/date-range-pick
 import { formatCurrency, formatNumber, CHANNEL_SUB_SOURCES as SHARED_SUB_SOURCES } from '@/lib/utils'
 import { toast } from 'sonner'
 import { CompanyTagInput } from '@/components/ui/company-tag-input'
-import { PageHeader, Toolbar, Tabs, DsButton, Skeleton, Empty } from '@/components/ds'
+import { PageHeader, Toolbar, Tabs, DsButton, Skeleton, Empty, Drawer } from '@/components/ds'
 import {
   Plus, BarChart3, TrendingUp, TrendingDown, MousePointerClick, Target,
   DollarSign, Trash2, Pencil, ChevronUp, ChevronDown,
@@ -51,6 +51,7 @@ interface CampaignOption {
   name: string
   channel: string
   status: string
+  budget?: number | null
 }
 
 interface AdGroupOption {
@@ -72,7 +73,8 @@ interface MarketingBudget {
 type TabType = '전체' | '네이버' | '구글' | '메타' | '외주 블로그' | '콘텐츠' | '기타'
 type SortField = 'date' | 'cost' | 'clicks' | 'signups'
 
-const TABS: TabType[] = ['전체', '네이버', '구글', '메타', '외주 블로그', '콘텐츠', '기타']
+// 10/21: 콘텐츠·기타(유입 기록)는 콘텐츠 성과 메뉴에서 본다 — 광고 성과는 광고비가 있는 채널만
+const TABS: TabType[] = ['전체', '네이버', '구글', '메타', '외주 블로그']
 
 const CHANNEL_OPTIONS = [
   { value: '네이버', label: '네이버' },
@@ -180,6 +182,8 @@ export default function AdsPage() {
   const [adgroups, setAdgroups] = useState<AdGroupOption[]>([])
   const [syncing, setSyncing] = useState<string | null>(null)
   const [syncOpen, setSyncOpen] = useState(false)
+  const [foldedCh, setFoldedCh] = useState<Set<string>>(new Set())
+  const [openKey, setOpenKey] = useState<string | null>(null)
   const [companyOptions, setCompanyOptions] = useState<{value: string, label: string, sub?: string}[]>([])
   const [dateLeadOptions, setDateLeadOptions] = useState<{value: string, label: string, sub?: string}[]>([])
   const supabase = createClient()
@@ -193,7 +197,7 @@ export default function AdsPage() {
   useEffect(() => {
     async function fetchCampaignsAndAdgroups() {
       const [campResult, agResult, leadsResult] = await Promise.all([
-        supabase.from('campaigns').select('id, name, channel, status')
+        supabase.from('campaigns').select('id, name, channel, status, budget')
           .in('status', ['진행중', '준비']).order('name'),
         supabase.from('ad_groups').select('id, name, campaign_id, channel, status')
           .eq('status', 'active').order('name'),
@@ -457,7 +461,11 @@ export default function AdsPage() {
   // ─── Budget summary ─────────────────────────────────────
 
   const budgetSummary = useMemo(() => {
-    const totalBudget = budgets.reduce((s, b) => s + b.budget_amount, 0)
+    // 10/21: 예산 = 진행 중 캠페인 월 예산 합 × 기간 개월 수 (입력을 캠페인 관리 한 곳으로). 비어 있으면 월 예산 입력값
+    const fromM = new Date(dateRange.from), toM = new Date(dateRange.to)
+    const months = Math.max(1, (toM.getFullYear() - fromM.getFullYear()) * 12 + toM.getMonth() - fromM.getMonth() + 1)
+    const campBudget = campaigns.filter(c => c.status === '진행중' && (tab === '전체' || channelToTab(c.channel) === tab)).reduce((s, c) => s + (Number(c.budget) || 0), 0) * months
+    const totalBudget = campBudget || budgets.reduce((s, b) => s + b.budget_amount, 0)
     const tabItems = tab === '전체'
       ? data
       : data.filter(d => channelToTab(d.channel) === tab)
@@ -472,7 +480,7 @@ export default function AdsPage() {
     const burnRate = totalBudget > 0 ? (totalSpent / totalBudget * 100) : 0
     const timeRate = totalDays > 0 ? (daysPassed / totalDays * 100) : 0
     return { totalBudget, totalSpent, burnRate, timeRate, daysPassed, daysInMonth: totalDays }
-  }, [budgets, data, tab, dateRange])
+  }, [budgets, data, tab, dateRange, campaigns])
 
   // ─── Performance KPIs ───────────────────────────────────
 
@@ -866,6 +874,40 @@ export default function AdsPage() {
 
   // ─── Render ─────────────────────────────────────────────
 
+  // ─── 광고 표: 광고비·노출이 있는 행만, 채널 › 캠페인 › 광고그룹 기간 합계 (10/21) ───
+  type AdTot = { cost: number; impressions: number; clicks: number; ga: number; inqClicks: number; inquiries: number; adoptions: number }
+  const isAdRow = (d: AdPerformance) => d.ad_type !== '콘텐츠' || d.cost > 0 || d.impressions > 0
+  const AD_CH_COLOR: Record<string, string> = { '네이버': 'var(--ds-ok)', '구글': 'var(--ds-info)', '메타': 'var(--ds-info)', '유튜브': 'var(--ds-bad)', '외주 블로그': 'var(--ds-warn)' }
+  const add = (t: AdTot, d: AdPerformance) => { t.cost += d.cost; t.impressions += d.impressions; t.clicks += d.clicks; t.ga += d.ga_visits || 0; t.inqClicks += d.inquiry_clicks || 0; t.inquiries += d.inquiries; t.adoptions += d.adoptions }
+  const zero = (): AdTot => ({ cost: 0, impressions: 0, clicks: 0, ga: 0, inqClicks: 0, inquiries: 0, adoptions: 0 })
+  const { adGroups, adTotal, rowByKey } = useMemo(() => {
+    const items = data.filter(d => isAdRow(d) && (tab === '전체' || channelToTab(d.channel) === tab))
+    const rows = new Map<string, AdTot & { key: string; ch: string; campaign: string; campaignId: string | null; adgroup: string; type: string; days: AdPerformance[] }>()
+    for (const d of items) {
+      const key = `${d.channel}|${d.campaign_name}|${d.adgroup_name || ''}`
+      if (!rows.has(key)) rows.set(key, { key, ch: d.channel, campaign: d.campaign_name, campaignId: d.campaign_id, adgroup: d.adgroup_name || '', type: d.ad_type, days: [], ...zero() })
+      const r = rows.get(key)!; add(r, d); r.days.push(d); if (d.campaign_id) r.campaignId = d.campaign_id
+    }
+    const byCh = new Map<string, typeof rowList>()
+    const rowList = Array.from(rows.values())
+    for (const r of rowList) { r.days.sort((a, b) => b.date.localeCompare(a.date)); (byCh.get(r.ch) || byCh.set(r.ch, []).get(r.ch)!).push(r) }
+    const total = zero(); items.forEach(d => add(total, d))
+    const groups = Array.from(byCh.entries()).map(([ch, rs]) => { const tot = zero(); rs.forEach(r => r.days.forEach(d => add(tot, d))); return { ch, rows: rs.sort((a, b) => b.cost - a.cost), tot } }).sort((a, b) => b.tot.cost - a.tot.cost)
+    return { adGroups: groups, adTotal: total, rowByKey: rows }
+  }, [data, tab])
+  const openRow = openKey ? rowByKey.get(openKey) || null : null
+  const AdNums = ({ t }: { t: AdTot }) => (<>
+    <td className="num font-medium">{t.cost ? formatCurrency(t.cost) : '—'}</td>
+    <td className="num">{t.impressions ? formatNumber(t.impressions) : '—'}</td>
+    <td className="num">{t.clicks ? formatNumber(t.clicks) : '—'}</td>
+    <td className="num muted">{t.impressions > 0 ? (t.clicks / t.impressions * 100).toFixed(2) + '%' : '—'}</td>
+    <td className="num muted">{t.impressions > 0 ? formatCurrency(Math.round(t.cost / t.impressions * 1000)) : '—'}</td>
+    <td className="num">{t.ga || '—'}</td>
+    <td className="num">{t.inqClicks || '—'}</td>
+    <td className="num">{t.inquiries || '—'}</td>
+    <td className="num">{t.adoptions || '—'}</td>
+  </>)
+
   const SYNCS: { key: string; label: string }[] = [{ key: 'all', label: '전체 동기화' }, { key: 'google', label: '구글' }, { key: 'naver', label: '네이버' }, { key: 'ga4', label: 'GA4' }, { key: 'ga4-sources', label: '유입소스' }]
   const dot = { danger: 'var(--ds-bad)', warning: 'var(--ds-warn)', success: 'var(--ds-ok)', info: 'var(--ds-info)' } as const
   const Kpi = ({ label, value, sub, bar }: { label: string; value: string; sub?: string; bar?: number }) => (
@@ -907,97 +949,75 @@ export default function AdsPage() {
         <Kpi label="도입사" value={formatNumber(kpi.totalAdoptions)} sub={kpi.cpa > 0 ? `결과당 ${formatCurrency(kpi.cpa)}` : undefined} />
       </div>
 
-      {loading ? <Skeleton rows={10} /> : filtered.length === 0 ? (
-        <Empty text="이 기간에 광고 데이터가 없습니다" action={<DsButton size="sm" onClick={openAdd}>데이터 입력</DsButton>} />
+      {loading ? <Skeleton rows={10} /> : adGroups.length === 0 ? (
+        <Empty text="이 기간에 광고비가 쓰인 기록이 없습니다" action={<DsButton size="sm" onClick={openAdd}>데이터 입력</DsButton>} />
       ) : (
         <div className="ds-wrap max-h-[calc(100vh-300px)]">
-          <table className="ds-table">
-            <thead>
-              <tr>
-                <th className="cursor-pointer" onClick={() => toggleSort('date')}>날짜<SortIcon field="date" /></th>
-                <th>유형</th><th>채널</th><th>캠페인</th><th>광고그룹</th>
-                <th className="cursor-pointer" onClick={() => toggleSort('cost')}>비용<SortIcon field="cost" /></th>
-                <th>노출</th>
-                <th className="cursor-pointer" onClick={() => toggleSort('clicks')}>클릭<SortIcon field="clicks" /></th>
-                <th>CTR</th><th>CPM</th><th>GA 유입</th><th>문의 클릭</th>
-                <th className="cursor-pointer" onClick={() => toggleSort('signups')}>가입<SortIcon field="signups" /></th>
-                <th>문의</th><th>도입</th><th></th>
-              </tr>
-            </thead>
+          <table className="ds-table is-clickable is-fixed">
+            <colgroup>{[22, 15, 6, 10, 8, 6, 6, 7, 6, 6, 4, 4].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
+            <thead><tr><th>캠페인</th><th>광고그룹</th><th>유형</th><th>비용</th><th>노출</th><th>클릭</th><th>CTR</th><th>CPM</th><th>GA 유입</th><th>문의 클릭</th><th>문의</th><th>도입</th></tr></thead>
             <tbody>
-              {filtered.map(row => {
-                const ctr = row.impressions > 0 ? (row.clicks / row.impressions * 100).toFixed(2) : '0.00'
-                const cpm = row.impressions > 0 ? Math.round(row.cost / row.impressions * 1000) : 0
+              {adGroups.map(g => {
+                const color = AD_CH_COLOR[g.ch] || 'var(--ds-na)'
+                const isFolded = foldedCh.has(g.ch)
                 return (
-                  <tr key={row.id} className="ds-row group">
-                    <td className="c">{row.date.slice(5).replace('-', '.')}</td>
-                    <td className="c muted">{row.ad_type}</td>
-                    <td className="c">{row.channel}</td>
-                    <td className="font-medium max-w-[220px] truncate" title={row.campaign_name}>
-                      {row.campaign_name}
-                      {!row.campaign_id && <button onClick={() => openEdit(row)} title="캠페인 연결 안 됨 — 눌러서 연결" className="ml-1 text-ds-warn"><Link2 className="w-3 h-3 inline" /></button>}
-                    </td>
-                    <td className="muted max-w-[180px] truncate" title={row.adgroup_name || ''}>{row.adgroup_name || '—'}</td>
-                    <td className="num font-medium">{formatCurrency(row.cost)}</td>
-                    <td className="num">{formatNumber(row.impressions)}</td>
-                    <td className="num">{formatNumber(row.clicks)}</td>
-                    <td className="num muted">{ctr}%</td>
-                    <td className="num muted">{formatCurrency(cpm)}</td>
-                    <td className="num">{row.ga_visits || '—'}</td>
-                    <td className="num">{row.inquiry_clicks || '—'}</td>
-                    <td className="num" title={row.signup_companies || ''}>{row.signups || '—'}</td>
-                    <td className="num" title={row.inquiry_companies || ''}>{row.inquiries || '—'}</td>
-                    <td className="num" title={row.adoption_companies || ''}>{row.adoptions || '—'}</td>
-                    <td className="c">
-                      <span className="inline-flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEdit(row)} className="icon-btn" title="수정"><Pencil className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => handleDelete(row.id)} className="icon-btn hover:!text-ds-bad" title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
-                      </span>
-                    </td>
-                  </tr>
+                  <Fragment key={g.ch}>
+                    <tr className="cursor-pointer select-none [&>td]:!h-[42px] [&>td]:!bg-ds-bg [&>td]:border-b [&>td]:border-ds-line [&>td]:text-[13.5px] [&>td]:font-semibold"
+                      onClick={() => setFoldedCh(f => { const n = new Set(f); n.has(g.ch) ? n.delete(g.ch) : n.add(g.ch); return n })} title={isFolded ? '펼치기' : '접기'}>
+                      <td colSpan={2} style={{ boxShadow: `inset 4px 0 0 ${color}`, paddingLeft: 12 }}>
+                        <span className="inline-flex items-center gap-1.5"><ChevronDown className={`w-4 h-4 text-ds-fg3 transition-transform ${isFolded ? '-rotate-90' : ''}`} />{g.ch}<span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{g.rows.length}개 광고그룹</span></span>
+                      </td>
+                      <td />
+                      <AdNums t={g.tot} />
+                    </tr>
+                    {!isFolded && g.rows.map(r => (
+                      <tr key={r.key} className={`ds-row ${openKey === r.key ? 'is-active' : ''}`} onClick={() => setOpenKey(r.key)}>
+                        <td className="font-medium" style={{ boxShadow: `inset 4px 0 0 ${color}`, paddingLeft: 16 }} title={r.campaign}>
+                          {r.campaign}{!r.campaignId && <Link2 className="w-3 h-3 inline ml-1 text-ds-warn" aria-label="캠페인 연결 안 됨" />}
+                        </td>
+                        <td className="muted" title={r.adgroup}>{r.adgroup || '—'}</td>
+                        <td className="c muted">{r.type}</td>
+                        <AdNums t={r} />
+                      </tr>
+                    ))}
+                  </Fragment>
                 )
               })}
-
-              {Object.keys(channelSubtotals).length > 1 && Object.entries(channelSubtotals).map(([ch, totals]) => {
-                const subCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions * 100).toFixed(2) : '0.00'
-                const subCpm = totals.impressions > 0 ? Math.round(totals.cost / totals.impressions * 1000) : 0
-                return (
-                  <tr key={`sub-${ch}`} className="ds-sum">
-                    <td colSpan={4}>{ch} 합계</td>
-                    <td className="c muted">{totals.count}건</td>
-                    <td className="num">{formatCurrency(totals.cost)}</td>
-                    <td className="num">{formatNumber(totals.impressions)}</td>
-                    <td className="num">{formatNumber(totals.clicks)}</td>
-                    <td className="num">{subCtr}%</td>
-                    <td className="num">{formatCurrency(subCpm)}</td>
-                    <td className="num">{totals.ga_visits}</td>
-                    <td className="num">{totals.inquiry_clicks}</td>
-                    <td className="num">{totals.signups}</td>
-                    <td className="num">{totals.inquiries}</td>
-                    <td className="num">{totals.adoptions}</td>
-                    <td />
-                  </tr>
-                )
-              })}
-
-              <tr className="ds-sum">
-                <td colSpan={5}>전체 합계</td>
-                <td className="num">{formatCurrency(kpi.totalCost)}</td>
-                <td className="num">{formatNumber(kpi.totalImpressions)}</td>
-                <td className="num">{formatNumber(kpi.totalClicks)}</td>
-                <td className="num">{kpi.ctr.toFixed(2)}%</td>
-                <td className="num">{kpi.totalImpressions > 0 ? formatCurrency(Math.round(kpi.totalCost / kpi.totalImpressions * 1000)) : '—'}</td>
-                <td className="num">{kpi.totalGaVisits}</td>
-                <td className="num">{kpi.totalInquiryClicks}</td>
-                <td className="num">{kpi.totalSignups}</td>
-                <td className="num">{kpi.totalInquiries}</td>
-                <td className="num">{kpi.totalAdoptions}</td>
-                <td />
-              </tr>
+              <tr className="ds-sum"><td colSpan={3}>광고 합계</td><AdNums t={adTotal} /></tr>
             </tbody>
           </table>
         </div>
       )}
+
+      <Drawer open={!!openRow} onClose={() => setOpenKey(null)} width="60vw"
+        title={openRow ? `${openRow.campaign}${openRow.adgroup ? ' › ' + openRow.adgroup : ''}` : ''}
+        meta={openRow ? `${openRow.ch} · ${openRow.type} · ${openRow.days.length}일 · 비용 ${formatCurrency(openRow.cost)} · 클릭 ${formatNumber(openRow.clicks)} · 문의 ${openRow.inquiries}` : ''}>
+        {openRow && (
+          <div className="p-4">
+            <div className="ds-wrap">
+              <table className="ds-table is-fixed">
+                <colgroup>{[12, 13, 11, 9, 9, 11, 9, 9, 7, 10].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
+                <thead><tr><th>날짜</th><th>비용</th><th>노출</th><th>클릭</th><th>CTR</th><th>GA 유입</th><th>문의 클릭</th><th>문의</th><th>도입</th><th></th></tr></thead>
+                <tbody>
+                  {openRow.days.map(d => (
+                    <tr key={d.id} className="ds-row group">
+                      <td className="c">{d.date.slice(5).replace('-', '.')}</td>
+                      <td className="num">{formatCurrency(d.cost)}</td><td className="num">{formatNumber(d.impressions)}</td><td className="num">{formatNumber(d.clicks)}</td>
+                      <td className="num muted">{d.impressions > 0 ? (d.clicks / d.impressions * 100).toFixed(2) + '%' : '—'}</td>
+                      <td className="num">{d.ga_visits || '—'}</td><td className="num">{d.inquiry_clicks || '—'}</td>
+                      <td className="num" title={d.inquiry_companies || ''}>{d.inquiries || '—'}</td><td className="num" title={d.adoption_companies || ''}>{d.adoptions || '—'}</td>
+                      <td className="c"><span className="inline-flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEdit(d)} className="icon-btn" title="수정"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDelete(d.id)} className="icon-btn hover:!text-ds-bad" title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </Drawer>
 
       {!loading && insights.length > 0 && (
         <div className="mt-6">
