@@ -186,7 +186,8 @@ export default function AdsPage() {
   const [adgroups, setAdgroups] = useState<AdGroupOption[]>([])
   const [syncing, setSyncing] = useState<string | null>(null)
   const [syncOpen, setSyncOpen] = useState(false)
-  const [foldedCh, setFoldedCh] = useState<Set<string>>(new Set())
+  // 10/21: 열 때는 모두 접힘 — 볼 때만 펼친다
+  const [openCh, setOpenCh] = useState<Set<string>>(new Set())
   const [openKey, setOpenKey] = useState<string | null>(null)
   const [companyOptions, setCompanyOptions] = useState<{value: string, label: string, sub?: string}[]>([])
   const [dateLeadOptions, setDateLeadOptions] = useState<{value: string, label: string, sub?: string}[]>([])
@@ -968,17 +969,18 @@ export default function AdsPage() {
           <DsButton size="sm" variant="primary" onClick={openAdd} icon={<Plus className="w-3.5 h-3.5" />}>데이터 입력</DsButton>
         </>} />
 
-      <Toolbar>
+      <Toolbar right={<DsButton size="sm" variant="ghost" onClick={() => setOpenCh(openCh.size ? new Set() : new Set(adGroups.filter(g => g.rows.length).map(g => g.ch)))}>{openCh.size ? '전체 접기' : '전체 펴기'}</DsButton>}>
         <Tabs value={tab} onChange={v => setTab(v)} options={TABS.map(t => ({ value: t, label: t }))} />
       </Toolbar>
 
       <div className="grid grid-cols-2 md:grid-cols-5 border-y border-ds-line mb-4">
         <Kpi label="집행비" value={formatCurrency(budgetSummary.totalSpent)} bar={budgetSummary.burnRate}
           sub={`예산 ${formatCurrency(budgetSummary.totalBudget)} · 소진 ${budgetSummary.burnRate.toFixed(1)}% · 기간 ${budgetSummary.daysPassed}/${budgetSummary.daysInMonth}일`} />
-        <Kpi label="클릭" value={formatNumber(kpi.totalClicks)} sub={`노출 ${formatNumber(kpi.totalImpressions)} · CTR ${kpi.ctr.toFixed(2)}% · CPC ${formatCurrency(kpi.cpc)}`} />
-        <Kpi label="GA 유입" value={formatNumber(kpi.totalGaVisits)} sub={`문의 클릭 ${formatNumber(kpi.totalInquiryClicks)}`} />
-        <Kpi label="문의사" value={formatNumber(kpi.totalInquiries)} sub={`가입사 ${formatNumber(kpi.totalSignups)}`} />
-        <Kpi label="도입사" value={formatNumber(kpi.totalAdoptions)} sub={kpi.cpa > 0 ? `결과당 ${formatCurrency(kpi.cpa)}` : undefined} />
+        {/* 순서: 집행비 | 유입 | 클릭 | 문의 | 도입 (10/21 사용자 지정) */}
+        <Kpi label="유입" value={formatNumber(kpi.totalGaVisits)} sub={`GA 세션 · 문의 클릭 ${formatNumber(kpi.totalInquiryClicks)}`} />
+        <Kpi label="클릭" value={formatNumber(kpi.totalClicks)} sub={`광고 · 노출 ${formatNumber(kpi.totalImpressions)} · CTR ${kpi.ctr.toFixed(2)}% · CPC ${formatCurrency(kpi.cpc)}`} />
+        <Kpi label="문의" value={formatNumber(kpi.totalInquiries)} sub={`문의사 · 가입사 ${formatNumber(kpi.totalSignups)}`} />
+        <Kpi label="도입" value={formatNumber(kpi.totalAdoptions)} sub={kpi.cpa > 0 ? `도입사 · 결과당 ${formatCurrency(kpi.cpa)}` : '도입사'} />
       </div>
 
       {loading ? <Skeleton rows={10} /> : adGroups.length === 0 ? (
@@ -991,11 +993,11 @@ export default function AdsPage() {
             <tbody>
               {adGroups.map(g => {
                 const color = GROUP_COLOR(g.ch)
-                const isFolded = foldedCh.has(g.ch)
+                const isFolded = !openCh.has(g.ch)
                 return (
                   <Fragment key={g.ch}>
                     <tr className="cursor-pointer select-none [&>td]:!h-[42px] [&>td]:!bg-ds-bg [&>td]:border-b [&>td]:border-ds-line [&>td]:text-[13.5px] [&>td]:font-semibold"
-                      onClick={() => setFoldedCh(f => { const n = new Set(f); n.has(g.ch) ? n.delete(g.ch) : n.add(g.ch); return n })} title={isFolded ? '펼치기' : '접기'}>
+                      onClick={() => g.rows.length && setOpenCh(f => { const n = new Set(f); n.has(g.ch) ? n.delete(g.ch) : n.add(g.ch); return n })} title={isFolded ? '펼치기' : '접기'}>
                       <td colSpan={2} style={{ boxShadow: `inset 4px 0 0 ${color}`, paddingLeft: 12 }}>
                         <span className="inline-flex items-center gap-1.5"><ChevronDown className={`w-4 h-4 text-ds-fg3 transition-transform ${isFolded || !g.rows.length ? '-rotate-90' : ''}`} />{g.ch}<span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{g.rows.length ? (g.ch === '광고' ? `${g.rows.length}개 광고그룹` : INFLOW_GROUPS.find(x => x.key === g.ch)?.subs.join(' · ')) : '이번 기간 기록 없음'}</span></span>
                       </td>
