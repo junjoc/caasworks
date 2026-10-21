@@ -2,7 +2,7 @@
 
 // 세일즈 › 보드 (2026-10-21 개편, 디자인 정의 › 세일즈)
 // 연회색 열 220 + 머리 3px 단계 색 · 카드 3줄(회사·담당 / 유입·유입일·D+n / 다음 액션)
-// 도입완료·이탈은 오른쪽 접힌 열 · 열당 30장 + 더 보기 · 드래그는 dnd-kit(카드가 손을 따라 움직임)
+// 이탈은 오른쪽 접힌 열(도입완료는 펼친 채 시작) · 열당 30장 + 더 보기 · 드래그는 dnd-kit(카드가 손을 따라 움직임)
 // 카드 클릭 = 리스트와 같은 480 드로어, Shift+클릭 = 선택(일괄 단계·담당)
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -100,7 +100,8 @@ export default function PipelineBoardPage() {
   const [year, setYear] = useState('전체')
   const [mine, setMine] = useState(false)
   const [limits, setLimits] = useState<Record<string, number>>({})
-  const [unfold, setUnfold] = useState<Set<string>>(new Set())
+  // 10/21 피드백: 도입완료는 펼친 채로 시작, 이탈만 접힘
+  const [unfold, setUnfold] = useState<Set<string>>(new Set(['도입완료']))
   const [users, setUsers] = useState<{ id: string; name: string }[]>([])
   const [openId, setOpenId] = useState<string | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
@@ -227,7 +228,7 @@ export default function PipelineBoardPage() {
                 <p>카드 클릭 = 오른쪽 드로어 · <b className="text-ds-fg">Shift+클릭</b> = 선택 → 일괄 단계·담당</p>
                 <p>열 안 순서: 다음 액션 날짜 빠른 순 → 나머지 최근 유입순</p>
                 <p>카드 2줄 = 유입 세부 · 유입일 · 유입 후 일수(D+n)</p>
-                <p>도입완료·이탈은 오른쪽에 접혀 있고, 누르면 펼칩니다. 접힌 열에도 놓을 수 있습니다</p>
+                <p>이탈은 오른쪽에 접혀 있고, 누르면 펼칩니다. 도입완료도 머리의 » 로 접을 수 있습니다. 접힌 열에도 놓을 수 있습니다</p>
               </div>
             )}
           </div>
