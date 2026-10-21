@@ -60,7 +60,7 @@ export function FeedbackFloatingButton() {
       <Modal open={open} onClose={() => setOpen(false)} title="피드백 / 요청 등록" className="max-w-lg">
         <div className="space-y-3">
           <p className="text-xs text-text-tertiary">
-            현재 페이지: <code className="text-[11px] bg-gray-100 px-1 rounded">{pathname}</code>
+            현재 페이지: <code className="text-[12px] bg-gray-100 px-1 rounded">{pathname}</code>
           </p>
           <Input
             label="제목 *"

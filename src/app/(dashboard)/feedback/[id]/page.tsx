@@ -179,7 +179,7 @@ export default function FeedbackDetailPage({ params }: { params: { id: string } 
                 const commentText = safeString(c?.comment)
                 return (
                   <div key={safeString(c?.id) || Math.random()} className={`pl-3 py-2 ${accent} rounded`}>
-                    <div className="flex items-center gap-2 text-[11px] mb-1">
+                    <div className="flex items-center gap-2 text-[12px] mb-1">
                       {c?.is_admin_directive && <Zap className="w-3 h-3 text-purple-500" />}
                       {c?.is_claude_report && <Bot className="w-3 h-3 text-blue-500" />}
                       <span className="font-semibold text-text-primary">{authorName}</span>

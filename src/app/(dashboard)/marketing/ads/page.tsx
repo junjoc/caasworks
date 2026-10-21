@@ -993,7 +993,7 @@ export default function AdsPage() {
                     <tr className="cursor-pointer select-none [&>td]:!h-[42px] [&>td]:!bg-ds-bg [&>td]:border-b [&>td]:border-ds-line [&>td]:text-[13.5px] [&>td]:font-semibold"
                       onClick={() => g.rows.length && setOpenCh(f => { const n = new Set(f); n.has(g.ch) ? n.delete(g.ch) : n.add(g.ch); return n })} title={isFolded ? '펼치기' : '접기'}>
                       <td colSpan={2} style={{ boxShadow: `inset 4px 0 0 ${color}`, paddingLeft: 12 }}>
-                        <span className="inline-flex items-center gap-1.5"><ChevronDown className={`w-4 h-4 text-ds-fg3 transition-transform ${isFolded || !g.rows.length ? '-rotate-90' : ''}`} />{g.ch}<span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{g.rows.length ? (g.ch === '광고' ? `${g.rows.length}개 광고그룹` : INFLOW_GROUPS.find(x => x.key === g.ch)?.subs.join(' · ')) : '이번 기간 기록 없음'}</span></span>
+                        <span className="inline-flex items-center gap-1.5"><ChevronDown className={`w-4 h-4 text-ds-fg3 transition-transform ${isFolded || !g.rows.length ? '-rotate-90' : ''}`} />{g.ch}<span className="text-ds-fg3 font-normal text-[12px] ml-1">{g.rows.length ? (g.ch === '광고' ? `${g.rows.length}개 광고그룹` : INFLOW_GROUPS.find(x => x.key === g.ch)?.subs.join(' · ')) : '이번 기간 기록 없음'}</span></span>
                       </td>
                       <td />
                       <AdNums t={g.tot} />

@@ -35,9 +35,9 @@ export function KpiRow({ items }: { items: ({ label: string; value: ReactNode; s
       {list.map((k, i) => (
         <div key={k.label} className={cn('py-2.5 pr-4 min-w-0', i > 0 && 'pl-4 border-l border-ds-line2')}>
           <div className="text-[12px] text-ds-fg3">{k.label}</div>
-          <b className={cn('text-[18px] font-semibold tabular-nums', k.tone === 'bad' ? 'text-ds-bad' : 'text-ds-fg')}>{k.value}</b>
+          <b className={cn('text-[18px] font-semibold tabular-nums', k.tone === 'bad' ? 'text-ds-due' : 'text-ds-fg')}>{k.value}</b>
           {k.bar != null && <div className="h-1 rounded-full bg-ds-line2 mt-1 max-w-[160px]"><div className="h-1 rounded-full bg-ds-warn" style={{ width: `${Math.min(k.bar, 100)}%` }} /></div>}
-          {k.sub && <div className="text-[11.5px] text-ds-fg3 truncate mt-0.5">{k.sub}</div>}
+          {k.sub && <div className="text-[12px] text-ds-fg3 truncate mt-0.5">{k.sub}</div>}
         </div>
       ))}
     </div>
@@ -86,9 +86,9 @@ export function Check({ label, checked, onChange }: { label: string; checked: bo
 }
 
 /* ─── 상태 칩 · 아바타 · 태그 ─── */
-export type Tone = 'ok' | 'info' | 'warn' | 'bad' | 'na'
-const toneBg: Record<Tone, string> = { ok: 'bg-ds-ok', info: 'bg-ds-info', warn: 'bg-ds-warn', bad: 'bg-ds-bad', na: 'bg-ds-na' }
-export const toneVar: Record<Tone, string> = { ok: 'var(--ds-ok)', info: 'var(--ds-info)', warn: 'var(--ds-warn)', bad: 'var(--ds-bad)', na: 'var(--ds-na)' }
+export type Tone = 'ok' | 'info' | 'warn' | 'bad' | 'na' | 'due'  // due = 미납·연체 (진한 빨강, 눈에 띄게)
+const toneBg: Record<Tone, string> = { ok: 'bg-ds-ok', info: 'bg-ds-info', warn: 'bg-ds-warn', bad: 'bg-ds-bad', na: 'bg-ds-na', due: 'bg-ds-due' }
+export const toneVar: Record<Tone, string> = { ok: 'var(--ds-ok)', info: 'var(--ds-info)', warn: 'var(--ds-warn)', bad: 'var(--ds-bad)', na: 'var(--ds-na)', due: 'var(--ds-due)' }
 // 파이프라인 단계 → 색 (디자인 정의 §1)
 export const stageTone = (stage: string | null | undefined): Tone =>
   // 10/21: 신규리드 빨강(눈에 띄게) · 이탈 회색(묻히게)
@@ -101,7 +101,7 @@ export function StatusChip({ tone, children, cell }: { tone: Tone; children: Rea
 export function Avatar({ name }: { name: string | null | undefined }) {
   const n = (name || '').trim()
   if (!n || n === '미배정') return <span className="text-ds-fg3">미배정</span>
-  return <span className="inline-flex items-center gap-1.5"><span className="inline-grid place-items-center w-[22px] h-[22px] rounded-full bg-ds-line text-ds-fg2 text-[11px] font-semibold">{n[0]}</span>{n}</span>
+  return <span className="inline-flex items-center gap-1.5"><span className="inline-grid place-items-center w-[22px] h-[22px] rounded-full bg-ds-line text-ds-fg2 text-[12px] font-semibold">{n[0]}</span>{n}</span>
 }
 export function Tag({ children }: { children: ReactNode }) { return <span className="text-ds-accent text-[12px] mr-1.5">#{children}</span> }
 
@@ -124,8 +124,8 @@ export function DsButton({ variant = 'secondary', size = 'md', loading, icon, cl
   )
 }
 
-/* ─── Drawer: 오른쪽 400px · Esc·바깥 클릭 닫힘 ─── */
-export function Drawer({ open, onClose, title, meta, footer, children, width = 400 }: { open: boolean; onClose: () => void; title: ReactNode; meta?: ReactNode; footer?: ReactNode; children: ReactNode; width?: number | string }) {
+/* ─── Drawer: 폭은 480(한 건) · 60vw(집계 세부) 두 가지 · Esc·바깥 클릭 닫힘 ─── */
+export function Drawer({ open, onClose, title, meta, footer, children, width = 480 }: { open: boolean; onClose: () => void; title: ReactNode; meta?: ReactNode; footer?: ReactNode; children: ReactNode; width?: number | string }) {
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -148,7 +148,7 @@ export function Drawer({ open, onClose, title, meta, footer, children, width = 4
   )
 }
 export function DrawerSection({ title, children }: { title?: string; children: ReactNode }) {
-  return <div className="px-4 py-3 border-b border-ds-line2 text-[12.5px]">{title && <div className="text-[11px] text-ds-fg3 mb-1.5">{title}</div>}{children}</div>
+  return <div className="px-4 py-3 border-b border-ds-line2 text-[12.5px]">{title && <div className="text-[12px] text-ds-fg3 mb-1.5">{title}</div>}{children}</div>
 }
 
 /* ─── 빈 상태 · 스켈레톤 ─── */
@@ -174,4 +174,9 @@ export function SelectionBar({ count, onClear, children }: { count: number; onCl
       <button onClick={onClear} className="ml-1 text-ds-fg2 hover:text-ds-fg whitespace-nowrap">선택 해제</button>
     </div>
   )
+}
+
+/* ─── 기준 한 줄: 집계·추이 화면 표 아래 회색 글자 (10/21 유실장 검토 — ⓘ 툴팁은 캡처에 안 남음) ─── */
+export function BasisNote({ text }: { text: string }) {
+  return <p className="mt-2 text-[12px] text-ds-fg3 leading-relaxed">기준 · {text}</p>
 }

@@ -237,7 +237,7 @@ export default function MarketingHistoryPage() {
                 </tbody>
               </table>
             </div>
-            <p className="text-[11px] text-text-tertiary mt-2">개월 수가 12가 아닌 연도는 연간 합계가 아니라 그 기간 합계입니다. 전년 대비는 개월 수가 달라도 단순 비교한 값입니다.</p>
+            <p className="text-[12px] text-text-tertiary mt-2">개월 수가 12가 아닌 연도는 연간 합계가 아니라 그 기간 합계입니다. 전년 대비는 개월 수가 달라도 단순 비교한 값입니다.</p>
           </div>
 
           {/* 월별 추이 */}

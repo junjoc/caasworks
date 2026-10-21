@@ -230,15 +230,15 @@ export default function UnpaidPage() {
             <span className="stat-label">총 미수금</span>
           </div>
           <div className="stat-value">{formatCurrency(totalUnpaid)}</div>
-          <div className="text-[11px] text-text-tertiary mt-1">{filtered.length}건</div>
+          <div className="text-[12px] text-text-tertiary mt-1">{filtered.length}건</div>
         </div>
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle className="w-4 h-4 text-status-red" />
             <span className="stat-label">연체 금액</span>
           </div>
-          <div className="stat-value text-status-red">{formatCurrency(overdueAmount)}</div>
-          <div className="text-[11px] text-text-tertiary mt-1">{overdueInvs.length}건</div>
+          <div className="stat-value text-ds-due">{formatCurrency(overdueAmount)}</div>
+          <div className="text-[12px] text-text-tertiary mt-1">{overdueInvs.length}건</div>
         </div>
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-1">
@@ -373,7 +373,7 @@ export default function UnpaidPage() {
                   <Building2 className="w-4 h-4 text-primary-500" />
                   <div className="flex-1">
                     <div className="text-sm font-semibold">{g.customer_name}</div>
-                    <div className="text-[11px] text-text-tertiary mt-0.5">
+                    <div className="text-[12px] text-text-tertiary mt-0.5">
                       {g.contact_person && <span>{g.contact_person}</span>}
                       {g.contact_phone && <span className="ml-2 inline-flex items-center gap-1"><Phone className="w-2.5 h-2.5" />{g.contact_phone}</span>}
                     </div>
@@ -442,7 +442,7 @@ function InvoiceTable({ invoices, showCustomer = true }: { invoices: UnpaidInvoi
                     <div className="text-sm">
                       <div className="font-medium text-text-primary">{inv.contact_person}</div>
                       {inv.contact_phone && (
-                        <a href={`tel:${inv.contact_phone}`} className="text-[11px] text-text-tertiary hover:text-primary-500 inline-flex items-center gap-1 mt-0.5">
+                        <a href={`tel:${inv.contact_phone}`} className="text-[12px] text-text-tertiary hover:text-primary-500 inline-flex items-center gap-1 mt-0.5">
                           <Phone className="w-2.5 h-2.5" />{inv.contact_phone}
                         </a>
                       )}
@@ -477,10 +477,9 @@ function InvoiceTable({ invoices, showCustomer = true }: { invoices: UnpaidInvoi
                 <td className="px-3 py-2 text-center whitespace-nowrap">
                   {days > 0 ? (
                     <Badge className={
-                      days > 90 ? 'bg-red-100 text-red-700' :
-                      days > 60 ? 'bg-red-50 text-red-500' :
-                      days > 30 ? 'bg-orange-50 text-orange-600' :
-                      'bg-amber-50 text-amber-600'
+                      days > 60 ? 'bg-ds-due text-white' :
+                      days > 30 ? 'bg-orange-50 text-orange-700' :
+                      'bg-amber-50 text-amber-700'
                     }>
                       +{days}일
                     </Badge>
@@ -491,7 +490,7 @@ function InvoiceTable({ invoices, showCustomer = true }: { invoices: UnpaidInvoi
                   )}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{formatCurrency(inv.total)}</td>
-                <td className="px-3 py-2 text-[11px] text-text-tertiary max-w-[260px]">
+                <td className="px-3 py-2 text-[12px] text-text-tertiary max-w-[260px]">
                   {inv.notes ? (
                     <span className="whitespace-pre-wrap line-clamp-3" title={inv.notes}>{inv.notes}</span>
                   ) : '-'}

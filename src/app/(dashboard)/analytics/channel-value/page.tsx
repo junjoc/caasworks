@@ -9,7 +9,7 @@ import { classifyLead, INFLOW_ORDER } from '@/lib/inflow-taxonomy'
 
 // 11개 분류에서 광고비를 붙일 수 있는 분류 → 광고 성과의 채널
 const COST_CH: Record<string, string[]> = { '광고': ['네이버', '구글', '메타', '유튜브'], '외주 블로그': ['외주 블로그'] }
-import { KpiRow, Toolbar, DsSelect, Check, Skeleton, Empty, StatusChip, Drawer, DsButton } from '@/components/ds'
+import { KpiRow, Toolbar, DsSelect, Check, Skeleton, Empty, StatusChip, Drawer, DsButton, BasisNote } from '@/components/ds'
 
 export default function ChannelValuePage() {
   const [rows, setRows] = useState<LifecycleRow[]>([])
@@ -43,6 +43,7 @@ export default function ChannelValuePage() {
   const tot = { n: table.reduce((s, t) => s + t.n, 0), won: table.reduce((s, t) => s + t.won, 0), rev: table.reduce((s, t) => s + t.rev, 0), cost: table.reduce((s, t) => s + t.cost, 0) }
   const sel = table.find(t => t.key === open)
 
+  const HELP = '첫 리드의 유입 채널 기준 · 매출은 유입 이후 공급가 누적 · 광고비는 유입 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 — · 행을 누르면 회사 목록'
   return (
     <div>
       <Toolbar right={<>
@@ -50,7 +51,7 @@ export default function ChannelValuePage() {
         <DsSelect value={year} onChange={e => { setYear(e.target.value); setOpen(null) }}><option value="all">전체 연도</option>{years.map(y => <option key={y} value={y}>{y}년 유입</option>)}</DsSelect>
         <Check label="세부까지" checked={sub} onChange={v => { setSub(v); setOpen(null) }} />
         <Check label="기존 고객 포함" checked={includeExisting} onChange={setIncludeExisting} />
-        <DsButton variant="ghost" size="sm" title="첫 리드의 유입 채널 기준 · 매출은 유입 이후 공급가 누적 · 광고비는 유입 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 — · 행을 누르면 회사 목록">ⓘ 기준</DsButton>
+        <DsButton variant="ghost" size="sm" title={HELP}>ⓘ 기준</DsButton>
       </>} />
       <KpiRow items={[
         { label: '유입 회사', value: `${tot.n.toLocaleString()}곳` },
@@ -79,6 +80,8 @@ export default function ChannelValuePage() {
           </table>
         </div>
       )}
+
+      <BasisNote text={HELP} />
 
       <Drawer open={!!sel} onClose={() => setOpen(null)} width="60vw" title={sel ? `${sel.key} — ${sel.n}곳` : ''} meta={sel ? `도입 ${sel.won}곳 · 누적 매출 ${fmtWon(sel.rev)}원` : ''}>
         {sel && (

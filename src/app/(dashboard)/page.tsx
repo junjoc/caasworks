@@ -37,7 +37,7 @@ function Widget({ span, title, sub, href, more, children }: { span: 4 | 8 | 12; 
       <div className="flex items-center gap-2 mb-2">
         <h2 className="text-[14px] font-medium text-ds-fg">{title}</h2>
         {sub && <span className="text-[12px] text-ds-fg3 truncate">{sub}</span>}
-        {href && <Link href={href} prefetch={false} className="ml-auto text-[11.5px] text-ds-accent hover:underline whitespace-nowrap">{more || '더 보기'} ›</Link>}
+        {href && <Link href={href} prefetch={false} className="ml-auto text-[12px] text-ds-accent hover:underline whitespace-nowrap">{more || '더 보기'} ›</Link>}
       </div>
       {children}
     </div>
@@ -78,7 +78,7 @@ function RevTrend({ rev, month }: { rev: [number, number][]; month: number }) {
         </div>
       </div>
       <div className="flex gap-1.5 ml-9 mt-1">{rev.map(([m]) => <span key={m} className={`flex-1 text-center text-[10.5px] ${m === month ? 'text-ds-accent font-semibold' : 'text-ds-fg3'}`}>{m}월</span>)}</div>
-      <div className="flex gap-3 ml-9 mt-1.5 text-[11px] text-ds-fg3">
+      <div className="flex gap-3 ml-9 mt-1.5 text-[12px] text-ds-fg3">
         <span className="inline-flex items-center gap-1"><i className="inline-block w-2.5 h-2.5 rounded-sm bg-ds-info" />실적</span>
         <span className="inline-flex items-center gap-1"><i className="inline-block w-2.5 h-2.5 rounded-sm bg-ds-accent" />이번 달</span>
         <span className="inline-flex items-center gap-1"><i className="inline-block w-2.5 h-2.5 rounded-sm bg-ds-info opacity-40" />남은 달 (계약 기준)</span>
@@ -144,8 +144,8 @@ export default function DashboardPage() {
       unpaidTop: { span: 4, title: '미납 상위', sub: `${d.unpaid.n}건`, href: '/finance/unpaid', more: '미납 현황', body: <List rows={d.unpaid.top.map(([n, v]) => [n, won(v)])} /> },
       topCust: { span: 4, title: `${m}월 매출 상위`, sub: `${d.topCust.n}곳 중`, href: '/revenue', more: '매출 현황', body: <List rows={d.topCust.list.map(([n, v]) => [n, won(v)])} /> },
       funnel: { span: 4, title: '단계 분포', sub: '올해 유입', href: '/pipeline/board', more: '보드뷰', body: <Bars rows={STAGES.map(s => ({ k: s, v: d.leads.stages[s] || 0, color: toneVar[stageTone(s)] }))} /> },
-      inflow: { span: 4, title: '유입 분류', sub: '이번 달 리드', href: '/marketing/ads', more: '유입 성과', body: <Bars label={72} rows={d.leads.inflowMonth.map(([g, v]) => ({ k: g, v, color: INFLOW_COLOR[g] }))} /> },
-      inflowWide: { span: 8, title: '유입 분류', sub: '이번 달 리드 · 11 분류 + 미분류', href: '/marketing/ads', more: '유입 성과', body: <Bars label={72} rows={d.leads.inflowMonth.map(([g, v]) => ({ k: g, v, color: INFLOW_COLOR[g] }))} /> },
+      inflow: { span: 4, title: '유입 분류', sub: '이번 달 리드', href: '/marketing/ads', more: '유입 성과', body: <Bars label={72} rows={d.leads.inflowMonth.map(([g, v]) => ({ k: g, v, color: 'var(--ds-accent)' }))} /> },
+      inflowWide: { span: 8, title: '유입 분류', sub: '이번 달 리드 · 11 분류 + 미분류', href: '/marketing/ads', more: '유입 성과', body: <Bars label={72} rows={d.leads.inflowMonth.map(([g, v]) => ({ k: g, v, color: 'var(--ds-accent)' }))} /> },
       recent: { span: 4, title: '최근 리드', sub: `이번 달 ${d.leads.month}건 · 전체`, href: '/pipeline/list', more: '리스트', body: <List rows={d.leads.recent.map(([n, s, c, dt]) => [n, <StatusChip key="s" tone={stageTone(s)}>{s}</StatusChip>, <span key="c" className="text-ds-fg3">{c}</span>, dt])} /> },
       mine: { span: 4, title: '내 담당 리드', sub: `${mine?.open || 0}건`, href: '/pipeline/list', more: '리스트', body: mine?.list.length ? <List rows={mine.list.map(([n, s, dt]) => [n, <StatusChip key="s" tone={stageTone(s)}>{s}</StatusChip>, dt])} /> : <Empty text="진행 중인 담당 리드가 없습니다" /> },
       pre: { span: 4, title: '도입직전·예정', sub: `${d.leads.preN}건`, href: '/pipeline/board', more: '보드뷰', body: <List rows={d.leads.pre.map(([n, s, u]) => [n, <StatusChip key="s" tone={stageTone(s)}>{s}</StatusChip>, <Avatar key="a" name={u} />])} /> },

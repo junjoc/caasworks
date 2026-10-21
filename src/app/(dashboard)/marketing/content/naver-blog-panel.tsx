@@ -2,7 +2,7 @@
 
 // 콘텐츠 성과 > 네이버 탭: 네이버 블로그 통계 엑셀 업로드 + 글별 월 조회수 + 유입 검색어
 import { useEffect, useMemo, useRef, useState, useCallback, type ReactNode } from 'react'
-import { Toolbar, KpiRow, DsButton, Skeleton, Empty } from '@/components/ds'
+import { Toolbar, KpiRow, DsButton, Skeleton, Empty, BasisNote } from '@/components/ds'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Loading } from '@/components/ui/loading'
@@ -221,7 +221,7 @@ export function NaverBlogPanel({ tabs }: { tabs: ReactNode }) {
           <table className="ds-table">
             <thead><tr><th>제목</th><th>작성일</th>{viewMonths.map(m => <th key={m}>{ym(m)}</th>)}<th>누적</th><th>네이버 글 URL</th></tr></thead>
             <tbody>
-              <tr className="ds-sum top"><td>합계 <span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{rows.length}편</span></td><td />{viewMonths.map(m => <td key={m} className="num">{formatNumber(vSum(m))}</td>)}<td className="num">{formatNumber(rows.reduce((s, r) => s + r.total, 0))}</td><td /></tr>
+              <tr className="ds-sum top"><td>합계 <span className="text-ds-fg3 font-normal text-[12px] ml-1">{rows.length}편</span></td><td />{viewMonths.map(m => <td key={m} className="num">{formatNumber(vSum(m))}</td>)}<td className="num">{formatNumber(rows.reduce((s, r) => s + r.total, 0))}</td><td /></tr>
               {rows.map(({ post, months, total }) => (
                 <tr key={post.id} className="ds-row">
                   <td title={post.title}><span>{post.title}</span>{post.url && <a href={post.url} target="_blank" rel="noopener noreferrer" className="ml-1 text-ds-fg3 hover:text-ds-accent"><ExternalLink className="w-3 h-3 inline" /></a>}</td>
@@ -261,6 +261,7 @@ export function NaverBlogPanel({ tabs }: { tabs: ReactNode }) {
           </div>
         </Sec>
       )}
+      <BasisNote text={HELP} />
     </div>
   )
 }

@@ -1142,7 +1142,7 @@ function CustomerDetailContent() {
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-surface-tertiary">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <Badge className="bg-primary-50 text-primary-500 text-[11px]">회사 기본</Badge>
+                        <Badge className="bg-primary-50 text-primary-500 text-[12px]">회사 기본</Badge>
                         <span className="text-sm font-medium text-text-primary">
                           {defaultRule ? getDueRuleLabel(defaultRule.rule_type, defaultRule.fixed_day) : '미설정'}
                         </span>
@@ -1190,7 +1190,7 @@ function CustomerDetailContent() {
                           <div key={rule.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-border-light">
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <Badge className="bg-amber-50 text-amber-600 text-[11px]">예외</Badge>
+                                <Badge className="bg-amber-50 text-amber-600 text-[12px]">예외</Badge>
                                 <span className="text-sm text-text-primary">
                                   {rule.project?.project_name?.split(' - ')[0] || '(프로젝트 삭제됨)'}
                                 </span>
@@ -1887,7 +1887,7 @@ function CustomerDetailContent() {
             <div className="flex items-center gap-2 mb-2">
               <label className="block text-sm font-medium text-text-secondary">투입 솔루션</label>
               {!editingProject && defaultSolutions.length > 0 && (
-                <span className="text-[11px] text-primary-500 bg-primary-50 px-2 py-0.5 rounded-full">기본 솔루션 적용됨</span>
+                <span className="text-[12px] text-primary-500 bg-primary-50 px-2 py-0.5 rounded-full">기본 솔루션 적용됨</span>
               )}
             </div>
             <div className="flex flex-wrap gap-3">

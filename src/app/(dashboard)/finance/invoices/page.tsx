@@ -698,7 +698,7 @@ export default function InvoicesPage() {
                                 미발행
                               </button>
                             )}
-                            {isOverdue(inv) && <div className="text-[10px] text-status-red font-semibold mt-0.5">미납</div>}
+                            {isOverdue(inv) && <span className="badge bg-ds-due text-white mt-0.5">미납</span>}
                           </td>
                           <td className="text-center">
                             <div className="flex items-center justify-center gap-1">
@@ -750,7 +750,7 @@ export default function InvoicesPage() {
                           미발행
                         </button>
                       )}
-                      {isOverdue(inv) && <div className="text-[10px] text-status-red font-semibold mt-0.5">미납</div>}
+                      {isOverdue(inv) && <span className="badge bg-ds-due text-white mt-0.5">미납</span>}
                     </td>
                     <td className="text-center">
                       <div className="flex items-center justify-center gap-1">
@@ -836,7 +836,7 @@ export default function InvoicesPage() {
               onChange={(e) => setForm(f => ({ ...f, tax_invoice_number: e.target.value }))}
               placeholder="예: 2026-001"
             />
-            <p className="col-span-full text-[11px] text-amber-700">
+            <p className="col-span-full text-[12px] text-amber-700">
               ※ 청구서는 미리 작성되는 문서이고, <strong>세금계산서 발행일</strong>이 입력되면 실제 미납 기준이 됩니다.
             </p>
           </div>
@@ -1142,7 +1142,7 @@ function ActionButtons({
       {inv.status === 'draft' && (
         <button
           onClick={onSend}
-          className="px-2 py-1 text-[11px] font-medium bg-status-blue-bg text-status-blue rounded hover:brightness-95"
+          className="px-2 py-1 text-[12px] font-medium bg-status-blue-bg text-status-blue rounded hover:brightness-95"
           title="청구서 발송 처리"
         >
           발송
@@ -1151,7 +1151,7 @@ function ActionButtons({
       {(inv.status === 'sent' || inv.status === 'overdue') && (
         <button
           onClick={onPaid}
-          className="px-2 py-1 text-[11px] font-medium bg-status-green-bg text-status-green rounded hover:brightness-95"
+          className="px-2 py-1 text-[12px] font-medium bg-status-green-bg text-status-green rounded hover:brightness-95"
           title="수납 처리 (입금일 지정)"
         >
           수납
@@ -1160,7 +1160,7 @@ function ActionButtons({
       {inv.status === 'paid' && (
         <button
           onClick={onPaid}
-          className="px-2 py-1 text-[11px] font-medium bg-status-gray-bg text-text-secondary rounded hover:brightness-95"
+          className="px-2 py-1 text-[12px] font-medium bg-status-gray-bg text-text-secondary rounded hover:brightness-95"
           title={`수납 완료 · 입금일 ${inv.paid_at ? String(inv.paid_at).substring(0,10) : ''}`}
         >
           ✓ 완료

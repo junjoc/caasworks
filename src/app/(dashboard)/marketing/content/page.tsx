@@ -16,7 +16,7 @@ import {
   ExternalLink, ArrowUpDown, Info
 } from 'lucide-react'
 import { NaverBlogPanel } from './naver-blog-panel'
-import { Toolbar, Tabs, KpiRow, DsButton, Check, Skeleton, Empty } from '@/components/ds'
+import { Toolbar, Tabs, KpiRow, DsButton, Check, Skeleton, Empty, BasisNote } from '@/components/ds'
 
 interface ContentItem {
   id: string
@@ -232,7 +232,7 @@ export default function ContentPage() {
                   <th>사용자</th><th title="기간 중 조회가 있었던 날 수">조회일</th><th>동기화</th>
                 </tr></thead>
                 <tbody>
-                  <tr className="ds-sum top"><td>합계 <span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{rows.length}편</span></td><td /><td className="num">{formatNumber(tot.v)}</td><td className="num">{formatNumber(tot.s)}</td><td className="num">{formatNumber(tot.u)}</td><td /><td /></tr>
+                  <tr className="ds-sum top"><td>합계 <span className="text-ds-fg3 font-normal text-[12px] ml-1">{rows.length}편</span></td><td /><td className="num">{formatNumber(tot.v)}</td><td className="num">{formatNumber(tot.s)}</td><td className="num">{formatNumber(tot.u)}</td><td /><td /></tr>
                   {rows.map(item => (
                     <tr key={item.id} className="ds-row">
                       <td title={item.page_path || ''}>
@@ -278,6 +278,7 @@ export default function ContentPage() {
           <Button onClick={handleSaveManual} loading={saving}>저장</Button>
         </div>
       </Modal>
+      {channelFilter !== 'naver_blog' && <BasisNote text={HELP} />}
     </div>
   )
 }

@@ -16,7 +16,7 @@ const config: Config = {
           bg: 'var(--ds-bg)', subtle: 'var(--ds-subtle)', line: 'var(--ds-line)', line2: 'var(--ds-line2)',
           fg: 'var(--ds-fg)', fg2: 'var(--ds-fg2)', fg3: 'var(--ds-fg3)',
           accent: 'var(--ds-accent)', 'accent-hover': 'var(--ds-accent-hover)', 'accent-soft': 'var(--ds-accent-soft)',
-          ok: 'var(--ds-ok)', info: 'var(--ds-info)', warn: 'var(--ds-warn)', bad: 'var(--ds-bad)', na: 'var(--ds-na)',
+          ok: 'var(--ds-ok)', info: 'var(--ds-info)', warn: 'var(--ds-warn)', bad: 'var(--ds-bad)', due: 'var(--ds-due)', na: 'var(--ds-na)',
         },
         // ─── CaaS Gray Scale (theme.color.gray) ───
         gray: {
@@ -184,6 +184,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
+          'Pretendard Variable',
           'Pretendard',
           '-apple-system',
           'BlinkMacSystemFont',
@@ -200,7 +201,7 @@ const config: Config = {
         'body-md': ['14px', { lineHeight: '1.6', fontWeight: '400' }],
         'body-sm': ['13px', { lineHeight: '1.5', fontWeight: '400' }],
         'caption': ['12px', { lineHeight: '1.4', fontWeight: '500' }],
-        'micro': ['11px', { lineHeight: '1.3', fontWeight: '600' }],
+        'micro': ['12px', { lineHeight: '1.3', fontWeight: '600' }],  // 10/21: 최소 12 (유실장 검토)
       },
       boxShadow: {
         'sm': 'none', // 레이아웃 정의 v1: 그림자는 떠 있는 것(드롭다운·모달)만

@@ -340,7 +340,7 @@ export default function MarketingReportPage() {
               <div key={c.label} className="card p-3">
                 <div className="text-xs text-text-tertiary">{c.label}</div>
                 <div className="text-xl font-semibold text-text-primary mt-1">{c.value}</div>
-                {c.sub && <div className="text-[11px] text-text-tertiary">{c.sub}</div>}
+                {c.sub && <div className="text-[12px] text-text-tertiary">{c.sub}</div>}
               </div>
             ))}
             <div className="card p-3 col-span-2">
@@ -404,7 +404,7 @@ export default function MarketingReportPage() {
 
               <div className="px-4 py-2.5 border-y border-gray-100 text-sm font-semibold flex items-center justify-between">
                 <span>문의 주제별 <span className="text-xs font-normal text-text-tertiary">클릭하면 목록 필터</span></span>
-                {unsavedTags > 0 && <span className="text-[11px] font-normal text-amber-600">저장 전 태그 {unsavedTags}건은 즉석 분류값</span>}
+                {unsavedTags > 0 && <span className="text-[12px] font-normal text-amber-600">저장 전 태그 {unsavedTags}건은 즉석 분류값</span>}
               </div>
               <table className="data-table">
                 <thead><tr><th>주제</th><th className="text-right">건수</th><th className="text-right">도입완료</th></tr></thead>
@@ -469,7 +469,7 @@ export default function MarketingReportPage() {
                             </div>
                           ) : (
                             <div className="flex flex-wrap gap-1 items-center">
-                              {r.tags.map(t => <span key={t} className="px-1.5 py-0.5 rounded bg-gray-100 text-[11px] text-text-secondary">{t}</span>)}
+                              {r.tags.map(t => <span key={t} className="px-1.5 py-0.5 rounded bg-gray-100 text-[12px] text-text-secondary">{t}</span>)}
                               {r.topic_tags_manual && <span className="text-[10px] text-text-tertiary" title="사람이 고친 태그 (재분류 제외)">✎</span>}
                               <button onClick={() => startEditTags(r)} className="text-text-tertiary hover:text-text-primary" title="태그 수정"><Pencil className="w-3 h-3" /></button>
                             </div>

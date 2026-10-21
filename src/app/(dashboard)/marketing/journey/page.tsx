@@ -559,7 +559,7 @@ export default function JourneyPage() {
             </button>
             {expandedSection.includes('exit') && (
               <div className="card-body">
-                <p className="text-[11px] text-text-tertiary mb-3">
+                <p className="text-[12px] text-text-tertiary mb-3">
                   참여하지 않고 이탈한 세션이 많은 페이지 순. 이탈율이 높은 페이지의 콘텐츠/UX를 개선하면 전환율 향상에 효과적입니다.
                 </p>
                 <div className="space-y-2">

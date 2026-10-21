@@ -114,7 +114,7 @@ export default function FeedbackListPage() {
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <Badge className={STATUS_COLORS[item.status]}>{STATUS_LABELS[item.status]}</Badge>
                     <Badge className={PRIORITY_COLORS[item.priority]}>{item.priority}</Badge>
-                    <span className="text-[11px] text-text-tertiary">{CATEGORY_LABELS[item.category]}</span>
+                    <span className="text-[12px] text-text-tertiary">{CATEGORY_LABELS[item.category]}</span>
                     {item.target_page && (
                       <code className="text-[10px] bg-gray-100 px-1 py-0.5 rounded text-gray-500">{item.target_page}</code>
                     )}
@@ -123,7 +123,7 @@ export default function FeedbackListPage() {
                   {item.description && (
                     <p className="text-xs text-text-tertiary mt-1 line-clamp-2">{item.description}</p>
                   )}
-                  <div className="flex items-center gap-3 mt-2 text-[11px] text-text-tertiary">
+                  <div className="flex items-center gap-3 mt-2 text-[12px] text-text-tertiary">
                     {item.created_by_user && <span>· {item.created_by_user.name}</span>}
                     <span>· {formatDate(item.created_at, 'M/d HH:mm')}</span>
                     {item.completed_at && (

@@ -41,10 +41,10 @@ function CardBody({ c, uname, follow, today: t }: { c: Card; uname: string; foll
       {follow && <span className="text-[10.5px] text-ds-accent flex-none">추가 진행</span>}
       {uname && <span className="inline-grid place-items-center w-5 h-5 rounded-full bg-ds-line text-ds-fg2 text-[10.5px] font-semibold flex-none" title={uname}>{uname[0]}</span>}
     </div>
-    <div className="mt-0.5 text-[11.5px] text-ds-fg3 truncate">
+    <div className="mt-0.5 text-[12px] text-ds-fg3 truncate">
       <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-[1px]" style={{ background: INFLOW_COLOR[c.group] }} />{c.sub === '기타' || c.sub === '미분류' ? c.group : c.sub} · {md(c.date)} · {since(c.date, t)}
     </div>
-    <div className={cn('mt-1 text-[11.5px] truncate', c.next_action || c.next_action_date ? due : 'text-ds-fg3')}>
+    <div className={cn('mt-1 text-[12px] truncate', c.next_action || c.next_action_date ? due : 'text-ds-fg3')}>
       {c.next_action || c.next_action_date ? <>{c.next_action}{c.next_action_date && <span className="ml-1 tabular-nums">{md(c.next_action_date)}</span>}</> : '+ 다음 액션'}
     </div>
   </>

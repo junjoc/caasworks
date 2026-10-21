@@ -10,7 +10,7 @@
     --ds-bg: #ffffff; --ds-subtle: #f7f7f8; --ds-line: #e5e5e8; --ds-line2: #f0f0f2;
     --ds-fg: #1a1a1f; --ds-fg2: #5c5f66; --ds-fg3: #9b9ea6;
     --ds-accent: #2563eb; --ds-accent-hover: #1d4ed8; --ds-accent-soft: #eaf1fe;
-    --ds-ok: #00c875; --ds-info: #579bfc; --ds-warn: #fdab3d; --ds-bad: #e2445c; --ds-na: #c4c4c4;
+    --ds-ok: #00c875; --ds-info: #579bfc; --ds-warn: #fdab3d; --ds-bad: #e2445c; --ds-due: #b4233a; /* 미납·연체 — 흰 글자 6.5:1 (10/21 유실장 검토) */ --ds-na: #c4c4c4;
     --sidebar-width: 200px; /* 레이아웃 정의 v1 */
     --header-height: 48px;
     /* CaaS Brand Spacing Tokens */
@@ -75,7 +75,8 @@
   .ds-table .num { @apply text-right tabular-nums; }
   .ds-table .c { @apply text-center tabular-nums; }
   .ds-table .muted { color: var(--ds-fg3); }
-  .ds-table tr.ds-group-h td { @apply h-[30px] font-semibold text-left; color: var(--grp, var(--ds-accent)); background: var(--ds-bg); }
+  /* 10/21: 묶음 머리 글자는 진하게(분류는 글자로 구분), 색은 왼쪽 줄에만 */
+  .ds-table tr.ds-group-h td { @apply h-[30px] font-semibold text-left; color: var(--ds-fg); background: var(--ds-bg); }
   .ds-table tr.ds-group td:first-child { border-left: 4px solid var(--grp, var(--ds-accent)); }
   .ds-table tr.ds-sum td { @apply font-semibold border-b-0 border-t-2 border-ds-line; color: var(--ds-fg); background: var(--ds-bg); }
   /* 10/21 결정: 합계 줄은 표 맨 위, 머리 바로 아래에 고정 (펼치거나 스크롤해도 보이게) */

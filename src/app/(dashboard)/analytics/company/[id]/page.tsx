@@ -119,9 +119,9 @@ export default function CompanyLifecyclePage({ params }: { params: { id: string 
                 {events.map((e, i) => (
                   <li key={i} className="mb-3 ml-4">
                     <span className="absolute -left-[5px] mt-1.5 w-2.5 h-2.5 rounded-full" style={{ background: dotColor[e.kind] }} />
-                    <div className="text-[11px] text-ds-fg3 tabular-nums">{e.date}</div>
+                    <div className="text-[12px] text-ds-fg3 tabular-nums">{e.date}</div>
                     <div className={`text-[12.5px] ${e.kind === 'won' ? 'font-semibold text-ds-ok' : 'text-ds-fg'}`}>{e.text}</div>
-                    {e.sub && <div className="text-[11.5px] text-ds-fg2">{e.sub}</div>}
+                    {e.sub && <div className="text-[12px] text-ds-fg2">{e.sub}</div>}
                   </li>
                 ))}
               </ol>

@@ -645,7 +645,7 @@ export default function CampaignsPage() {
                 const inq = s('inq'), cost = s('cost')
                 return (
                   <tr className="ds-sum top">
-                    <td>전체 합계 <span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{all.length}개</span></td>
+                    <td>전체 합계 <span className="text-ds-fg3 font-normal text-[12px] ml-1">{all.length}개</span></td>
                     <td className="c !font-normal text-ds-fg3 !text-[12px]">{live.length ? `진행 ${live.length}` : '—'}</td>
                     <td />
                     <td className="num">{n(live.reduce((v, c) => v + (c.budget || 0), 0))}</td>
@@ -672,7 +672,7 @@ export default function CampaignsPage() {
                       <td style={{ boxShadow: `inset 4px 0 0 ${g}`, paddingLeft: 12 }}>
                         <span className="inline-flex items-center gap-1.5">
                           <ChevronDown className={`w-4 h-4 text-ds-fg3 transition-transform ${isFolded ? '-rotate-90' : ''}`} />
-                          {ch}<span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{cs.length}개 · 진행 {liveN}</span>
+                          {ch}<span className="text-ds-fg3 font-normal text-[12px] ml-1">{cs.length}개 · 진행 {liveN}</span>
                         </span>
                       </td>
                       <td className="c !font-normal text-ds-fg3 !text-[12px]">{liveN ? `진행 ${liveN}` : '—'}</td>

@@ -185,7 +185,7 @@ function ImageUploadField({
           )}
 
           {value && (
-            <p className="text-[11px] text-text-tertiary break-all line-clamp-1">{value}</p>
+            <p className="text-[12px] text-text-tertiary break-all line-clamp-1">{value}</p>
           )}
         </div>
       </div>
@@ -268,7 +268,7 @@ function ColumnSettings({
           >
             {col.label}
           </label>
-          <span className="text-[11px] text-text-tertiary font-mono">{col.key}</span>
+          <span className="text-[12px] text-text-tertiary font-mono">{col.key}</span>
         </div>
       ))}
       <p className="text-xs text-text-tertiary pt-1">

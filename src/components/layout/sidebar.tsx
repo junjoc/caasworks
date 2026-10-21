@@ -189,7 +189,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                 {item.children!.map((child, idx) => (
                   <Fragment key={child.href}>
                   {child.group && child.group !== item.children![idx - 1]?.group && (
-                    <div className="pl-[38px] pr-3 pt-2 pb-0.5 text-[11px] font-medium text-ds-fg3">{child.group}</div>
+                    <div className="pl-[38px] pr-3 pt-2 pb-0.5 text-[12px] font-medium text-ds-fg3">{child.group}</div>
                   )}
                   <Link
                     href={child.href}
@@ -244,7 +244,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
             <img src="/logo.png" alt="CaasWorks" className="w-[22px] h-[22px] rounded-md" />
             <div>
               <span className="text-ds-fg font-semibold text-[13px] tracking-tight">CaasWorks</span>
-              <span className="text-ds-fg3 text-[11px] ml-1.5">CRM</span>
+              <span className="text-ds-fg3 text-[12px] ml-1.5">CRM</span>
             </div>
           </Link>
           <button
@@ -269,7 +269,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                     className="w-7 h-7 rounded-full object-cover flex-shrink-0"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-ds-line flex items-center justify-center text-ds-fg2 text-[11px] font-semibold flex-shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-ds-line flex items-center justify-center text-ds-fg2 text-[12px] font-semibold flex-shrink-0">
                     {user.name?.charAt(0) || 'U'}
                   </div>
                 )}
@@ -278,7 +278,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                     {user.name}
                     {user.position && <span className="text-[10px] text-text-tertiary font-normal ml-1">· {user.position}</span>}
                   </p>
-                  <p className="text-[11px] text-ds-fg3 truncate">{user.email}</p>
+                  <p className="text-[12px] text-ds-fg3 truncate">{user.email}</p>
                 </div>
               </Link>
               <div className="flex items-center gap-1 flex-shrink-0">

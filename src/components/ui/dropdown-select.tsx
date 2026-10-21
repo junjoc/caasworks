@@ -71,7 +71,7 @@ export function DropdownSelect({
           {groups ? (
             groups.map((group) => (
               <div key={group.label}>
-                <div className="px-3 py-1.5 text-[11px] font-semibold text-text-tertiary uppercase tracking-wide bg-surface-tertiary">
+                <div className="px-3 py-1.5 text-[12px] font-semibold text-text-tertiary uppercase tracking-wide bg-surface-tertiary">
                   {group.label}
                 </div>
                 {group.options.map((opt) => (

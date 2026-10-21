@@ -165,7 +165,7 @@ export function Timeline({ items, limit, editable, leadId, onChanged }: { items:
   }
   const dot = (k: string) => <span className={cn('absolute -left-[20.5px] top-[5px] w-[7px] h-[7px] rounded-full', k === 'act' ? 'bg-ds-accent' : k === 'next' ? 'bg-ds-warn' : 'bg-ds-line')} />
   // 나중에 기록한 활동은 시각 대신 이름만 (시각은 그날 12시로 넣은 값이라)
-  const meta = (it: TimelineItem) => <span className="text-ds-fg3 text-[11.5px] tabular-nums whitespace-nowrap">{it.rec && kstDate(it.rec) !== kstDate(it.at) ? '' : `${hm(it.at)} · `}{it.by}</span>
+  const meta = (it: TimelineItem) => <span className="text-ds-fg3 text-[12px] tabular-nums whitespace-nowrap">{it.rec && kstDate(it.rec) !== kstDate(it.at) ? '' : `${hm(it.at)} · `}{it.by}</span>
 
   const changeText = (it: TimelineItem) => it.kind === 'stage' ? <>단계 {it.old || '—'} → <b className="font-medium text-ds-fg">{it.new}</b></>
     : it.kind === 'assign' ? <>담당 {it.old || '없음'} → <b className="font-medium text-ds-fg">{it.new || '없음'}</b></>
@@ -192,11 +192,11 @@ export function Timeline({ items, limit, editable, leadId, onChanged }: { items:
                     <li key={it.id} className="relative mb-2.5 group">
                       {dot('act')}
                       <div className="flex items-center gap-2">
-                        <span className="text-[11.5px] px-1.5 rounded bg-ds-accent-soft text-ds-accent whitespace-nowrap">{typeLabel(it.type)}</span>
+                        <span className="text-[12px] px-1.5 rounded bg-ds-accent-soft text-ds-accent whitespace-nowrap">{typeLabel(it.type)}</span>
                         {meta(it)}
-                        {it.rec && kstDate(it.rec) !== kstDate(it.at) && <span className="text-[11px] text-ds-fg3" title={`실제 기록 ${it.rec.slice(0, 16).replace('T', ' ')}`}>· {mmdd2(it.rec)} 기록</span>}
+                        {it.rec && kstDate(it.rec) !== kstDate(it.at) && <span className="text-[12px] text-ds-fg3" title={`실제 기록 ${it.rec.slice(0, 16).replace('T', ' ')}`}>· {mmdd2(it.rec)} 기록</span>}
                         {canEdit && edit?.id !== it.id && (
-                          <span className="ml-auto text-[11px] text-ds-fg3 opacity-0 group-hover:opacity-100 flex gap-2">
+                          <span className="ml-auto text-[12px] text-ds-fg3 opacity-0 group-hover:opacity-100 flex gap-2">
                             <button onClick={() => setEdit({ id: it.id, type: it.type || 'NOTE', desc: [showTitle ? it.title : '', it.desc || ''].filter(Boolean).join('\n'), date: kstDate(it.at) })} className="hover:text-ds-fg">수정</button>
                             <button onClick={() => del(it.id)} className="hover:text-ds-bad">삭제</button>
                           </span>

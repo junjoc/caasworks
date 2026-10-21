@@ -149,7 +149,7 @@ export default function CustomersPage() {
                             if (e.key === 'Enter') saveCode(c.id)
                             if (e.key === 'Escape') setEditingCodeId(null)
                           }}
-                          className="w-full px-1.5 py-0.5 text-[11px] font-mono border border-primary-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          className="w-full px-1.5 py-0.5 text-[12px] font-mono border border-primary-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
                           autoFocus
                           placeholder="코드 입력"
                         />
@@ -163,7 +163,7 @@ export default function CustomersPage() {
                     ) : (
                       <button
                         onClick={() => startEditCode(c)}
-                        className="text-[11px] font-mono text-text-tertiary hover:text-primary-600 hover:bg-primary-50 px-1.5 py-0.5 rounded transition-colors w-full text-left truncate"
+                        className="text-[12px] font-mono text-text-tertiary hover:text-primary-600 hover:bg-primary-50 px-1.5 py-0.5 rounded transition-colors w-full text-left truncate"
                         title="클릭하여 수정"
                       >
                         {c.customer_code || '-'}

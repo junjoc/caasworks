@@ -334,7 +334,7 @@ export default function SubscriptionPage() {
             <tbody>
               {filtered.map((cust) => (
                 <tr key={cust.id}>
-                  <td className="text-[11px] font-mono text-text-tertiary">{cust.customer_code || '-'}</td>
+                  <td className="text-[12px] font-mono text-text-tertiary">{cust.customer_code || '-'}</td>
                   <td className="col-company">
                     <Link href={`/customers/${cust.id}`} className="font-medium text-primary-500 hover:text-primary-500 hover:underline truncate block">{cust.company_name}</Link>
                     {cust.contact_person && <div className="text-micro text-text-tertiary truncate">{cust.contact_person}</div>}

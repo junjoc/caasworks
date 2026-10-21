@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { fetchLifecycle, fmtWon, fmtPct, median, type LifecycleRow } from '@/lib/lifecycle'
-import { KpiRow, Toolbar, Tabs, DsSelect, Check, Skeleton, Empty, StatusChip, Drawer, DsButton } from '@/components/ds'
+import { KpiRow, Toolbar, Tabs, DsSelect, Check, Skeleton, Empty, StatusChip, Drawer, DsButton, BasisNote } from '@/components/ds'
 
 type Group = 'month' | 'quarter'
 const thisYear = String(new Date().getFullYear())
@@ -122,6 +122,8 @@ export default function CohortPage() {
         </div>
       )}
 
+      <BasisNote text={HELP} />
+
       <Drawer open={!!sel} onClose={() => setOpen(null)} width="60vw" title={sel ? `${sel.label} 유입 ${sel.n}곳${channel !== 'all' ? ` · ${channel}` : ''}` : ''}
         meta={sel ? <>도입 {sel.won}곳 · 누적 매출 {fmtWon(sel.total)}원 · 유입 후 1개월 {fmtWon(sel.rev_1)} · 3개월 {fmtWon(sel.rev_3)} · 6개월 {fmtWon(sel.rev_6)} · 12개월 {fmtWon(sel.rev_12)}</> : ''}>
         {sel && (
@@ -132,7 +134,7 @@ export default function CohortPage() {
                 <tbody>
                   {[...sel.rows].sort((a, b) => b.rev_total - a.rev_total).map(r => (
                     <tr key={r.key} className="ds-row">
-                      <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} prefetch={false} className="hover:text-ds-accent">{r.company_name}</Link> : <>{r.company_name} <span className="text-[11px] text-ds-fg3">미연결</span></>}</td>
+                      <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} prefetch={false} className="hover:text-ds-accent">{r.company_name}</Link> : <>{r.company_name} <span className="text-[12px] text-ds-fg3">미연결</span></>}</td>
                       <td className="c"><StatusChip tone={r.won ? 'ok' : 'info'}>{r.won ? '도입완료' : '진행'}</StatusChip></td>
                       <td className="c muted">{r.inquiry_date}</td><td>{r.inquiry_channel || '—'}{r.inquiry_source ? <span className="text-ds-fg3"> / {r.inquiry_source}</span> : ''}</td><td>{r.industry || '—'}</td>
                       <td className="c muted">{r.converted_at || '—'}</td><td className="num">{r.days_to_convert ?? '—'}</td>

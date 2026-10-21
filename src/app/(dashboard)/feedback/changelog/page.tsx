@@ -76,8 +76,8 @@ export default function ChangelogPage() {
                         <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-[11px] text-text-tertiary">{CATEGORY_LABELS[item.category] || item.category}</span>
-                            <span className="text-[11px] text-green-600 font-medium">
+                            <span className="text-[12px] text-text-tertiary">{CATEGORY_LABELS[item.category] || item.category}</span>
+                            <span className="text-[12px] text-green-600 font-medium">
                               완료 {item.completed_at ? formatDate(item.completed_at, 'M/d') : ''}
                             </span>
                           </div>
@@ -86,7 +86,7 @@ export default function ChangelogPage() {
                             <p className="text-xs text-text-secondary mt-1">{item.resolution_summary}</p>
                           )}
                           {item.pr_urls && item.pr_urls.length > 0 && (
-                            <div className="text-[11px] text-blue-600 mt-1">
+                            <div className="text-[12px] text-blue-600 mt-1">
                               {item.pr_urls.map((u, i) => (
                                 <a key={i} href={u} target="_blank" rel="noreferrer" className="hover:underline mr-2">
                                   #{u.split('/').pop()}

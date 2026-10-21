@@ -630,7 +630,7 @@ export default function PipelineAnalyticsPage() {
               <Select label="" value={filterChannel} onChange={(e) => setFilterChannel(e.target.value)}
                 options={channelOptions.map(v => ({ value: v, label: v }))} />
             </div>
-            <span className="text-[11px] text-text-tertiary ml-2">{formatNumber(filtered.length)}건</span>
+            <span className="text-[12px] text-text-tertiary ml-2">{formatNumber(filtered.length)}건</span>
           </div>
         </div>
       </div>
@@ -667,7 +667,7 @@ export default function PipelineAnalyticsPage() {
                     <span className={`mt-0.5 flex-shrink-0 ${iconColors[insight.type]}`}>{insight.icon}</span>
                     <div className="min-w-0">
                       <p className={`text-xs font-bold ${titleColors[insight.type]}`}>{insight.title}</p>
-                      <p className={`text-[11px] mt-0.5 ${descColors[insight.type]}`}>{insight.description}</p>
+                      <p className={`text-[12px] mt-0.5 ${descColors[insight.type]}`}>{insight.description}</p>
                     </div>
                   </div>
                 )
@@ -966,7 +966,7 @@ export default function PipelineAnalyticsPage() {
                         disabled={stageChanging === l.id}
                         onChange={(e) => handleStuckStageChange(l.id, l.stage, e.target.value)}
                         onClick={(e) => e.stopPropagation()}
-                        className="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white hover:border-primary-400 focus:border-primary-500 focus:outline-none shrink-0 disabled:opacity-50"
+                        className="text-[12px] border border-gray-200 rounded px-1 py-0.5 bg-white hover:border-primary-400 focus:border-primary-500 focus:outline-none shrink-0 disabled:opacity-50"
                         title="단계 변경"
                       >
                         {['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈'].map(s => (

@@ -47,7 +47,7 @@ export function NewLeadsWidget({ size }: WidgetProps) {
   return (
     <div className="flex flex-col h-full justify-center">
       <div className="text-3xl font-bold text-text-primary">{formatNumber(data.today)}</div>
-      <div className="text-[11px] text-text-tertiary mt-1">
+      <div className="text-[12px] text-text-tertiary mt-1">
         {delta === 0 ? '어제와 동일' : delta > 0
           ? <span className="text-green-600"><TrendingUp className="w-3 h-3 inline" /> 어제 대비 +{delta}</span>
           : <span className="text-red-500"><TrendingDown className="w-3 h-3 inline" /> 어제 대비 {delta}</span>
@@ -202,7 +202,7 @@ export function MonthlyRevenueWidget({ size: _size }: WidgetProps) {
   return (
     <div className="flex flex-col h-full justify-center">
       <div className="text-2xl font-bold text-text-primary">{formatCurrency(data.current)}</div>
-      <div className="text-[11px] text-text-tertiary mt-1">
+      <div className="text-[12px] text-text-tertiary mt-1">
         이번달 · {delta === 0 ? '지난달 동일 시점과 동일' :
           delta > 0
             ? <span className="text-green-600">↑ {delta.toFixed(1)}% vs 지난달 동일 시점</span>
@@ -234,7 +234,7 @@ export function UnpaidAmountWidget({ size }: WidgetProps) {
   return (
     <div className="flex flex-col h-full justify-center">
       <div className="text-2xl font-bold text-text-primary">{formatCurrency(data.amount)}</div>
-      <div className="text-[11px] text-red-500 mt-1">미수금 · {data.count}건</div>
+      <div className="text-[12px] text-red-500 mt-1">미수금 · {data.count}건</div>
     </div>
   )
 }
@@ -262,7 +262,7 @@ export function PipelineFunnelWidget({ size }: WidgetProps) {
         const n = counts[s] || 0
         const pct = (n / max) * 100
         return (
-          <div key={s} className="flex items-center gap-2 text-[11px]">
+          <div key={s} className="flex items-center gap-2 text-[12px]">
             <span className="w-14 text-text-secondary">{s}</span>
             <div className="flex-1 bg-gray-100 rounded h-4 relative">
               <div className={`h-full rounded ${STAGE_COLORS[s]?.replace('text-', 'bg-').split(' ')[0] || 'bg-primary-400'}`}
@@ -338,7 +338,7 @@ export function ConversionRateWidget({ size }: WidgetProps) {
   return (
     <div className="flex flex-col h-full justify-center">
       <div className="text-2xl font-bold text-text-primary">{data.rate.toFixed(1)}%</div>
-      <div className="text-[11px] text-text-tertiary mt-1">
+      <div className="text-[12px] text-text-tertiary mt-1">
         전환율 · {data.converted}/{data.total}건
       </div>
     </div>
@@ -428,7 +428,7 @@ export function WeeklyTasksWidget({ size }: WidgetProps) {
               {it.type === 'action' ? '💬' : '💰'}
             </span>
             <span className="font-medium truncate flex-1">{it.title}</span>
-            <span className="text-text-tertiary truncate max-w-[100px] text-[11px]">{it.subtitle}</span>
+            <span className="text-text-tertiary truncate max-w-[100px] text-[12px]">{it.subtitle}</span>
             <span className={`text-[10px] flex-shrink-0 ${
               daysDiff <= 1 ? 'text-red-500 font-semibold' : 'text-text-tertiary'
             }`}>{dateLabel} · {dateLabel !== dayLabel ? '' : dateLabel}</span>
@@ -466,8 +466,8 @@ export function AdSpendWidget({ size: _size }: WidgetProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="text-2xl font-bold text-text-primary">₩{formatNumber(data.total)}</div>
-      <div className="text-[11px] text-text-tertiary mt-1">이번달 광고비 합계</div>
-      <div className="mt-2 space-y-0.5 text-[11px]">
+      <div className="text-[12px] text-text-tertiary mt-1">이번달 광고비 합계</div>
+      <div className="mt-2 space-y-0.5 text-[12px]">
         {data.byChannel.slice(0, 4).map(c => (
           <div key={c.channel} className="flex justify-between">
             <span className="text-text-tertiary truncate">{c.channel}</span>
@@ -503,7 +503,7 @@ export function ChannelTop5Widget({ size: _size }: WidgetProps) {
   return (
     <div className="flex flex-col h-full gap-1.5 pt-1">
       {data.map(d => (
-        <div key={d.channel} className="flex items-center gap-2 text-[11px]">
+        <div key={d.channel} className="flex items-center gap-2 text-[12px]">
           <span className="text-text-secondary truncate w-24">{d.channel}</span>
           <div className="flex-1 bg-gray-100 rounded h-2 overflow-hidden">
             <div className="bg-primary-500 h-full" style={{ width: `${(d.count / max) * 100}%` }} />
@@ -536,7 +536,7 @@ export function CPLWidget({ size: _size }: WidgetProps) {
   return (
     <div className="flex flex-col h-full justify-center">
       <div className="text-3xl font-bold text-text-primary">₩{formatNumber(data.cpl)}</div>
-      <div className="text-[11px] text-text-tertiary mt-1">리드당 광고비 (CPL)</div>
+      <div className="text-[12px] text-text-tertiary mt-1">리드당 광고비 (CPL)</div>
       <div className="text-[10px] text-text-placeholder mt-1">
         광고비 ₩{formatNumber(data.cost)} / 리드 {data.leads}건
       </div>

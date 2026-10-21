@@ -34,7 +34,7 @@ export function StageBar({ flow, stage, note, onPick, variant = 'full' }: { flow
               background: f === 'cur' ? col : f === 'done' ? `color-mix(in srgb, ${col} 20%, var(--ds-bg))` : 'var(--ds-subtle)',
               clipPath: i === 0 ? 'polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%)' : 'polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%,10px 50%)',
             }}>
-            <span className="truncate">{s}</span>{f === 'cur' && note && <span className="text-[11px] font-normal opacity-90 whitespace-nowrap">{note}</span>}
+            <span className="truncate">{s}</span>{f === 'cur' && note && <span className="text-[12px] font-normal opacity-90 whitespace-nowrap">{note}</span>}
           </button>
         )
       })}
@@ -89,11 +89,11 @@ function PropCell({ p, first, last }: { p: Prop; first: boolean; last: boolean }
   return (
     <div className={cn('relative px-3 py-2 min-w-0', !first && 'border-l border-ds-line2', editable && 'hover:bg-ds-subtle cursor-pointer', first && 'rounded-l-lg', last && 'rounded-r-lg')}
       onClick={() => p.popover && setOpen(true)}>
-      <div className="text-[11.5px] text-ds-fg3">{p.label}</div>
+      <div className="text-[12px] text-ds-fg3">{p.label}</div>
       <div className={cn('text-[13px] font-medium flex items-center gap-1 min-w-0 mt-0.5', p.tone === 'bad' ? 'text-ds-bad' : 'text-ds-fg')}>
         <span className="truncate">{p.value}</span>{editable && <ChevronDown className="w-3 h-3 text-ds-fg3 flex-none" />}
       </div>
-      {p.sub && <div className={cn('text-[11.5px] truncate', p.tone === 'warn' ? 'text-ds-warn' : p.tone === 'bad' ? 'text-ds-bad' : 'text-ds-fg3')}>{p.sub}</div>}
+      {p.sub && <div className={cn('text-[12px] truncate', p.tone === 'warn' ? 'text-ds-warn' : p.tone === 'bad' ? 'text-ds-bad' : 'text-ds-fg3')}>{p.sub}</div>}
       {p.select && <OverlaySelect value={p.select.value} options={p.select.options} onChange={p.select.onChange} allowEmpty={p.select.empty} />}
       {p.popover && <Popover open={open} onClose={() => setOpen(false)} align={last ? 'right' : 'left'}>{p.popover(() => setOpen(false))}</Popover>}
     </div>
@@ -136,7 +136,7 @@ export function Rows({ rows, onFill }: { rows: Row[]; onFill?: () => void }) {
     <>
       {has.length > 0 && <div className="grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-1">{has.map(r => <RowItem key={r.label} r={r} />)}</div>}
       {empty > 0 && (
-        <div className={cn('text-[11.5px] text-ds-fg3', has.length > 0 && 'mt-2 pt-1.5 border-t border-dashed border-ds-line')}>
+        <div className={cn('text-[12px] text-ds-fg3', has.length > 0 && 'mt-2 pt-1.5 border-t border-dashed border-ds-line')}>
           빈 칸 {empty} ({rows.filter(r => r.value == null || r.value === '').map(r => r.label).join(' · ')}){onFill && <> · <button onClick={onFill} className="text-ds-accent hover:underline">채우기</button></>}
         </div>
       )}

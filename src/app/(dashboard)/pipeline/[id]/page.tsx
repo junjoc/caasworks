@@ -56,7 +56,7 @@ function CardForm({ fields, lead, onSave, onCancel }: { fields: FieldDef[]; lead
 function EditCard({ title, fields, lead, onSave, children }: { title: string; fields: FieldDef[]; lead: Record<string, any>; onSave: (u: Record<string, string | null>) => Promise<boolean>; children: (fill: () => void) => ReactNode }) {
   const [on, setOn] = useState(false)
   return (
-    <Card title={title} action={!on && <button onClick={() => setOn(true)} className="text-[11.5px] text-ds-fg3 hover:text-ds-fg">수정</button>}>
+    <Card title={title} action={!on && <button onClick={() => setOn(true)} className="text-[12px] text-ds-fg3 hover:text-ds-fg">수정</button>}>
       {on ? <CardForm fields={fields} lead={lead} onCancel={() => setOn(false)} onSave={async u => { if (!Object.keys(u).length || (await onSave(u))) setOn(false) }} /> : children(() => setOn(true))}
     </Card>
   )
@@ -145,7 +145,7 @@ export default function LeadDetailPage() {
             <DsButton size="sm" variant="primary" onClick={async () => { if (await save({ action: 'update_next_action', next_action: next.text.trim() || lead.next_action, next_action_date: next.date || lead.next_action_date })) { setNext({ text: '', date: '' }); close() } }}>저장</DsButton>
             {hasNext && <DsButton size="sm" variant="ghost" onClick={async () => { if (await save({ action: 'record', activity_type: 'NOTE', content: '', performed_by: user?.id, complete_next: true }, '완료로 표시했습니다')) close() }}>완료</DsButton>}
           </div>
-          <p className="text-[11.5px] text-ds-fg3">통화·미팅 내용과 함께 정하려면 아래 기록 칸에서</p>
+          <p className="text-[12px] text-ds-fg3">통화·미팅 내용과 함께 정하려면 아래 기록 칸에서</p>
         </div>
       ),
     },
@@ -227,7 +227,7 @@ export default function LeadDetailPage() {
                 { label: 'UTM', value: [lead.utm_source, lead.utm_medium, lead.utm_campaign, lead.utm_content, lead.utm_term].filter(Boolean).join(' / ') || null },
                 { label: '세션', value: lead.site_session_id },
               ]} />
-              <p className="mt-2 text-[11.5px] text-ds-fg3">홈페이지 문의 폼으로 들어온 리드만 첫 방문·레퍼러·UTM 이 있습니다. 분류 기준은 디자인 정의 §5.</p>
+              <p className="mt-2 text-[12px] text-ds-fg3">홈페이지 문의 폼으로 들어온 리드만 첫 방문·레퍼러·UTM 이 있습니다. 분류 기준은 디자인 정의 §5.</p>
             </Card>
           )}
           {tab === 'quote' && <>
@@ -275,7 +275,7 @@ export default function LeadDetailPage() {
             { key: 'inquiry_content', label: '내용', kind: 'textarea' }, { key: 'interest_service', label: '관심 서비스' }, { key: 'core_need', label: '핵심 니즈' }]}>
             {fill => <>
               {content ? <p className={cn('text-ds-fg whitespace-pre-wrap break-words leading-relaxed', !moreText && longText && 'line-clamp-6')}>{content}</p> : null}
-              {longText && <button onClick={() => setMoreText(v => !v)} className="text-[11.5px] text-ds-accent mt-1">{moreText ? '접기' : '더 보기'}</button>}
+              {longText && <button onClick={() => setMoreText(v => !v)} className="text-[12px] text-ds-accent mt-1">{moreText ? '접기' : '더 보기'}</button>}
               {(lead.topic_tags || []).length > 0 && <div className="mt-1.5">{(lead.topic_tags as string[]).map(t => <span key={t} className="text-ds-accent text-[12px] mr-1.5">#{t}</span>)}</div>}
               <div className={content ? 'mt-2' : ''}><Rows onFill={fill} rows={[
                 ...(content ? [] : [{ label: '내용', value: null }]),
@@ -293,7 +293,7 @@ export default function LeadDetailPage() {
               { label: '메모', value: lead.notes ? <span className="whitespace-pre-wrap">{lead.notes}</span> : null },
             ]} />}
           </EditCard>
-          <p className="text-[11.5px] text-ds-fg3 px-1">등록 {kstDate(String(lead.created_at))}</p>
+          <p className="text-[12px] text-ds-fg3 px-1">등록 {kstDate(String(lead.created_at))}</p>
         </aside>
       </div>
     </div>

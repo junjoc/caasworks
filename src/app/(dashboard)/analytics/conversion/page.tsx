@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { fetchLifecycle, fmtWon, BUCKETS, bucketOf, AXES, axisValues, median, type AxisKey, type LifecycleRow } from '@/lib/lifecycle'
-import { KpiRow, Toolbar, DsSelect, Check, Skeleton, Empty, SectionTitle, Avatar, Drawer, DsButton } from '@/components/ds'
+import { KpiRow, Toolbar, DsSelect, Check, Skeleton, Empty, SectionTitle, Avatar, Drawer, DsButton, BasisNote } from '@/components/ds'
 
 export default function ConversionPage() {
   const [rows, setRows] = useState<LifecycleRow[]>([])
@@ -33,12 +33,13 @@ export default function ConversionPage() {
   const maxN = Math.max(1, ...buckets.map(b => b.n))
   const bucketLabel = (k: string) => BUCKETS.find(b => b.key === k)?.label
 
+  const HELP = '소요 기간 = 첫 리드 유입일 → 도입일(단계 이력, 없으면 고객사 과금 시작일) · 매출은 유입 이후 공급가 누적 · 칸을 누르면 회사 목록'
   return (
     <div>
       <Toolbar right={<>
         <DsSelect value={year} onChange={e => { setYear(e.target.value); setSel(null) }}><option value="all">전체 연도</option>{years.map(y => <option key={y} value={y}>{y}년 유입</option>)}</DsSelect>
         <Check label="기존 고객 포함" checked={includeExisting} onChange={setIncludeExisting} />
-        <DsButton variant="ghost" size="sm" title="소요 기간 = 첫 리드 유입일 → 도입일(단계 이력, 없으면 고객사 과금 시작일) · 매출은 유입 이후 공급가 누적 · 칸을 누르면 회사 목록">ⓘ 기준</DsButton>
+        <DsButton variant="ghost" size="sm" title={HELP}>ⓘ 기준</DsButton>
       </>}>
         <span className="text-[12px] text-ds-fg2">축</span>
         <DsSelect value={axis} onChange={e => { setAxis(e.target.value as AxisKey); setSel(null) }}>{AXES.map(a => <option key={a.key} value={a.key}>{a.label}</option>)}</DsSelect>
@@ -79,7 +80,7 @@ export default function ConversionPage() {
                     <td className="font-medium" title={m.value}>{m.value}</td><td className="num">{m.n}</td><td className="num">{m.median ?? '—'}일</td>
                     {BUCKETS.map(b => { const rs = m.byB[b.key] || []; const active = sel?.axis === m.value && sel.bucket === b.key
                       return <td key={b.key} onClick={() => rs.length && setSel({ axis: m.value, bucket: b.key })} className={`num ${rs.length ? 'cursor-pointer hover:!bg-ds-accent-soft' : 'muted'} ${active ? '!bg-ds-accent-soft font-medium' : ''}`}>
-                        {rs.length ? <>{rs.length} <span className="text-[11px] text-ds-fg3">/ {fmtWon(rs.reduce((s, r) => s + r.rev_total, 0))}</span></> : '—'}
+                        {rs.length ? <>{rs.length} <span className="text-[12px] text-ds-fg3">/ {fmtWon(rs.reduce((s, r) => s + r.rev_total, 0))}</span></> : '—'}
                       </td> })}
                     <td className="num font-medium">{fmtWon(m.rev)}</td>
                   </tr>
@@ -87,9 +88,11 @@ export default function ConversionPage() {
               </tbody>
             </table>
           </div>
-          {axis === 'service' && <p className="text-[11px] text-ds-fg3 mt-1.5">서비스가 여러 개인 회사는 각 서비스 줄에 모두 들어갑니다.</p>}
+          {axis === 'service' && <p className="text-[12px] text-ds-fg3 mt-1.5">서비스가 여러 개인 회사는 각 서비스 줄에 모두 들어갑니다.</p>}
         </>
       )}
+
+      <BasisNote text={HELP} />
 
       <Drawer open={!!sel} onClose={() => setSel(null)} width="60vw" title={sel ? `${sel.axis === '*' ? '전체' : sel.axis} · ${bucketLabel(sel.bucket)}` : ''}
         meta={sel ? `${selRows.length}곳 · 누적 매출 ${fmtWon(selRows.reduce((s, r) => s + r.rev_total, 0))}원 · 소요일 중앙값 ${median(selRows.map(r => r.days_to_convert!)) ?? '—'}일` : ''}>

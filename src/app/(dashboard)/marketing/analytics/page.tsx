@@ -1457,14 +1457,14 @@ export default function AnalyticsPage() {
                     { key: 'other_cost', label: '기타' },
                   ].map(f => (
                     <div key={f.key}>
-                      <label className="text-[11px] font-medium text-text-secondary mb-1 block">{f.label}</label>
+                      <label className="text-[12px] font-medium text-text-secondary mb-1 block">{f.label}</label>
                       <input type="number" value={(editForm as any)[f.key] || ''}
                         onChange={e => setEditForm(prev => ({ ...prev, [f.key]: Number(e.target.value) }))}
                         className="w-full px-3 py-2 text-sm border border-border rounded-md" placeholder="0" />
                     </div>
                   ))}
                 </div>
-                <p className="text-[11px] text-text-tertiary mt-2">
+                <p className="text-[12px] text-text-tertiary mt-2">
                   합계: <strong className="text-text-primary">{formatCurrency(editForm.google_cost + editForm.meta_cost + editForm.naver_cost + editForm.other_cost)}</strong>
                 </p>
               </div>
@@ -1474,27 +1474,27 @@ export default function AnalyticsPage() {
                 <p className="text-xs font-semibold text-purple-700 mb-2">전환 성과</p>
                 <div className="grid grid-cols-4 gap-3">
                   <div>
-                    <label className="text-[11px] font-medium text-text-secondary mb-1 block">가입사</label>
+                    <label className="text-[12px] font-medium text-text-secondary mb-1 block">가입사</label>
                     <input type="number" value={editForm.signups || ''}
                       onChange={e => setEditForm(f => ({ ...f, signups: Number(e.target.value) }))}
                       className="w-full px-3 py-2 text-sm border border-border rounded-md" placeholder="0" />
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-text-secondary mb-1 block">유료광고 문의</label>
+                    <label className="text-[12px] font-medium text-text-secondary mb-1 block">유료광고 문의</label>
                     <input type="number" value={editForm.paid_inquiries || ''}
                       onChange={e => setEditForm(f => ({ ...f, paid_inquiries: Number(e.target.value) }))}
                       className="w-full px-3 py-2 text-sm border border-border rounded-md" placeholder="0" />
                     <p className="text-[9px] text-text-tertiary mt-0.5">네이버/구글/메타/유튜브</p>
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-text-secondary mb-1 block">바이럴 문의</label>
+                    <label className="text-[12px] font-medium text-text-secondary mb-1 block">바이럴 문의</label>
                     <input type="number" value={editForm.viral_inquiries || ''}
                       onChange={e => setEditForm(f => ({ ...f, viral_inquiries: Number(e.target.value) }))}
                       className="w-full px-3 py-2 text-sm border border-border rounded-md" placeholder="0" />
                     <p className="text-[9px] text-text-tertiary mt-0.5">자연검색/블로그/자사채널/AI</p>
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-text-secondary mb-1 block">도입사</label>
+                    <label className="text-[12px] font-medium text-text-secondary mb-1 block">도입사</label>
                     <input type="number" value={editForm.adoptions || ''}
                       onChange={e => setEditForm(f => ({ ...f, adoptions: Number(e.target.value) }))}
                       className="w-full px-3 py-2 text-sm border border-border rounded-md" placeholder="0" />
@@ -1507,7 +1507,7 @@ export default function AnalyticsPage() {
                 <p className="text-xs font-semibold text-green-700 mb-2">매출</p>
                 <div className="grid grid-cols-4 gap-3">
                   <div className="col-span-2">
-                    <label className="text-[11px] font-medium text-text-secondary mb-1 block">월 매출</label>
+                    <label className="text-[12px] font-medium text-text-secondary mb-1 block">월 매출</label>
                     <input type="number" value={editForm.monthly_revenue || ''}
                       onChange={e => setEditForm(f => ({ ...f, monthly_revenue: Number(e.target.value) }))}
                       className="w-full px-3 py-2 text-sm border border-border rounded-md" placeholder="0" />
