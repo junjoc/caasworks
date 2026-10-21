@@ -1,0 +1,19 @@
+# CRM 서버 깨우기 (2026-10-21 속도) — 서버 함수는 몇 분 쉬면 잠들어 첫 화면이 1~5초 걸린다.
+# 평일 업무 시간(KST 07~21시)에 5분마다 주요 API 를 한 번씩 부른다. 데이터는 읽지 않는 "깨우기" 요청.
+name: warm
+on:
+  schedule:
+    - cron: '*/5 22-23 * * 0-4'   # KST 07~08시 (월~금)
+    - cron: '*/5 0-11 * * 1-5'    # KST 09~20시
+  workflow_dispatch:
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: ping
+        run: |
+          B=https://caasworks.vercel.app
+          for u in /api/pipeline/leads /api/pipeline/board; do curl -s -o /dev/null -w "$u %{http_code} %{time_total}\n" -X POST $B$u -H 'Content-Type: application/json' -d '{"warm":true}' & done
+          for u in /api/pipeline/lead/warm /api/dashboard /api/pipeline/followups /api/warmup /login; do curl -s -o /dev/null -w "$u %{http_code} %{time_total}\n" $B$u & done
+          wait
