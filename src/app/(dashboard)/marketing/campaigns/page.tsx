@@ -635,24 +635,29 @@ export default function CampaignsPage() {
             <tbody>
               {grouped.map(({ ch, cs }) => {
                 const g = CH_COLOR[ch] || 'var(--ds-na)'
-                const gCost = cs.reduce((s, c) => s + (agg[c.id]?.cost || 0), 0)
-                const gMonth = cs.reduce((s, c) => s + (agg[c.id]?.month || 0), 0)
-                const gInq = cs.reduce((s, c) => s + (agg[c.id]?.inq || 0), 0)
+                // 채널 머리 줄 = 그 채널의 합계 줄 (접어도 열마다 합계가 보이게, 10/21)
+                const sum = (k: 'cost' | 'month' | 'clicks' | 'inq' | 'ad') => cs.reduce((s, c) => s + (agg[c.id]?.[k] || 0), 0)
+                const liveN = cs.filter(c => c.status === '진행중').length
+                const gBudget = cs.filter(c => c.status === '진행중').reduce((s, c) => s + (c.budget || 0), 0)
+                const gCost = sum('cost'), gMonth = sum('month'), gInq = sum('inq')
+                const isFolded = folded.has(ch)
                 return (
                   <Fragment key={ch}>
-                    <tr className="cursor-pointer select-none" onClick={() => toggleGroup(ch)} title={folded.has(ch) ? '펼치기' : '접기'}>
-                      <td colSpan={10} className="!h-11 !bg-ds-bg border-b border-ds-line" style={{ boxShadow: `inset 4px 0 0 ${g}`, paddingLeft: 12 }}>
-                        <span className="inline-flex items-center gap-2">
-                          <ChevronDown className={`w-4 h-4 text-ds-fg3 transition-transform ${folded.has(ch) ? '-rotate-90' : ''}`} />
-                          <b className="text-[14px] font-semibold text-ds-fg">{ch}</b>
-                          <span className="text-ds-fg3 text-[12px]">{cs.length}개 · 진행 {cs.filter(c => c.status === '진행중').length}</span>
-                        </span>
-                        <span className="float-right inline-flex items-baseline gap-5 text-[12px] text-ds-fg3 mt-0.5">
-                          <span>이번 달 <b className="text-[14px] font-semibold text-ds-fg tabular-nums">{gMonth.toLocaleString()}</b></span>
-                          <span>누적 <b className="text-[14px] font-semibold text-ds-fg tabular-nums">{gCost.toLocaleString()}</b></span>
-                          <span>문의 <b className="text-[14px] font-semibold text-ds-fg tabular-nums">{gInq}</b></span>
+                    <tr className="cursor-pointer select-none [&>td]:!h-[42px] [&>td]:!bg-ds-bg [&>td]:border-b [&>td]:border-ds-line [&>td]:text-[13.5px] [&>td]:font-semibold" onClick={() => toggleGroup(ch)} title={isFolded ? '펼치기' : '접기'}>
+                      <td style={{ boxShadow: `inset 4px 0 0 ${g}`, paddingLeft: 12 }}>
+                        <span className="inline-flex items-center gap-1.5">
+                          <ChevronDown className={`w-4 h-4 text-ds-fg3 transition-transform ${isFolded ? '-rotate-90' : ''}`} />
+                          {ch}<span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{cs.length}개 · 진행 {liveN}</span>
                         </span>
                       </td>
+                      <td className="c !font-normal text-ds-fg3 !text-[12px]">{liveN ? `진행 ${liveN}` : '—'}</td>
+                      <td className="num">{n(gBudget)}</td>
+                      <td className="num">{n(gMonth)}</td>
+                      <td className="num">{n(gCost)}</td>
+                      <td className="num">{n(sum('clicks'))}</td>
+                      <td className="num">{n(gInq)}</td>
+                      <td className="num">{n(sum('ad'))}</td>
+                      <td className="num !font-normal text-ds-fg3">{gInq ? Math.round(gCost / gInq / 10000).toLocaleString() + '만' : '—'}</td>
                     </tr>
                     {!folded.has(ch) && cs.map(c => {
                       const a = agg[c.id] || { cost: 0, month: 0, clicks: 0, inq: 0, ad: 0 }
