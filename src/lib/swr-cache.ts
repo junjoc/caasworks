@@ -26,3 +26,9 @@ export function prefetchLead(id: string) {
   if (cache.has(key) || inflight.has(key)) return
   fetchJson(key, `/api/pipeline/lead/${id}`).catch(() => {})
 }
+
+/** 아무 GET 미리 읽기 (행에 마우스를 올렸을 때) */
+export function prefetchJson(key: string, url: string) {
+  if (cache.has(key) || inflight.has(key)) return
+  fetchJson(key, url).catch(() => {})
+}

@@ -14,6 +14,6 @@ jobs:
       - name: ping
         run: |
           B=https://caasworks.vercel.app
-          for u in /api/pipeline/leads /api/pipeline/board; do curl -s -o /dev/null -w "$u %{http_code} %{time_total}\n" -X POST $B$u -H 'Content-Type: application/json' -d '{"warm":true}' & done
+          for u in /api/pipeline/leads /api/pipeline/board /api/customers/list; do curl -s -o /dev/null -w "$u %{http_code} %{time_total}\n" -X POST $B$u -H 'Content-Type: application/json' -d '{"warm":true}' & done
           for u in /api/pipeline/lead/warm /api/dashboard /api/pipeline/followups /api/warmup /login; do curl -s -o /dev/null -w "$u %{http_code} %{time_total}\n" $B$u & done
           wait

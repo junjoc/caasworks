@@ -1,228 +1,151 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+// 고객관리 › 고객 목록 v2 (2026-10-21, 디자인 정의 › 고객 목록 v2 · 화면 문법 v2 "목록")
+// 툴바(탭 전체·활성·이탈·미납 / 검색·업종·영업 담당·ⓘ·고객 등록) → 숫자줄 → 9열 표(합계 맨 위, 50행 서버 페이지) → 행 클릭 = 480 드로어
+// 예전 표의 코드 바로 수정·삭제는 드로어로.
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Modal } from '@/components/ui/modal'
-import { Loading } from '@/components/ui/loading'
-import { EmptyState } from '@/components/ui/empty-state'
-import { formatDate } from '@/lib/utils'
-import type { Customer } from '@/types/database'
-import { Search, Users, Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Toolbar, Tabs, KpiRow, DsButton, DsSelect, StatusChip, Skeleton, Empty, dsInput } from '@/components/ds'
+import { CustomerDrawer, CUST_STATUS } from '@/components/customers/customer-drawer'
+import { fetchJson, getCached, prefetchJson } from '@/lib/swr-cache'
+import { useActiveUsers } from '@/hooks/useActiveUsers'
 import { toast } from 'sonner'
+import { Plus, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Info } from 'lucide-react'
 
-const STATUS_LABELS: Record<string, string> = {
-  active: '활성',
-  suspended: '일시중지',
-  churned: '이탈',
-}
-const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-status-green-bg text-status-green',
-  suspended: 'bg-status-yellow-bg text-status-yellow',
-  churned: 'bg-status-red-bg text-status-red',
-}
+type Tab = '전체' | '활성' | '이탈' | '미납'
+type SortKey = 'ry' | 'rm' | 'unp' | 'code' | 'start'
+type Row = { id: string; code: string | null; name: string; type: string | null; status: string; start: string | null; owner: string | null; ownerName: string | null; rm: number; ry: number; unp: number }
+type Res = { rows: Row[]; total: number; page: number; pageSize: number; counts: Record<Tab, number>; kpi: { total: number; active: number; churned: number; billed: number; rmSum: number; unpN: number; unpSum: number; newMonth: number; month: number }; sums: { rm: number; ry: number; unp: number }; types: string[] }
+
+const won = (n: number) => n.toLocaleString()
+const man = (n: number) => (Math.abs(n) >= 1e8 ? `${(n / 1e8).toFixed(1).replace(/\.0$/, '')}억` : `${Math.round(n / 1e4).toLocaleString()}만`)
+const Money = ({ v, due }: { v: number; due?: boolean }) => v ? <span className={due ? 'text-ds-due font-medium' : ''}>{won(v)}</span> : <span className="text-ds-fg3">—</span>
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [loading, setLoading] = useState(true)
+  const users = useActiveUsers()
+  const [tab, setTab] = useState<Tab>('전체')
   const [search, setSearch] = useState('')
-  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
-  const [deleting, setDeleting] = useState(false)
-  const [editingCodeId, setEditingCodeId] = useState<string | null>(null)
-  const [editingCodeValue, setEditingCodeValue] = useState('')
-  const supabase = createClient()
-  const router = useRouter()
+  const [q, setQ] = useState('')
+  const [type, setType] = useState('전체')
+  const [owner, setOwner] = useState('전체')
+  const [sort, setSort] = useState<SortKey>('ry')
+  const [asc, setAsc] = useState(false)
+  const [page, setPage] = useState(0)
+  const [data, setData] = useState<Res | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [showHelp, setShowHelp] = useState(false)
 
-  useEffect(() => {
-    fetchCustomers()
-  }, [])
+  useEffect(() => { const t = setTimeout(() => setQ(search), 300); return () => clearTimeout(t) }, [search])
+  useEffect(() => { setPage(0) }, [tab, q, type, owner, sort, asc])
 
-  async function fetchCustomers() {
-    const { data } = await supabase
-      .from('customers')
-      .select('*, assigned_user:users!customers_assigned_to_fkey(id, name)')
-      .order('customer_code', { ascending: false, nullsFirst: false })
+  const reqId = useRef(0)
+  const fetchList = useCallback(async () => {
+    const id = ++reqId.current
+    const body = JSON.stringify({ tab, q, type, owner, sort, asc, page })
+    const cached = getCached<Res>(`cust-list:${body}`)
+    if (cached) setData(cached)
+    setLoading(true)
+    try {
+      const j = await fetchJson<Res>(`cust-list:${body}`, '/api/customers/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+      if (id === reqId.current) setData(j)
+    } catch (e) { if (id === reqId.current) toast.error(`고객을 불러오지 못했습니다. ${(e as Error).message}`) }
+    if (id === reqId.current) setLoading(false)
+  }, [tab, q, type, owner, sort, asc, page])
+  useEffect(() => { fetchList() }, [fetchList])
 
-    setCustomers(data || [])
-    setLoading(false)
-  }
-
-  function startEditCode(customer: Customer) {
-    setEditingCodeId(customer.id)
-    setEditingCodeValue(customer.customer_code || '')
-  }
-
-  async function saveCode(customerId: string) {
-    const val = editingCodeValue.trim() || null
-    const { error } = await supabase.from('customers').update({ customer_code: val }).eq('id', customerId)
-    if (error) {
-      toast.error('코드 저장에 실패했습니다.')
-    } else {
-      toast.success('고객사 코드가 업데이트되었습니다.')
-      setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, customer_code: val } : c))
-    }
-    setEditingCodeId(null)
-  }
-
-  async function handleDelete() {
-    if (!deleteTarget) return
-    setDeleting(true)
-    const { error } = await supabase.from('customers').delete().eq('id', deleteTarget.id)
-    if (error) {
-      toast.error('삭제에 실패했습니다. 연결된 데이터가 있을 수 있습니다.')
-    } else {
-      toast.success('고객이 삭제되었습니다.')
-      fetchCustomers()
-    }
-    setDeleting(false)
-    setDeleteTarget(null)
-  }
-
-  const filtered = customers.filter((c) => {
-    const q = search.toLowerCase().replace(/-/g, '')
-    return c.company_name.toLowerCase().includes(q) ||
-      (c.contact_person || '').toLowerCase().includes(q) ||
-      (c.contact_phone || '').replace(/-/g, '').includes(q) ||
-      (c.contact_email || '').toLowerCase().includes(q) ||
-      (c.customer_code || '').toLowerCase().includes(q) ||
-      (c.business_reg_no || '').replace(/-/g, '').includes(q) ||
-      (c.notes || '').toLowerCase().includes(q)
-  })
+  const toggleSort = (k: SortKey) => { if (sort === k) setAsc(!asc); else { setSort(k); setAsc(k === 'code' ? false : false) } }
+  const Th = ({ k, children, className }: { k: SortKey; children: React.ReactNode; className?: string }) => (
+    <th className={cn('cursor-pointer select-none', className)} onClick={() => toggleSort(k)}>{children}{sort === k && (asc ? <ChevronUp className="w-3 h-3 inline ml-0.5" /> : <ChevronDown className="w-3 h-3 inline ml-0.5" />)}</th>
+  )
+  const rows = data?.rows || []
+  const k = data?.kpi
+  const from = data ? data.page * data.pageSize : 0
+  const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
 
   return (
     <div>
-      <div className="page-header">
-        <Link href="/customers/new">
-          <Button size="sm">
-            <Plus className="w-4 h-4 mr-1" />
-            고객 등록
-          </Button>
-        </Link>
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-placeholder" />
-          <Input
-            placeholder="코드, 회사명, 담당자, 전화번호, 이메일 검색..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
+      <Toolbar right={<>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ds-fg3" />
+          <input className={cn(dsInput, 'pl-8 w-[220px]')} placeholder="회사명·코드·담당자·연락처 검색" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-      </div>
+        <DsSelect value={type} onChange={e => setType(e.target.value)}><option value="전체">업종 전체</option>{(data?.types || []).map(t => <option key={t}>{t}</option>)}</DsSelect>
+        <DsSelect value={owner} onChange={e => setOwner(e.target.value)}><option value="전체">영업 담당 전체</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}<option value="미배정">미배정</option></DsSelect>
+        <div className="relative">
+          <DsButton variant="ghost" size="sm" icon={<Info className="w-3.5 h-3.5" />} onClick={() => setShowHelp(v => !v)} title="기준" />
+          {showHelp && (
+            <div className="absolute right-0 top-8 z-30 w-[300px] bg-ds-bg border border-ds-line rounded-lg shadow-[0_8px_24px_rgba(0,0,0,.08)] p-3 text-[12px] text-ds-fg2 leading-relaxed" onClick={() => setShowHelp(false)}>
+              <p><b className="text-ds-fg">매출</b> = 매출 현황(monthly_revenues) 공급가, 올해 1월부터</p>
+              <p><b className="text-ds-fg">미납</b> = 세금계산서 발행 후 수납 안 된 청구 합계</p>
+              <p>숫자줄은 필터와 상관없이 전체 · 합계 줄은 지금 조건 전체(페이지 아님)</p>
+            </div>
+          )}
+        </div>
+        <Link href="/customers/new"><DsButton variant="primary" icon={<Plus className="w-3.5 h-3.5" />}>고객 등록</DsButton></Link>
+      </>}>
+        <Tabs value={tab} onChange={setTab} options={(['전체', '활성', '이탈', '미납'] as Tab[]).map(t => ({ value: t, label: t, count: data?.counts[t] }))} />
+      </Toolbar>
 
-      {loading ? (
-        <Loading />
-      ) : filtered.length === 0 ? (
-        <EmptyState icon={Users} title="고객이 없습니다" description="'고객 등록' 버튼을 눌러 새 고객을 추가하세요." />
-      ) : (
-        <div className="table-container">
-          <table className="data-table" style={{ tableLayout: 'fixed' }}>
-            <thead>
-              <tr>
-                <th style={{ width: '12%' }}>코드</th>
-                <th style={{ width: '22%' }}>회사명</th>
-                <th style={{ width: '10%' }}>타입</th>
-                <th style={{ width: '12%' }}>담당자</th>
-                <th style={{ width: '10%' }}>영업담당</th>
-                <th style={{ width: '10%' }}>상태</th>
-                <th style={{ width: '12%' }}>과금시작</th>
-                <th style={{ width: '12%' }}>관리</th>
+      {k && <KpiRow items={[
+        { label: '전체 고객', value: k.total.toLocaleString(), sub: `활성 ${k.active} · 이탈 ${k.churned}` },
+        { label: `${k.month}월 과금`, value: `${k.billed}곳`, sub: '매출이 잡힌 고객' },
+        { label: `${k.month}월 매출`, value: man(k.rmSum), sub: '공급가' },
+        { label: '미납', value: `${k.unpN}곳`, sub: man(k.unpSum), tone: k.unpN ? 'bad' : undefined },
+        { label: '이번 달 신규', value: `${k.newMonth}곳`, sub: '등록일 기준' },
+      ]} />}
+
+      <div className="ds-wrap">
+        <table className="ds-table is-fixed is-clickable">
+          <colgroup>
+            <col style={{ width: '10%' }} /><col style={{ width: '22%' }} /><col style={{ width: '12%' }} /><col style={{ width: '8%' }} /><col style={{ width: '8%' }} />
+            <col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '11%' }} /><col style={{ width: '10%' }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <Th k="code">코드</Th><th>회사명</th><th>업종</th><th>상태</th><th>영업 담당</th>
+              <Th k="start">과금 시작</Th><Th k="rm" className="g">{k?.month ?? ''}월 매출</Th><Th k="ry">올해 매출</Th><Th k="unp">미납</Th>
+            </tr>
+          </thead>
+          <tbody className={cn(loading && data && 'opacity-60 transition-opacity')}>
+            {data && data.total > 0 && (
+              <tr className="ds-sum top">
+                <td className="c">합계</td><td className="text-ds-fg3 font-normal">{data.total.toLocaleString()}곳</td><td /><td /><td /><td />
+                <td className="num g">{won(data.sums.rm)}</td><td className="num">{won(data.sums.ry)}</td><td className="num"><Money v={data.sums.unp} due /></td>
               </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    {editingCodeId === c.id ? (
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="text"
-                          value={editingCodeValue}
-                          onChange={(e) => setEditingCodeValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') saveCode(c.id)
-                            if (e.key === 'Escape') setEditingCodeId(null)
-                          }}
-                          className="w-full px-1.5 py-0.5 text-[12px] font-mono border border-primary-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-                          autoFocus
-                          placeholder="코드 입력"
-                        />
-                        <button onClick={() => saveCode(c.id)} className="text-green-600 hover:text-green-700 flex-shrink-0">
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => setEditingCodeId(null)} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => startEditCode(c)}
-                        className="text-[12px] font-mono text-text-tertiary hover:text-primary-600 hover:bg-primary-50 px-1.5 py-0.5 rounded transition-colors w-full text-left truncate"
-                        title="클릭하여 수정"
-                      >
-                        {c.customer_code || '-'}
-                      </button>
-                    )}
-                  </td>
-                  <td>
-                    <Link href={`/customers/${c.id}`} className="font-medium text-primary-500 hover:text-primary-500 hover:underline block truncate">
-                      {c.company_name}
-                    </Link>
-                  </td>
-                  <td className="text-text-secondary truncate">{c.company_type || '-'}</td>
-                  <td className="text-text-primary truncate">{c.contact_person || '-'}</td>
-                  <td className="text-text-secondary truncate">{c.assigned_user?.name || '-'}</td>
-                  <td>
-                    <Badge className={STATUS_COLORS[c.status]}>
-                      {STATUS_LABELS[c.status]}
-                    </Badge>
-                  </td>
-                  <td className="text-text-tertiary text-sm">
-                    {c.billing_start ? formatDate(c.billing_start) : '-'}
-                  </td>
-                  <td>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => router.push(`/customers/${c.id}`)}
-                        className="p-1.5 text-text-tertiary hover:text-primary-500 hover:bg-primary-50 rounded transition-colors"
-                        title="수정"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(c)}
-                        className="p-1.5 text-text-tertiary hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        title="삭제"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+            )}
+            {rows.map(r => {
+              const st = CUST_STATUS[r.status] || CUST_STATUS.active
+              return (
+                <tr key={r.id} className={cn('ds-row', openId === r.id && 'is-active')} onMouseEnter={() => prefetchJson(`cust:${r.id}`, `/api/customers/${r.id}/brief`)} onClick={() => setOpenId(r.id)}>
+                  <td className="c tabular-nums text-ds-fg2">{r.code || <span className="text-ds-fg3">—</span>}</td>
+                  <td className="truncate font-medium" title={r.name}>{r.name}</td>
+                  <td className="truncate">{r.type || <span className="text-ds-fg3">—</span>}</td>
+                  <td className="c"><StatusChip tone={st.tone}>{st.label}</StatusChip></td>
+                  <td className="c truncate">{r.ownerName || <span className="text-ds-fg3">—</span>}</td>
+                  <td className="c tabular-nums">{r.start ? r.start.slice(0, 7).replace('-', '.') : <span className="text-ds-fg3">—</span>}</td>
+                  <td className="num g"><Money v={r.rm} /></td>
+                  <td className="num"><Money v={r.ry} /></td>
+                  <td className="num"><Money v={r.unp} due /></td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              )
+            })}
+          </tbody>
+        </table>
+        {!data && loading && <div className="px-4"><Skeleton rows={10} /></div>}
+        {data && rows.length === 0 && <Empty text="조건에 맞는 고객이 없습니다." />}
+        {data && data.total > 0 && (
+          <div className="flex items-center justify-end gap-2 px-3 h-10 border-t border-ds-line text-[12.5px] text-ds-fg2">
+            <span className="tabular-nums">{(from + 1).toLocaleString()}–{Math.min(from + data.pageSize, data.total).toLocaleString()} / {data.total.toLocaleString()}</span>
+            <DsButton variant="ghost" size="sm" disabled={data.page === 0} onClick={() => setPage(data.page - 1)} icon={<ChevronLeft className="w-3.5 h-3.5" />} title="이전" />
+            <span className="tabular-nums">{data.page + 1} / {pages}</span>
+            <DsButton variant="ghost" size="sm" disabled={data.page + 1 >= pages} onClick={() => setPage(data.page + 1)} icon={<ChevronRight className="w-3.5 h-3.5" />} title="다음" />
+          </div>
+        )}
+      </div>
 
-      {/* 삭제 확인 모달 */}
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="고객 삭제">
-        <p className="text-sm text-text-secondary mb-4">
-          <strong>{deleteTarget?.company_name}</strong>을(를) 정말 삭제하시겠습니까?
-          <br />
-          <span className="text-status-red">연결된 프로젝트, 매출 데이터가 있으면 삭제가 실패할 수 있습니다.</span>
-        </p>
-        <div className="flex gap-3 justify-end">
-          <Button variant="secondary" size="sm" onClick={() => setDeleteTarget(null)}>취소</Button>
-          <Button variant="danger" size="sm" loading={deleting} onClick={handleDelete}>삭제</Button>
-        </div>
-      </Modal>
+      <CustomerDrawer id={openId} users={users} types={data?.types || []} onClose={() => setOpenId(null)} onChanged={fetchList} />
     </div>
   )
 }

@@ -14,7 +14,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const post = (u: string) => fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"warm":true}' }).catch(() => {})
     const ping = () => {
       if (document.visibilityState !== 'visible') return
-      post('/api/pipeline/leads'); post('/api/pipeline/board')
+      post('/api/pipeline/leads'); post('/api/pipeline/board'); post('/api/customers/list')
       fetch('/api/pipeline/lead/warm').catch(() => {}); fetch('/api/dashboard').catch(() => {})
     }
     ping()
