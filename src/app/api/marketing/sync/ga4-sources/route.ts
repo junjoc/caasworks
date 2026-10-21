@@ -59,6 +59,8 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   // 자사 채널
   if (src === '(direct)' && (med === '(none)' || med === 'none')) return { channel: '자사채널', campaign_name: '홈페이지' }
   if (has('caas.works', 'caasworks')) return { channel: '자사채널', campaign_name: '홈페이지' }
+  if (has('ai-con.co.kr')) return { channel: '자사채널', campaign_name: '회사 홈페이지' } // (주)아이콘 회사 사이트
+  if (has('contech.ai.kr')) return { channel: '자사채널', campaign_name: '건설포털' } // 회사 운영 건설포털
   if (has('gitbook', 'docs.caas')) return { channel: '자사채널', campaign_name: '깃북' }
   if (has('happytalk', 'channel.io', '채널톡')) return { channel: '자사채널', campaign_name: '해피톡' }
 

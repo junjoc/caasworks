@@ -10,7 +10,7 @@ export const INFLOW_GROUPS = [
   { key: '광고', subs: ['네이버', '구글', '메타', '기타'] },
   { key: '소셜', subs: ['유튜브', '인스타그램', '페이스북', '링크드인', '카카오', '기타'] },
   { key: '검색', subs: ['네이버', '구글', '다음', '빙', '기타'] },
-  { key: '자사 채널', subs: ['홈페이지', '깃북', '해피톡', '기타'] },
+  { key: '자사 채널', subs: ['홈페이지', '회사 홈페이지', '건설포털', '깃북', '해피톡', '기타'] }, // 홈페이지 = caas.works 브랜드 페이지, 회사 홈페이지 = ai-con.co.kr, 건설포털 = contech.ai.kr
   { key: '직접 연락', subs: ['대표전화', '개인전화', '이메일', '추천', '행사', '기타'] },
   { key: '자사 블로그', subs: ['카스웍스 블로그', '네이버', '티스토리', '기타'] },
   { key: '외주 블로그', subs: ['팀부스터', '인플루언서', '기타'] },
@@ -55,6 +55,8 @@ function bySource(srcRaw: string): Omit<Inflow, 'raw'> | null {
   if (has(s, 'tistory', '티스토리')) return { group: '외부 글', sub: '티스토리' }
   if (has(s, 'brunch', '브런치')) return { group: '외부 글', sub: '브런치' }
   if (has(s, 'blog.naver', '네이버 블로그')) return { group: '외부 글', sub: '네이버' }
+  if (has(s, 'ai-con.co.kr', '회사 홈페이지')) return { group: '자사 채널', sub: '회사 홈페이지' }
+  if (has(s, 'contech.ai.kr', '건설포털')) return { group: '자사 채널', sub: '건설포털' }
   if (has(s, 'gitbook', '깃북')) return { group: '자사 채널', sub: '깃북' }
   if (has(s, 'happytalk', '해피톡', 'channel.io')) return { group: '자사 채널', sub: '해피톡' }
   if (has(s, '공식홈페이지', '홈페이지', 'caas.works', 'caasworks', '(direct)')) return { group: '자사 채널', sub: '홈페이지' }
