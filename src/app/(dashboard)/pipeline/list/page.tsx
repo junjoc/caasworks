@@ -214,7 +214,7 @@ export default function PipelineListPage() {
           </colgroup>
           <thead>
             <tr>
-              <th><input type="checkbox" checked={allOnPage} onChange={toggleAll} className="w-3.5 h-3.5 accent-[var(--ds-accent)] align-middle" title="이 페이지 전체 선택" /></th>
+              <th className="!px-0 !text-center"><input type="checkbox" checked={allOnPage} onChange={toggleAll} className="w-3.5 h-3.5 accent-[var(--ds-accent)] align-middle" title="이 페이지 전체 선택" /></th>
               <th className="cursor-pointer select-none" onClick={() => toggleSort('inquiry')}>유입일<SortIcon f="inquiry" /></th>
               <th>회사명</th><th>단계</th><th>유입</th><th>담당</th>
               <th>발주</th><th>사업분류</th><th>가능성</th>
@@ -224,7 +224,7 @@ export default function PipelineListPage() {
           <tbody className={cn(loading && data && 'opacity-60 transition-opacity')}>
             {rows.map(l => (
               <tr key={l.id} className={cn('ds-row', openId === l.id && 'is-active')} onClick={() => setOpenId(l.id)}>
-                <td className="c" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(l.id)} onChange={() => toggleSelect(l.id)} className="w-3.5 h-3.5 accent-[var(--ds-accent)] align-middle" /></td>
+                <td className="!px-0 !text-center" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(l.id)} onChange={() => toggleSelect(l.id)} className="w-3.5 h-3.5 accent-[var(--ds-accent)] align-middle" /></td>
                 <td className="c">{md(l.date)}</td>
                 <td className="truncate" title={l.company_name}>
                   {(l.priority === '높음' || l.priority === '긴급') && <span className="inline-block w-1.5 h-1.5 rounded-full bg-ds-bad mr-1.5 align-[2px]" title={`우선순위 ${l.priority}`} />}
