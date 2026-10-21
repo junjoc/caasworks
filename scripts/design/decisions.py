@@ -1,0 +1,29 @@
+# 결정 기록 — assemble.py 에서 exec. 새 결정은 DECISIONS 맨 아래에 추가
+DECISIONS = [
+ ('10-20', '전체 방향', '먼데이 기능 전체 / 먼데이 표 언어 + Linear 가벼운 구조', '먼데이 표 언어 + 가벼운 구조', '코드와 속도를 잡아먹는 건 겉모습이 아니라 기능 범위'),
+ ('10-21', '단계 색', 'v1 매핑 유지 / 8색 새 팔레트 / v1 에서 신규·이탈 맞바꿈', '신규 빨강 · 이탈 회색 (색 12개는 그대로)', '새 리드는 눈에 띄게, 이탈은 묻히게. 8색 안은 색을 늘리지 않으려고 폐기'),
+ ('10-21', '상태 칩 폭', '글자 길이대로 / 최소 64(4글자)', '최소 64', '2글자·4글자 칩 폭이 달라 단계 열이 들쭉날쭉'),
+ ('10-21', '표 열 폭', '첫 열이 남는 폭 흡수 / 내용 비율 자동 배분', '내용 비율 자동 (첫 열 최대 280)', '첫 열 흡수 규칙을 써보니 회사명 열이 과하게 넓어짐 → 철회'),
+ ('10-21', '집계 표 열 위치', '자동 / 열 비율 고정(colgroup %)', '비율 고정', '월별↔분기별을 바꿔도 뒤 열 위치가 그대로'),
+ ('10-21', '정렬', 'A 머리 가운데 + 데이터 종류별 / B 머리=데이터 정렬 / C 전부 가운데', 'A', '머리는 가운데가 보기 좋음. 숫자는 오른쪽이라야 자릿수 비교가 됨'),
+ ('10-21', '세로선', '1 모든 열 연한 선 / 2 묶음 사이만 / 3 둘 다', '1 (#F0F0F2)', '머리 가운데 + 숫자 오른쪽일 때 칸 경계가 있어야 어느 머리 밑인지 읽힘. 아래 예시'),
+ ('10-21', '막대 + 숫자 칸', '붙여 쓰기 / 막대 칸·숫자 칸 고정 폭', '고정 폭', '숫자 길이에 따라 막대 위치가 흔들림'),
+ ('10-21', '스크롤 막대 자리', '필요할 때만 / 항상 비워 둠', '항상 비워 둠 (scrollbar-gutter)', '막대가 생기면 표 내용이 좌로 밀림'),
+ ('10-21', '선택 행 표시', '연파랑 + 왼쪽 파란 세로줄 / 연파랑만', '연파랑만', '세로줄이 거슬림'),
+ ('10-21', '사이드바', '색 타일 아이콘 240 / 선 아이콘 200', '선 아이콘 200', '디자인 정의 v1 — 그림자·색 타일 걷어내기'),
+ ('10-21', '보드뷰 카드 폭', '260 / 220', '220 · 열 바탕 연회색 · 도입완료·이탈 접힌 열', '카드 구분이 흐리고 화면에 열이 적게 보임'),
+ ('10-21', '캠페인 관리', '표형 / 카드형', '표형 (채널별 그룹, 접기/펴기)', '21개가 한 화면, 예산·집행 위아래 비교. 메뉴별 시안 참고'),
+ ('10-21', '디자인 문서', '주제별 여러 문서 / 한 페이지', '한 페이지 + 왼쪽 목차 + 결정 기록', '새 직원이 리뉴얼할 때 한 곳에서 참고'),
+ ('10-21', '일하는 방식', '요청 즉시 반영 / 안 제시 → 합의 → 반영', '합의 후 반영, 반영 뒤 이 페이지 갱신', '규칙이 자주 바뀌어 화면마다 어긋나는 것을 막기'),
+]
+rows_html = ''.join(f'<tr><td class="c">{d}</td><td><b>{esc(s)}</b></td><td class="muted">{esc(o)}</td><td><b class="pick">{esc(c)}</b></td><td>{esc(w)}</td></tr>' for d, s, o, c, w in DECISIONS)
+VL_ROWS = [('260401_NA_스마트 안전장비', '진행중', '1,500,000', '496,094', '4,332,910', '24'), ('260401_NA_동영상기록관리', '진행중', '1,500,000', '68,287', '837,603', '5'), ('260401_NA_중대재해예방', '진행중', '1,500,000', '61,514', '524,847', '2'), ('25년 키워드 광고집행', '중단', '6,000,000', '—', '2,344,837', '7')]
+def vl(cls, title, note, chosen):
+    body = ''.join(f'<tr{" class=off" if s != "진행중" else ""}><td>{n}</td><td class="c"><span class="st {"ok" if s == "진행중" else "na"}">{s}</span></td><td class="num g">{b}</td><td class="num">{m}</td><td class="num">{c}</td><td class="num g">{q}</td></tr>' for n, s, b, m, c, q in VL_ROWS)
+    badge = '<span class="chosen">선택</span>' if chosen else '<span class="rej">기각</span>'
+    return f'<div class="vlo{" on" if chosen else ""}"><h4>{badge} {title}</h4><p>{note}</p><table class="ds fixed vl {cls}"><colgroup><col style="width:30%"><col style="width:12%"><col style="width:14%"><col style="width:16%"><col style="width:16%"><col style="width:12%"></colgroup><thead><tr><th>캠페인</th><th>상태</th><th class="g">월 예산</th><th>이번 달 집행</th><th>누적 집행</th><th class="g">문의</th></tr></thead><tbody>{body}</tbody></table></div>'
+VL = vl('v1', '1. 모든 열 사이 아주 연한 선 #F0F0F2', '칸마다 경계가 생겨 좌우가 또렷. 가로선과 같은 연하기', True) + vl('v2', '2. 묶음 사이에만 선', '캠페인·상태 │ 돈(예산·집행) │ 성과(문의). 열 안쪽은 선 없음', False) + vl('v3', '3. 둘 다 — 모든 열 연한 선 + 묶음 경계 진하게', '정보는 가장 많지만 선도 가장 많음', False)
+LOG = (part('p-log', '결정 기록', '무엇을 두고 무엇을 골랐는지, 왜 골랐는지. 리뉴얼·새 직원 참고용') +
+       f'<section id="log-table"><h2>결정 목록</h2><p class="rule">날짜순. 기각된 안도 지우지 않고 남긴다. 화면에 반영된 규칙은 위 <b>전역 디자인</b>에 있다.</p><div class="wrap"><table class="ds fixed log"><colgroup><col style="width:7%"><col style="width:13%"><col style="width:30%"><col style="width:22%"><col style="width:28%"></colgroup><thead><tr><th>날짜</th><th>주제</th><th>선택지</th><th>선택</th><th>이유</th></tr></thead><tbody>{rows_html}</tbody></table></div></section>' +
+       f'<section id="log-vline"><h2>세로선 — 세 안 비교 (2026-10-21)</h2><p class="rule">같은 캠페인 데이터, 머리 가운데 · 숫자 오른쪽 조건에서 비교. <b>1번 선택</b>.</p><div class="vlgrid">{VL}</div></section>')
+lay = lay.replace('<section id="next">', LOG + '<section id="next">', 1)

@@ -70,6 +70,8 @@
   .ds-table tbody tr.ds-row:nth-child(even) td { background: var(--ds-subtle); }
   .ds-table tbody tr.ds-row:hover td { background: var(--ds-accent-soft); }
   .ds-table tbody tr.ds-row.is-active td { background: var(--ds-accent-soft); }
+  /* 10/21 결정: 모든 열 사이 아주 연한 세로선(#F0F0F2) — 머리 가운데 + 숫자 오른쪽일 때 칸 경계가 보이게 */
+  .ds-table th + th, .ds-table td + td { border-left: 1px solid var(--ds-line2); }
   .ds-table .num { @apply text-right tabular-nums; }
   .ds-table .c { @apply text-center tabular-nums; }
   .ds-table .muted { color: var(--ds-fg3); }

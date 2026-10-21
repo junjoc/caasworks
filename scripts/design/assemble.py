@@ -25,6 +25,7 @@ base_html = base_html.replace('class="spec"', 'class="bspec"').replace("class='s
 base_css = base_css.replace('#base .spec', '#base .bspec')
 # 10/21 결정 반영: 신규리드 빨강 · 이탈 회색
 base_html = base_html.replace('신규리드 <span class="st na">na</span>', '신규리드 <span class="st bad">bad</span>').replace('이탈 <span class="st bad">bad</span>', '이탈 <span class="st na">na</span> <span style="color:var(--fg-3)">(10/21 신규·이탈 맞바꿈)</span>')
+base_html = base_html.replace('가로선만(line-2), 세로선 없음.', '가로선 line-2 + <b>모든 열 사이 아주 연한 세로선 #F0F0F2</b> <span style="color:var(--fg-3)">(10/21 결정 — 처음엔 세로선 없음)</span>.')
 base_titles = [(i, re.sub(r'^\d+\.\s*', '', re.search(r'<h2>([^<]*)</h2>', b).group(1)).split(' — ')[0]) for i, b in base_secs]
 
 # 3) 레이아웃 문서 손질
@@ -43,6 +44,7 @@ lay = lay.replace('<section id="common">',
     '<div class="sub" id="p-layout">공통 · 화면 유형 <span>레이아웃 정의 · 2026-10-21</span></div><section id="common">', 1)
 lay = lay.replace('<section id="m-campaign">', part('p-menu', '메뉴별 시안', '카테고리별 실제 화면 시안. 확정되면 코드에 반영') + '<div class="sub" id="m-marketing">마케팅</div><section id="m-campaign">', 1)
 lay = lay.replace('<section><h2>다음</h2>', '<section id="next"><h2>다음</h2>', 1)
+exec(open('decisions.py', encoding='utf-8').read())
 
 # 4) 왼쪽 목차
 def a(h, t, cls=''): return f'<a href="#{h}" class="{cls}">{t}</a>'
@@ -61,11 +63,18 @@ for cat, items in MENU:
     nav.append(f'<div class="g2">{cat}</div>')
     for h, t, cls in items:
         nav.append(a(h, t, 'i ' + cls) if h else f'<span class="i todo">{t}</span>')
-nav += ['<div class="g">기록</div>', a('next', '다음 작업'), '</nav>']
+nav += ['<div class="g">결정 기록</div>', a('log-table', '결정 목록', 'i'), a('log-vline', '세로선 세 안 비교', 'i'), '<div class="g">기록</div>', a('next', '다음 작업'), '</nav>']
 lay = lay.replace('<body><div class="doc">', '<body><div class="shell">' + ''.join(nav) + '<main class="doc">', 1)
 lay = lay.replace('</div>\n<script>', '</main></div>\n<script>', 1) if '</div>\n<script>' in lay else lay.replace('</body>', '</main></div></body>', 1)
 
 TOC_CSS = '''
+.ds th+th,.ds td+td{border-left:1px solid var(--line-2)}
+.vl.v2 th+th,.vl.v2 td+td{border-left:0}.vl.v2 .g,.vl.v3 .g{border-left:1px solid #d9d9de!important}.vl.v1 .g{border-left:1px solid var(--line-2)}
+.vl tr.off td{color:var(--fg-3)}.vl td{height:32px}
+.vlgrid{display:grid;gap:14px}.vlo{border:1px solid var(--line);border-radius:8px;padding:12px 14px}.vlo.on{border:2px solid var(--accent)}.vlo h4{margin:0 0 2px;font-size:14px;font-weight:500}.vlo p{margin:0 0 8px;color:var(--fg-2);font-size:12px}
+.chosen{display:inline-block;background:var(--accent);color:#fff;font-size:11px;padding:1px 7px;border-radius:4px;margin-right:4px}.rej{display:inline-block;background:var(--line-2);color:var(--fg-3);font-size:11px;padding:1px 7px;border-radius:4px;margin-right:4px}
+.log td{white-space:normal;height:auto;padding:8px 12px;line-height:1.45;vertical-align:top}.log .pick{color:var(--accent);font-weight:600}
+
 .shell{display:grid;grid-template-columns:220px minmax(0,1fr);gap:32px;max-width:1440px;margin:0 auto}.shell .doc{max-width:none;margin:0;min-width:0}
 .toc{position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto;padding:28px 0 40px;font-size:12.5px}
 .toc .h{font-weight:600;font-size:13px;margin-bottom:10px}.toc a,.toc span{display:block;color:var(--fg-2);text-decoration:none;padding:3px 8px;border-radius:4px;line-height:1.4}
