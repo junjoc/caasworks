@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const ping = () => {
       if (document.visibilityState !== 'visible') return
       post('/api/pipeline/leads'); post('/api/pipeline/board'); post('/api/customers/list')
-      fetch('/api/pipeline/lead/warm').catch(() => {}); fetch('/api/dashboard').catch(() => {})
+      fetch('/api/pipeline/lead/warm').catch(() => {}); fetch('/api/marketing/naver-blog/overview?warm=1').catch(() => {}); fetch('/api/dashboard').catch(() => {})
     }
     ping()
     const t = setInterval(ping, 4 * 60 * 1000)
