@@ -53,14 +53,15 @@
   /* ─── 디자인 정의 v1 표 (2026-10-21 사용자 규칙 반영) ───
      머리 행 고정 + 첫 열 고정 · 머리 글자 중앙 · 긴 글 왼쪽 / 금액 오른쪽(.num) / 짧은 값 중앙(.c)
      열 폭은 내용에 맞춤(화면 폭에 늘리지 않음) · 짝수 줄 줄무늬 · 가로선 #E5E5E8 */
-  /* 레이아웃 정의 v1: 표는 틀을 채우고 남는 폭은 첫 열(식별)이 흡수 */
+  /* 레이아웃 정의 v1: 표는 틀을 채운다 (폭은 내용 비율로 배분) */
   .ds-table { @apply border-collapse text-[13px] text-ds-fg; width: 100%; }
   .ds-table th { @apply text-center font-medium text-ds-fg2 text-[12px] px-3 h-[34px] border-b border-ds-line whitespace-nowrap bg-ds-subtle; position: sticky; top: 0; z-index: 2; }
   .ds-table td { @apply px-3 h-9 border-b border-ds-line whitespace-nowrap align-middle bg-ds-bg; }
   .ds-table th:first-child, .ds-table td:first-child { position: sticky; left: 0; z-index: 1; box-shadow: 1px 0 0 var(--ds-line); }
   .ds-table th:first-child { z-index: 3; }
-  .ds-table th:first-child, .ds-table td:first-child { width: 100%; min-width: 140px; text-align: left; }
-  .ds-table td:first-child { max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* 10/21 피드백: 첫 열이 남는 폭을 다 먹지 않게 — 폭은 브라우저가 내용 비율로 나눔(마케팅 리포트 리드 목록과 같은 방식) */
+  .ds-table th:first-child, .ds-table td:first-child { text-align: left; }
+  .ds-table td:first-child { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
   /* 집계 표: 열 비율 고정 (colgroup %) — 보기 전환해도 열 위치가 그대로 */
   .ds-table.is-fixed { table-layout: fixed; }
   .ds-table.is-fixed th:first-child, .ds-table.is-fixed td:first-child { width: auto; min-width: 0; }
