@@ -1,7 +1,7 @@
 'use client'
 
 // 세일즈 › 보드 (2026-10-21 개편, 디자인 정의 › 세일즈)
-// 연회색 열 220 + 머리 3px 단계 색 · 카드 3줄(회사·담당 / 유입·유입일·D+n / 다음 액션)
+// 연회색 열 220 + 머리 3px 단계 색 · 카드 3줄(회사·담당 / 유입·유입일·+n일 / 다음 액션)
 // 이탈은 오른쪽 접힌 열(도입완료는 펼친 채 시작) · 열당 30장 + 더 보기 · 드래그는 dnd-kit(카드가 손을 따라 움직임)
 // 카드 클릭 = 리스트와 같은 480 드로어, Shift+클릭 = 선택(일괄 단계·담당)
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -16,6 +16,7 @@ import { INFLOW_COLOR, type InflowGroup } from '@/lib/inflow-taxonomy'
 import { Toolbar, Tabs, DsButton, DsSelect, Check, Skeleton, stageTone, toneVar, dsInput } from '@/components/ds'
 import { LeadDrawer, STAGE_OPTIONS } from '@/components/pipeline/lead-drawer'
 import { toast } from 'sonner'
+import { since } from '@/lib/elapsed'
 import { Plus, Search, Info, ChevronsRight } from 'lucide-react'
 
 const OPEN = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '예정']
@@ -30,7 +31,6 @@ const today = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0
 const md = (s: string | null) => (s ? s.slice(5).replace('-', '.') : '')
 
 function CardBody({ c, uname, follow, today: t }: { c: Card; uname: string; follow: boolean; today: string }) {
-  const dd = Math.max(0, Math.round((new Date(t).getTime() - new Date(c.date).getTime()) / 86400000))
   const due = c.next_action_date ? (c.next_action_date < t ? 'text-ds-bad' : c.next_action_date === t ? 'text-ds-warn' : 'text-ds-fg2') : 'text-ds-fg2'
   return <>
     <div className="flex items-center gap-1.5 min-w-0">
@@ -40,7 +40,7 @@ function CardBody({ c, uname, follow, today: t }: { c: Card; uname: string; foll
       {uname && <span className="inline-grid place-items-center w-5 h-5 rounded-full bg-ds-line text-ds-fg2 text-[10.5px] font-semibold flex-none" title={uname}>{uname[0]}</span>}
     </div>
     <div className="mt-0.5 text-[11.5px] text-ds-fg3 truncate">
-      <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-[1px]" style={{ background: INFLOW_COLOR[c.group] }} />{c.sub === '기타' || c.sub === '미분류' ? c.group : c.sub} · {md(c.date)} · D+{dd}
+      <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-[1px]" style={{ background: INFLOW_COLOR[c.group] }} />{c.sub === '기타' || c.sub === '미분류' ? c.group : c.sub} · {md(c.date)} · {since(c.date, t)}
     </div>
     <div className={cn('mt-1 text-[11.5px] truncate', c.next_action || c.next_action_date ? due : 'text-ds-fg3')}>
       {c.next_action || c.next_action_date ? <>{c.next_action}{c.next_action_date && <span className="ml-1 tabular-nums">{md(c.next_action_date)}</span>}</> : '+ 다음 액션'}
@@ -227,7 +227,7 @@ export default function PipelineBoardPage() {
                 <p>카드를 끌어 다른 열에 놓으면 단계가 바뀝니다 (이력 기록)</p>
                 <p>카드 클릭 = 오른쪽 드로어 · <b className="text-ds-fg">Shift+클릭</b> = 선택 → 일괄 단계·담당</p>
                 <p>열 안 순서: 다음 액션 날짜 빠른 순 → 나머지 최근 유입순</p>
-                <p>카드 2줄 = 유입 세부 · 유입일 · 유입 후 일수(D+n)</p>
+                <p>카드 2줄 = 유입 세부 · 유입일 · 유입 후 지난 날(+n일)</p>
                 <p>이탈은 오른쪽에 접혀 있고, 누르면 펼칩니다. 도입완료도 머리의 » 로 접을 수 있습니다. 접힌 열에도 놓을 수 있습니다</p>
               </div>
             )}

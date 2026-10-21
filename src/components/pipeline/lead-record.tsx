@@ -8,6 +8,7 @@ import { ACTIVITY_TYPE_LABELS, cn } from '@/lib/utils'
 import { DsButton, DsSelect, dsInput } from '@/components/ds'
 import type { TimelineItem } from '@/app/api/pipeline/lead/[id]/route'
 import { toast } from 'sonner'
+import { kstToday, kstDate } from '@/lib/elapsed'
 
 export type { TimelineItem }
 export type LeadOverview = { lead: Record<string, any>; timeline: TimelineItem[]; users: { id: string; name: string }[]; customer: { id: string; company_name: string; customer_code: string | null } | null; voc: any[] }
@@ -41,7 +42,7 @@ const QUICK = [['CALL_OUT', '전화 발신'], ['CALL_IN', '전화 수신'], ['EM
 const MORE = ['EMAIL_RECV', 'DEMO', 'PROPOSAL', 'CONTRACT', 'ONBOARDING', 'FOLLOWUP']
 export const typeLabel = (t?: string) => ({ CALL_OUT: '전화 발신', CALL_IN: '전화 수신', EMAIL_SENT: '이메일 발송', EMAIL_RECV: '이메일 수신', QUOTATION: '견적', NOTE: '메모' } as Record<string, string>)[t || ''] || ACTIVITY_TYPE_LABELS[t || ''] || t || ''
 const md = (s?: string | null) => (s ? s.slice(5, 10).replace('-', '.') : '')
-const kst = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
+const kst = kstToday
 
 /* ─── 기록 칸 ─── */
 export function RecordComposer({ lead, onDone, compact }: { lead: Record<string, any>; onDone: () => void; compact?: boolean }) {
@@ -109,9 +110,19 @@ const FIELD_LABEL: Record<string, string> = {
 }
 const LONG = ['inquiry_content', 'notes', 'customer_id']
 
+// 날짜별 묶음 (화면 문법 v2): 활동은 크게, 다음 액션은 한 줄, 단계·담당·칸 변경이 하루 3건 이상이면 한 줄로 접음
+const WD = ['일', '월', '화', '수', '목', '금', '토']
+function dayTitle(d: string, today: string) {
+  const dt = new Date(d)
+  const base = `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일 (${WD[dt.getUTCDay()]})`
+  return d === today ? `오늘 · ${base}` : d.slice(0, 4) === today.slice(0, 4) ? base : `${d.slice(0, 4)}년 ${base}`
+}
+const hm = (s: string) => new Date(new Date(s).getTime() + 9 * 3600 * 1000).toISOString().slice(11, 16)
+
 export function Timeline({ items, limit, editable, leadId, onChanged }: { items: TimelineItem[]; limit?: number; editable?: boolean; leadId: string; onChanged: () => void }) {
   const { user } = useAuth()
   const [edit, setEdit] = useState<{ id: string; type: string; desc: string } | null>(null)
+  const [openDays, setOpenDays] = useState<Set<string>>(new Set())
   const list = limit ? items.slice(0, limit) : items
   if (!list.length) return <p className="text-[12.5px] text-ds-fg3 py-2">아직 기록이 없습니다.</p>
 
@@ -127,57 +138,88 @@ export function Timeline({ items, limit, editable, leadId, onChanged }: { items:
     if (r.error) toast.error('삭제하지 못했습니다.'); else onChanged()
   }
 
+  const today = kst()
+  const days: { d: string; items: TimelineItem[] }[] = []
+  for (const it of list) {
+    const d = kstDate(it.at)
+    if (!days.length || days[days.length - 1].d !== d) days.push({ d, items: [] })
+    days[days.length - 1].items.push(it)
+  }
+  const dot = (k: string) => <span className={cn('absolute -left-[20.5px] top-[5px] w-[7px] h-[7px] rounded-full', k === 'act' ? 'bg-ds-accent' : k === 'next' ? 'bg-ds-warn' : 'bg-ds-line')} />
+  const meta = (it: TimelineItem) => <span className="text-ds-fg3 text-[11.5px] tabular-nums whitespace-nowrap">{hm(it.at)} · {it.by}</span>
+
+  const changeText = (it: TimelineItem) => it.kind === 'stage' ? <>단계 {it.old || '—'} → <b className="font-medium text-ds-fg">{it.new}</b></>
+    : it.kind === 'assign' ? <>담당 {it.old || '없음'} → <b className="font-medium text-ds-fg">{it.new || '없음'}</b></>
+    : LONG.includes(it.field || '') ? <>{FIELD_LABEL[it.field || ''] || it.field} 수정</>
+    : <>{FIELD_LABEL[it.field || ''] || it.field} {it.old || '—'} → <b className="font-medium text-ds-fg">{it.new || '—'}</b></>
+
   return (
-    <ol className="relative ml-1.5 pl-4 border-l border-ds-line text-[12.5px]">
-      {list.map(it => {
-        const dot = it.kind === 'act' ? 'bg-ds-accent' : it.kind === 'next' ? 'bg-ds-warn' : 'bg-ds-line'
-        const when = <span className="text-ds-fg3 text-[11.5px] tabular-nums whitespace-nowrap">{md(it.at)} · {it.by}</span>
-        if (it.kind === 'act') {
-          // 예전 기록은 제목에 내용이 있고(title) 설명이 비어 있을 수 있음 → 둘 다 보여 줌
-          const showTitle = it.title && it.title !== ACTIVITY_TYPE_LABELS[it.type || '']
-          const canEdit = editable && !!user && (it.byId === user.id || user.role === 'admin')
-          return (
-            <li key={it.id} className="relative mb-3 group">
-              <span className={cn('absolute -left-[20.5px] top-[5px] w-[7px] h-[7px] rounded-full', dot)} />
-              <div className="flex items-center gap-2">
-                <span className="text-[11.5px] px-1.5 rounded bg-ds-accent-soft text-ds-accent whitespace-nowrap">{typeLabel(it.type)}</span>
-                {when}
-                {canEdit && edit?.id !== it.id && (
-                  <span className="ml-auto text-[11px] text-ds-fg3 opacity-0 group-hover:opacity-100 flex gap-2">
-                    <button onClick={() => setEdit({ id: it.id, type: it.type || 'NOTE', desc: [showTitle ? it.title : '', it.desc || ''].filter(Boolean).join('\n') })} className="hover:text-ds-fg">수정</button>
-                    <button onClick={() => del(it.id)} className="hover:text-ds-bad">삭제</button>
-                  </span>
-                )}
-              </div>
-              {edit?.id === it.id ? (
-                <div className="mt-1.5 grid gap-1.5">
-                  <DsSelect value={edit.type} onChange={e => setEdit({ ...edit, type: e.target.value })} className="h-7 text-[12px] w-[160px]">
-                    {Object.entries(ACTIVITY_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </DsSelect>
-                  <textarea value={edit.desc} onChange={e => setEdit({ ...edit, desc: e.target.value })} rows={3} className="w-full px-2.5 py-1.5 rounded border border-ds-line text-[13px] focus:outline-none focus:ring-2 focus:ring-ds-accent" />
-                  <div className="flex gap-1.5"><DsButton size="sm" variant="primary" onClick={save}>저장</DsButton><DsButton size="sm" variant="ghost" onClick={() => setEdit(null)}>취소</DsButton></div>
-                </div>
-              ) : (
-                <>
-                  {showTitle && <p className="mt-1 text-ds-fg font-medium whitespace-pre-wrap break-words">{it.title}</p>}
-                  {it.desc && <p className="mt-1 text-ds-fg2 whitespace-pre-wrap break-words leading-relaxed">{it.desc}</p>}
-                </>
-              )}
-            </li>
-          )
-        }
-        const what = it.kind === 'stage' ? <>단계 {it.old || '—'} → <b className="font-medium text-ds-fg">{it.new}</b></>
-          : it.kind === 'assign' ? <>담당 {it.old || '없음'} → <b className="font-medium text-ds-fg">{it.new || '없음'}</b></>
-          : it.kind === 'next' ? (it.new === '완료' ? <>다음 액션 <b className="font-medium text-ds-fg">{it.old}</b> 완료</> : it.new ? <>다음 액션 <b className="font-medium text-ds-fg">{it.new}</b>{it.old ? <span className="text-ds-fg3"> (이전 {it.old})</span> : null}</> : <>다음 액션 {it.old} 지움</>)
-          : LONG.includes(it.field || '') ? <>{FIELD_LABEL[it.field || ''] || it.field} 수정</>
-          : <>{FIELD_LABEL[it.field || ''] || it.field} {it.old || '—'} → <b className="font-medium text-ds-fg">{it.new || '—'}</b></>
+    <div className="grid gap-3">
+      {days.map(({ d, items: di }) => {
+        const changes = di.filter(it => it.kind === 'stage' || it.kind === 'assign' || it.kind === 'field')
+        const folded = changes.length >= 3 && !openDays.has(d)
+        // 접힌 날: 그날 단계 흐름 한 줄 (오래된 순)
+        const flow = changes.filter(c => c.kind === 'stage').reverse()
+        const summary = flow.length ? [flow[0].old || '—', ...flow.map(c => c.new)].join(' → ') : ''
         return (
-          <li key={it.id} className="relative mb-2.5 text-ds-fg2">
-            <span className={cn('absolute -left-[20.5px] top-[5px] w-[7px] h-[7px] rounded-full', dot)} />
-            <span className="mr-2">{what}</span>{when}
-          </li>
+          <div key={d}>
+            <div className="text-[12px] font-semibold text-ds-fg2 mb-1.5">{dayTitle(d, today)}</div>
+            <ol className="relative ml-1.5 pl-4 border-l border-ds-line text-[12.5px]">
+              {di.map(it => {
+                if (it.kind === 'act') {
+                  const showTitle = it.title && it.title !== ACTIVITY_TYPE_LABELS[it.type || '']
+                  const canEdit = editable && !!user && (it.byId === user.id || user.role === 'admin')
+                  return (
+                    <li key={it.id} className="relative mb-2.5 group">
+                      {dot('act')}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11.5px] px-1.5 rounded bg-ds-accent-soft text-ds-accent whitespace-nowrap">{typeLabel(it.type)}</span>
+                        {meta(it)}
+                        {canEdit && edit?.id !== it.id && (
+                          <span className="ml-auto text-[11px] text-ds-fg3 opacity-0 group-hover:opacity-100 flex gap-2">
+                            <button onClick={() => setEdit({ id: it.id, type: it.type || 'NOTE', desc: [showTitle ? it.title : '', it.desc || ''].filter(Boolean).join('\n') })} className="hover:text-ds-fg">수정</button>
+                            <button onClick={() => del(it.id)} className="hover:text-ds-bad">삭제</button>
+                          </span>
+                        )}
+                      </div>
+                      {edit?.id === it.id ? (
+                        <div className="mt-1.5 grid gap-1.5">
+                          <DsSelect value={edit.type} onChange={e => setEdit({ ...edit, type: e.target.value })} className="h-7 text-[12px] w-[160px]">
+                            {Object.entries(ACTIVITY_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                          </DsSelect>
+                          <textarea value={edit.desc} onChange={e => setEdit({ ...edit, desc: e.target.value })} rows={3} className="w-full px-2.5 py-1.5 rounded border border-ds-line text-[13px] focus:outline-none focus:ring-2 focus:ring-ds-accent" />
+                          <div className="flex gap-1.5"><DsButton size="sm" variant="primary" onClick={save}>저장</DsButton><DsButton size="sm" variant="ghost" onClick={() => setEdit(null)}>취소</DsButton></div>
+                        </div>
+                      ) : (
+                        <>
+                          {showTitle && <p className="mt-1 text-ds-fg font-medium whitespace-pre-wrap break-words">{it.title}</p>}
+                          {it.desc && <p className="mt-1 text-ds-fg whitespace-pre-wrap break-words leading-relaxed">{it.desc}</p>}
+                        </>
+                      )}
+                    </li>
+                  )
+                }
+                if (it.kind === 'next') return (
+                  <li key={it.id} className="relative mb-2 text-ds-fg2">
+                    {dot('next')}
+                    <span className="mr-2">{it.new === '완료' ? <>다음 액션 <b className="font-medium text-ds-fg">{it.old}</b> 완료</> : it.new ? <>다음 액션 → <b className="font-medium text-ds-fg">{it.new}</b></> : <>다음 액션 {it.old} 지움</>}</span>{meta(it)}
+                  </li>
+                )
+                if (folded) return null
+                return <li key={it.id} className="relative mb-2 text-ds-fg2">{dot('chg')}<span className="mr-2">{changeText(it)}</span>{meta(it)}</li>
+              })}
+              {folded && (
+                <li className="relative mb-2 text-ds-fg2">
+                  {dot('chg')}
+                  {summary && <span className="mr-1.5">단계 {summary}</span>}
+                  <span className="text-ds-fg3">· 변경 {changes.length}건</span>
+                  <button onClick={() => setOpenDays(s => new Set(s).add(d))} className="ml-1.5 text-ds-accent hover:underline">펼치기</button>
+                </li>
+              )}
+            </ol>
+          </div>
         )
       })}
-    </ol>
+    </div>
   )
 }
