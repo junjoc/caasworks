@@ -1,7 +1,8 @@
 'use client'
 
 // 콘텐츠 성과 > 네이버 탭: 네이버 블로그 통계 엑셀 업로드 + 글별 월 조회수 + 유입 검색어
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback, type ReactNode } from 'react'
+import { Toolbar, KpiRow, DsButton, Skeleton, Empty } from '@/components/ds'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Loading } from '@/components/ui/loading'
@@ -23,7 +24,7 @@ interface UploadResult { file: string; ok: boolean; message: string }
 const ym = (m: string) => m.slice(0, 7)
 const fmtSec = (s: number | null) => s == null ? '-' : `${Math.floor(s / 60)}분 ${s % 60}초`
 
-export function NaverBlogPanel() {
+export function NaverBlogPanel({ tabs }: { tabs: ReactNode }) {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
   const [posts, setPosts] = useState<Post[]>([])
@@ -146,184 +147,119 @@ export function NaverBlogPanel() {
   const routeRows = inflow.filter(i => i.month === kwMonth && i.kind === 'route').sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
   const linked = posts.filter(p => p.log_no).length
 
-  const uploadBox = (
-    <div className="card p-4 mb-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <p className="text-sm font-medium">네이버 블로그 통계 업로드</p>
-          <p className="text-xs text-text-secondary mt-0.5">
-            블로그 관리 &gt; 통계에서 받은 월간 엑셀 (조회수 순위 · 유입분석 · 순방문자수 · 평균사용시간 · 기기별분포). 여러 개를 한 번에 올려도 되고, 같은 달을 다시 올리면 그 달 값으로 바뀝니다.
-          </p>
-        </div>
-        <input ref={fileRef} type="file" accept=".xlsx,.xls" multiple className="hidden"
-          onChange={e => handleUpload(e.target.files)} />
-        <Button size="sm" onClick={() => fileRef.current?.click()} loading={uploading}>
-          <Upload className="w-3.5 h-3.5 mr-1" /> 엑셀 업로드
-        </Button>
-      </div>
+  const HELP = '블로그 관리 > 통계에서 받은 월간 엑셀(조회수 순위 · 유입분석 · 순방문자수 · 평균사용시간 · 기기별분포). 여러 개를 한 번에 올려도 되고, 같은 달을 다시 올리면 그 달 값으로 바뀝니다. 글별 조회수는 월 조회수 순위(상위 약 100편)에 든 달만 집계됩니다.'
+  const head = (
+    <>
+      <Toolbar right={<>
+        <DsButton variant="ghost" size="sm" title={HELP}>ⓘ 기준</DsButton>
+        <input ref={fileRef} type="file" accept=".xlsx,.xls" multiple className="hidden" onChange={e => handleUpload(e.target.files)} />
+        <DsButton size="sm" variant="primary" onClick={() => fileRef.current?.click()} loading={uploading} icon={<Upload className="w-3.5 h-3.5" />}>엑셀 업로드</DsButton>
+      </>}>{tabs}</Toolbar>
       {results.length > 0 && (
-        <ul className="mt-3 space-y-1 text-xs">
+        <ul className="mb-3 space-y-1 text-[12px]">
           {results.map(r => (
             <li key={r.file} className="flex items-start gap-1.5">
-              {r.ok ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-px" /> : <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-px" />}
-              <span className="text-text-secondary">{r.file}</span>
-              <span className={r.ok ? 'text-text-primary' : 'text-red-600'}>— {r.message}</span>
+              {r.ok ? <CheckCircle2 className="w-3.5 h-3.5 text-ds-ok flex-shrink-0 mt-px" /> : <XCircle className="w-3.5 h-3.5 text-ds-bad flex-shrink-0 mt-px" />}
+              <span className="text-ds-fg2">{r.file}</span><span className={r.ok ? 'text-ds-fg' : 'text-ds-bad'}>— {r.message}</span>
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </>
+  )
+  const Sec = ({ title, sub, right, children }: { title: string; sub?: string; right?: ReactNode; children: ReactNode }) => (
+    <div className="mb-6"><div className="flex items-center gap-2 mb-2"><h2 className="text-[14px] font-medium text-ds-fg">{title}</h2>{sub && <span className="text-[12px] text-ds-fg3">{sub}</span>}<span className="ml-auto">{right}</span></div>{children}</div>
   )
 
-  if (loading) return <>{uploadBox}<Loading /></>
-  if (!posts.length && !monthly.length && !inflow.length) {
-    return <>{uploadBox}<EmptyState icon={FileText} title="네이버 블로그 통계가 없습니다" description="위에서 월간 통계 엑셀을 업로드하세요" /></>
-  }
+  if (loading) return <>{head}<Skeleton rows={10} /></>
+  if (!posts.length && !monthly.length && !inflow.length) return <>{head}<Empty text="네이버 블로그 통계가 없습니다 — 엑셀 업로드로 월간 통계를 올리세요" /></>
 
+  const vSum = (m: string) => rows.reduce((s, r) => s + (r.months.get(m) || 0), 0)
   return (
     <div>
-      {uploadBox}
+      {head}
+      <KpiRow items={[
+        { label: '조회수', value: formatNumber(latestWith('views')?.views || 0), sub: `상위 글 합 · ${latestWith('views')?.month || '—'}` },
+        { label: '순방문자수', value: formatNumber(latestWith('visitors')?.visitors || 0), sub: latestWith('visitors')?.month || '—' },
+        { label: '평균 사용시간', value: fmtSec(latestWith('avg_time_sec')?.avg_time_sec ?? null), sub: latestWith('avg_time_sec')?.month || '—' },
+        { label: '모바일 비율', value: latestWith('mobile_ratio')?.mobile_ratio != null ? `${latestWith('mobile_ratio')!.mobile_ratio}%` : '—', sub: latestWith('mobile_ratio')?.month || '—' },
+      ]} />
 
-      {/* KPI: 가장 최근 달 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1"><Eye className="w-4 h-4 text-green-500" /><span className="text-xs text-text-secondary">조회수 (상위 글 합, {latestWith('views') ? latestWith('views')!.month : '-'})</span></div>
-          <p className="text-lg font-bold">{formatNumber(latestWith('views')?.views || 0)}</p>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-purple-500" /><span className="text-xs text-text-secondary">순방문자수 ({latestWith('visitors')?.month || '-'})</span></div>
-          <p className="text-lg font-bold">{formatNumber(latestWith('visitors')?.visitors || 0)}</p>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-orange-500" /><span className="text-xs text-text-secondary">평균 사용시간 ({latestWith('avg_time_sec')?.month || '-'})</span></div>
-          <p className="text-lg font-bold">{fmtSec(latestWith('avg_time_sec')?.avg_time_sec ?? null)}</p>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1"><Smartphone className="w-4 h-4 text-blue-500" /><span className="text-xs text-text-secondary">모바일 비율 ({latestWith('mobile_ratio')?.month || '-'})</span></div>
-          <p className="text-lg font-bold">{latestWith('mobile_ratio')?.mobile_ratio != null ? `${latestWith('mobile_ratio')!.mobile_ratio}%` : '-'}</p>
-        </div>
-      </div>
-
-      {/* 월별 추이 */}
       {trend.length > 0 && (
-        <div className="card p-4 mb-4">
-          <p className="text-sm font-medium mb-2">월별 추이</p>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={trend} margin={{ left: 0, right: 10, top: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="v" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="u" orientation="right" tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => formatNumber(v)} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar yAxisId="v" dataKey="views" name="조회수 (상위 글 합)" fill="#22c55e" radius={[3, 3, 0, 0]} />
-                <Line yAxisId="u" dataKey="visitors" name="순방문자수" stroke="#8b5cf6" strokeWidth={2} connectNulls={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
+        <Sec title="월별 추이">
+          <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-5 items-start">
+            <div className="ds-wrap p-3 h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={trend} margin={{ left: 0, right: 10, top: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f2" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                  <YAxis yAxisId="v" tick={{ fontSize: 11 }} />
+                  <YAxis yAxisId="u" orientation="right" tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v: number) => formatNumber(v)} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar yAxisId="v" dataKey="views" name="조회수 (상위 글 합)" fill="#579bfc" radius={[3, 3, 0, 0]} />
+                  <Line yAxisId="u" dataKey="visitors" name="순방문자수" stroke="#2563eb" strokeWidth={2} connectNulls={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="ds-wrap max-h-64">
+              <table className="ds-table is-fixed">
+                <colgroup>{[18, 22, 20, 20, 20].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
+                <thead><tr><th>월</th><th>조회수</th><th>순방문자</th><th>평균 시간</th><th>모바일/PC</th></tr></thead>
+                <tbody>{[...trend].reverse().map(t => (
+                  <tr key={t.month} className="ds-row"><td className="!text-center">{t.month}</td><td className="num">{t.views != null ? formatNumber(t.views) : '—'}</td><td className="num">{t.visitors != null ? formatNumber(t.visitors) : '—'}</td><td className="c">{fmtSec(t.avg_time_sec)}</td><td className="c">{t.mobile_ratio != null ? `${t.mobile_ratio}/${t.pc_ratio ?? '—'}` : '—'}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
           </div>
-          <div className="table-container mt-3">
-            <table className="data-table">
-              <thead>
-                <tr><th>월</th><th className="text-right">조회수 (상위 글 합)</th><th className="text-right">순방문자수</th><th className="text-right">평균 사용시간</th><th className="text-right">모바일 / PC</th></tr>
-              </thead>
-              <tbody>
-                {[...trend].reverse().map(t => (
-                  <tr key={t.month}>
-                    <td>{t.month}</td>
-                    <td className="text-right">{t.views != null ? formatNumber(t.views) : '-'}</td>
-                    <td className="text-right">{t.visitors != null ? formatNumber(t.visitors) : '-'}</td>
-                    <td className="text-right">{fmtSec(t.avg_time_sec)}</td>
-                    <td className="text-right">{t.mobile_ratio != null ? `${t.mobile_ratio}% / ${t.pc_ratio ?? '-'}%` : '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        </Sec>
       )}
 
-      {/* 글별 월 조회수 */}
-      <div className="card p-4 mb-4">
-        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-          <div>
-            <p className="text-sm font-medium">글별 월 조회수 <span className="text-text-tertiary font-normal">({rows.length}편 · URL 연결 {linked}편)</span></p>
-            <p className="text-xs text-text-secondary mt-0.5">월 조회수 순위(상위 약 100편)에 든 달만 집계됩니다. URL 칸에 네이버 글 주소를 넣으면 마케팅 리포트 레퍼러에 글 제목이 표시됩니다.</p>
-          </div>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="제목 검색"
-            className="input-base !py-1.5 text-sm !w-48" />
-        </div>
-        <div className="table-container max-h-[600px] overflow-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th className="min-w-[260px]">제목</th>
-                <th className="text-right whitespace-nowrap">작성일</th>
-                {viewMonths.map(m => <th key={m} className="text-right whitespace-nowrap">{ym(m)}</th>)}
-                <th className="text-right whitespace-nowrap">누적</th>
-                <th className="min-w-[220px]">네이버 글 URL</th>
-              </tr>
-            </thead>
+      <Sec title="글별 월 조회수" sub={`${rows.length}편 · URL 연결 ${linked}편 · URL 을 넣으면 마케팅 리포트 레퍼러에 글 제목이 표시됩니다`}
+        right={<input value={search} onChange={e => setSearch(e.target.value)} placeholder="제목 검색" className="h-7 px-2.5 w-48 rounded-md border border-ds-line text-[12.5px] focus:outline-none focus:ring-2 focus:ring-ds-accent" />}>
+        <div className="ds-wrap max-h-[600px]">
+          <table className="ds-table">
+            <thead><tr><th>제목</th><th>작성일</th>{viewMonths.map(m => <th key={m}>{ym(m)}</th>)}<th>누적</th><th>네이버 글 URL</th></tr></thead>
             <tbody>
+              <tr className="ds-sum top"><td>합계 <span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{rows.length}편</span></td><td />{viewMonths.map(m => <td key={m} className="num">{formatNumber(vSum(m))}</td>)}<td className="num">{formatNumber(rows.reduce((s, r) => s + r.total, 0))}</td><td /></tr>
               {rows.map(({ post, months, total }) => (
-                <tr key={post.id}>
-                  <td className="max-w-[360px]">
-                    <div className="flex items-center gap-1">
-                      <span className="truncate" title={post.title}>{post.title}</span>
-                      {post.url && <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 flex-shrink-0"><ExternalLink className="w-3 h-3" /></a>}
-                    </div>
-                  </td>
-                  <td className="text-right text-xs text-text-secondary whitespace-nowrap">{post.published_at || '-'}</td>
-                  {viewMonths.map(m => <td key={m} className="text-right">{months.has(m) ? formatNumber(months.get(m)!) : <span className="text-text-tertiary">-</span>}</td>)}
-                  <td className="text-right font-medium">{formatNumber(total)}</td>
-                  <td>
-                    <input
-                      value={urlDraft[post.id] ?? post.url ?? ''}
-                      onChange={e => setUrlDraft(d => ({ ...d, [post.id]: e.target.value }))}
-                      onBlur={() => saveUrl(post)}
-                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                      placeholder="https://blog.naver.com/…"
-                      className="w-full text-xs px-2 py-1 border border-border-light rounded focus:outline-none focus:border-blue-400" />
+                <tr key={post.id} className="ds-row">
+                  <td title={post.title}><span>{post.title}</span>{post.url && <a href={post.url} target="_blank" rel="noopener noreferrer" className="ml-1 text-ds-fg3 hover:text-ds-accent"><ExternalLink className="w-3 h-3 inline" /></a>}</td>
+                  <td className="c muted">{post.published_at || '—'}</td>
+                  {viewMonths.map(m => <td key={m} className="num">{months.has(m) ? formatNumber(months.get(m)!) : <span className="text-ds-fg3">—</span>}</td>)}
+                  <td className="num font-medium">{formatNumber(total)}</td>
+                  <td className="min-w-[220px]">
+                    <input value={urlDraft[post.id] ?? post.url ?? ''} onChange={e => setUrlDraft(d => ({ ...d, [post.id]: e.target.value }))} onBlur={() => saveUrl(post)}
+                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} placeholder="https://blog.naver.com/…"
+                      className="w-full text-[12px] h-7 px-2 border border-ds-line rounded-md focus:outline-none focus:ring-2 focus:ring-ds-accent" />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
+      </Sec>
 
-      {/* 유입 검색어 */}
       {inflowMonths.length > 0 && (
-        <div className="card p-4">
-          <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-            <p className="text-sm font-medium">유입 검색어 <span className="text-text-tertiary font-normal">(월 상위 50개)</span></p>
-            <select value={kwMonth} onChange={e => setKwMonth(e.target.value)} className="input-base !py-1.5 text-sm !w-32">
-              {inflowMonths.map(m => <option key={m} value={m}>{ym(m)}</option>)}
-            </select>
-          </div>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="md:col-span-2 table-container max-h-[520px] overflow-auto">
-              <table className="data-table">
-                <thead><tr><th className="w-12 text-right">순위</th><th>검색어</th><th className="text-right">비율</th></tr></thead>
-                <tbody>
-                  {kwRows.map(k => (
-                    <tr key={k.name}><td className="text-right text-text-tertiary">{k.rank}</td><td>{k.name}</td><td className="text-right">{Number(k.ratio).toFixed(2)}%</td></tr>
-                  ))}
-                </tbody>
+        <Sec title="유입 검색어" sub="월 상위 50개"
+          right={<select value={kwMonth} onChange={e => setKwMonth(e.target.value)} className="h-7 px-2 rounded-md border border-ds-line text-[12.5px]">{inflowMonths.map(m => <option key={m} value={m}>{ym(m)}</option>)}</select>}>
+          <div className="grid lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] gap-5 items-start">
+            <div className="ds-wrap max-h-[520px]">
+              <table className="ds-table is-fixed">
+                <colgroup><col style={{ width: '12%' }} /><col style={{ width: '68%' }} /><col style={{ width: '20%' }} /></colgroup>
+                <thead><tr><th>순위</th><th>검색어</th><th>비율</th></tr></thead>
+                <tbody>{kwRows.map(k => <tr key={k.name} className="ds-row"><td className="num muted">{k.rank}</td><td>{k.name}</td><td className="num">{Number(k.ratio).toFixed(2)}%</td></tr>)}</tbody>
               </table>
             </div>
-            <div className="table-container">
-              <table className="data-table">
-                <thead><tr><th>유입경로</th><th className="text-right">비율</th></tr></thead>
-                <tbody>
-                  {routeRows.map(r => (
-                    <tr key={r.name}><td>{r.name}</td><td className="text-right">{Number(r.ratio).toFixed(1)}%</td></tr>
-                  ))}
-                </tbody>
+            <div className="ds-wrap">
+              <table className="ds-table is-fixed">
+                <colgroup><col style={{ width: '70%' }} /><col style={{ width: '30%' }} /></colgroup>
+                <thead><tr><th>유입경로</th><th>비율</th></tr></thead>
+                <tbody>{routeRows.map(r => <tr key={r.name} className="ds-row"><td>{r.name}</td><td className="num">{Number(r.ratio).toFixed(1)}%</td></tr>)}</tbody>
               </table>
             </div>
           </div>
-        </div>
+        </Sec>
       )}
     </div>
   )

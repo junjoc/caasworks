@@ -16,6 +16,7 @@ import {
   ExternalLink, ArrowUpDown, Info
 } from 'lucide-react'
 import { NaverBlogPanel } from './naver-blog-panel'
+import { Toolbar, Tabs, KpiRow, DsButton, Check, Skeleton, Empty } from '@/components/ds'
 
 interface ContentItem {
   id: string
@@ -193,153 +194,57 @@ export default function ContentPage() {
   const rangeLabel = dateRange.from && dateRange.to ? `${dateRange.from} ~ ${dateRange.to}` : '저장된 전체 기간'
   const rangeOutsideCoverage = coverage && dateRange.from && dateRange.to && (dateRange.from < coverage.min || dateRange.to > coverage.max)
 
+  const tabs = <Tabs value={channelFilter} onChange={v => setChannelFilter(v as ChannelFilter)} options={[{ value: 'caasworks_blog', label: '카스웍스' }, { value: 'naver_blog', label: '네이버' }]} />
+  const HELP = `${rangeLabel} 동안 www.caas.works/blog 글이 읽힌 GA4 페이지뷰·세션·사용자 합계. 발행일과 상관없이 이 기간에 조회가 있었던 글이 모두 나옵니다. 발행일은 글 페이지에 적힌 날짜.${coverage ? ` (일별 데이터 보유: ${coverage.min} ~ ${coverage.max})` : ''}`
+  const tot = rows.reduce((a, r) => ({ v: a.v + r.page_views, s: a.s + r.sessions, u: a.u + r.active_users }), { v: 0, s: 0, u: 0 })
+
+  // 화면 머리 규칙: 툴바(탭 | 보기·기간·ⓘ·동기화·추가) → 숫자줄 → 표(합계 맨 위)
   return (
     <div>
-      {/* Header */}
-      <div className="page-header">
-        <div className="flex items-center gap-2 flex-wrap">
-          {channelFilter === 'caasworks_blog' && <>
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
-            <Button size="sm" variant="secondary" onClick={handleSync} loading={syncing} title="선택한 기간의 GA4 조회를 다시 가져옵니다">
-              <RefreshCw className="w-3.5 h-3.5 mr-1" /> GA4 동기화
-            </Button>
-            <Button size="sm" onClick={() => { setForm(emptyForm); setShowModal(true) }}>
-              <Plus className="w-4 h-4 mr-1" /> 콘텐츠 추가
-            </Button>
-          </>}
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-          {[
-            { value: 'caasworks_blog' as ChannelFilter, label: '카스웍스' },
-            { value: 'naver_blog' as ChannelFilter, label: '네이버' },
-          ].map(f => (
-            <button key={f.value} onClick={() => setChannelFilter(f.value)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                channelFilter === f.value ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'
-              }`}>
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {channelFilter === 'naver_blog' ? <NaverBlogPanel /> : (
+      {channelFilter === 'naver_blog' ? <NaverBlogPanel tabs={tabs} /> : (
         <>
-          {/* 집계 기준 */}
-          <div className="flex items-start gap-2 text-xs text-text-secondary bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-4">
-            <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
-            <div>
-              <span className="font-medium text-text-primary">{rangeLabel}</span> 동안 www.caas.works/blog 글이 읽힌 GA4 페이지뷰·세션·사용자 합계입니다.
-              발행일과 상관없이 이 기간에 조회가 있었던 글이 모두 나옵니다. 발행일은 글 페이지에 적힌 날짜입니다.
-              {coverage && <span className="ml-1 text-text-tertiary">(일별 데이터 보유: {coverage.min} ~ {coverage.max})</span>}
-              {rangeOutsideCoverage && <span className="ml-1 text-orange-600">선택 기간 일부는 아직 동기화되지 않았습니다. GA4 동기화를 눌러 가져오세요.</span>}
-            </div>
-          </div>
+          <Toolbar right={<>
+            <Check label="조회 없는 글도" checked={showZero} onChange={setShowZero} />
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
+            <DsButton variant="ghost" size="sm" title={HELP}>ⓘ 기준</DsButton>
+            <DsButton size="sm" onClick={handleSync} loading={syncing} title="선택한 기간의 GA4 조회를 다시 가져옵니다" icon={<RefreshCw className="w-3.5 h-3.5" />}>GA4 동기화</DsButton>
+            <DsButton size="sm" variant="primary" onClick={() => { setForm(emptyForm); setShowModal(true) }} icon={<Plus className="w-3.5 h-3.5" />}>콘텐츠 추가</DsButton>
+          </>}>{tabs}</Toolbar>
+          <KpiRow items={[
+            { label: '조회된 글', value: `${kpi.totalContent}편`, sub: rangeOutsideCoverage ? '기간 일부 미동기화 — GA4 동기화 필요' : `전체 ${data.length}편` },
+            { label: '조회수', value: formatNumber(kpi.totalViews), sub: 'GA4 페이지뷰' },
+            { label: '세션', value: formatNumber(kpi.totalSessions) },
+            { label: '사용자', value: formatNumber(kpi.totalUsers) },
+          ]} />
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <div className="card p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <FileText className="w-4 h-4 text-blue-500" />
-                <span className="text-xs text-text-secondary">조회된 글</span>
-              </div>
-              <p className="text-lg font-bold">{kpi.totalContent}개 <span className="text-xs font-normal text-text-tertiary">/ 전체 {data.length}개</span></p>
-            </div>
-            <div className="card p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Eye className="w-4 h-4 text-green-500" />
-                <span className="text-xs text-text-secondary">조회수</span>
-              </div>
-              <p className="text-lg font-bold">{formatNumber(kpi.totalViews)}</p>
-            </div>
-            <div className="card p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Clock className="w-4 h-4 text-orange-500" />
-                <span className="text-xs text-text-secondary">세션</span>
-              </div>
-              <p className="text-lg font-bold">{formatNumber(kpi.totalSessions)}</p>
-            </div>
-            <div className="card p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Users className="w-4 h-4 text-purple-500" />
-                <span className="text-xs text-text-secondary">사용자</span>
-              </div>
-              <p className="text-lg font-bold">{formatNumber(kpi.totalUsers)}</p>
-            </div>
-          </div>
-
-          {loading ? <Loading /> : rows.length === 0 ? (
-            <EmptyState icon={FileText} title="이 기간에 조회된 글이 없습니다"
-              description={coverage ? '기간을 바꾸거나 GA4 동기화로 이 기간 데이터를 가져오세요' : 'GA4 동기화로 데이터를 가져오세요'}
-              action={
-                <div className="flex gap-2">
-                  <Button size="sm" variant="secondary" onClick={handleSync} loading={syncing}>
-                    <RefreshCw className="w-4 h-4 mr-1" /> GA4 동기화
-                  </Button>
-                  {data.length > 0 && <Button size="sm" variant="secondary" onClick={() => setShowZero(true)}>조회 없는 글도 보기</Button>}
-                </div>
-              } />
+          {loading ? <Skeleton rows={10} /> : rows.length === 0 ? (
+            <Empty text={coverage ? '이 기간에 조회된 글이 없습니다 — 기간을 바꾸거나 GA4 동기화' : 'GA4 동기화로 데이터를 가져오세요'}
+              action={<DsButton size="sm" onClick={handleSync} loading={syncing}>GA4 동기화</DsButton>} />
           ) : (
-            <div className="table-container">
-              <div className="flex items-center justify-end px-3 py-2 text-xs text-text-secondary border-b border-border-light">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" checked={showZero} onChange={e => setShowZero(e.target.checked)} className="w-3 h-3" />
-                  조회 없는 글도 보기
-                </label>
-              </div>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>제목</th>
-                    <th className="text-right cursor-pointer whitespace-nowrap" onClick={() => toggleSort('published_at')}>
-                      발행일 <ArrowUpDown className="w-3 h-3 inline ml-0.5" />
-                    </th>
-                    <th className="text-right cursor-pointer whitespace-nowrap" onClick={() => toggleSort('page_views')}>
-                      조회수 <ArrowUpDown className="w-3 h-3 inline ml-0.5" />
-                    </th>
-                    <th className="text-right cursor-pointer whitespace-nowrap" onClick={() => toggleSort('sessions')}>
-                      세션 <ArrowUpDown className="w-3 h-3 inline ml-0.5" />
-                    </th>
-                    <th className="text-right">사용자</th>
-                    <th className="text-right whitespace-nowrap" title="기간 중 조회가 있었던 날 수">조회일</th>
-                    <th className="text-center">동기화</th>
-                  </tr>
-                </thead>
+            <div className="ds-wrap max-h-[calc(100vh-260px)]">
+              <table className="ds-table is-fixed">
+                <colgroup>{[46, 11, 10, 9, 9, 7, 8].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
+                <thead><tr>
+                  <th className="cursor-pointer" onClick={() => toggleSort('published_at')}>제목</th>
+                  <th className="cursor-pointer" onClick={() => toggleSort('published_at')}>발행일{sortField === 'published_at' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
+                  <th className="cursor-pointer" onClick={() => toggleSort('page_views')}>조회수{sortField === 'page_views' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
+                  <th className="cursor-pointer" onClick={() => toggleSort('sessions')}>세션{sortField === 'sessions' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
+                  <th>사용자</th><th title="기간 중 조회가 있었던 날 수">조회일</th><th>동기화</th>
+                </tr></thead>
                 <tbody>
+                  <tr className="ds-sum top"><td>합계 <span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{rows.length}편</span></td><td /><td className="num">{formatNumber(tot.v)}</td><td className="num">{formatNumber(tot.s)}</td><td className="num">{formatNumber(tot.u)}</td><td /><td /></tr>
                   {rows.map(item => (
-                    <tr key={item.id}>
-                      <td className="max-w-[360px]">
-                        <div className="flex items-center gap-1">
-                          <span className="font-medium truncate" title={item.title}>{item.title}</span>
-                          {item.url && (
-                            <a href={item.url} target="_blank" rel="noopener noreferrer"
-                              className="text-blue-500 hover:text-blue-700 flex-shrink-0">
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
-                        </div>
-                        {item.page_path && (
-                          <span className="text-[10px] text-text-tertiary">{item.page_path}</span>
-                        )}
+                    <tr key={item.id} className="ds-row">
+                      <td title={item.page_path || ''}>
+                        <span className="font-medium">{item.title}</span>
+                        {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" className="ml-1 text-ds-fg3 hover:text-ds-accent"><ExternalLink className="w-3 h-3 inline" /></a>}
                       </td>
-                      <td className="text-right text-text-secondary text-xs whitespace-nowrap">
-                        {item.published_at || <span className="text-text-tertiary" title="GA4 동기화 때 글 페이지에서 가져옵니다">-</span>}
-                      </td>
-                      <td className="text-right font-medium">{formatNumber(item.page_views)}</td>
-                      <td className="text-right">{formatNumber(item.sessions)}</td>
-                      <td className="text-right">{formatNumber(item.active_users)}</td>
-                      <td className="text-right text-text-secondary">{item.days || '-'}</td>
-                      <td className="text-center text-xs text-text-tertiary">
-                        {item.is_manual ? '수동' : (
-                          item.last_synced_at
-                            ? new Date(item.last_synced_at).toLocaleDateString('ko-KR')
-                            : '-'
-                        )}
-                      </td>
+                      <td className="c muted">{item.published_at || '—'}</td>
+                      <td className="num font-medium">{formatNumber(item.page_views)}</td>
+                      <td className="num">{formatNumber(item.sessions)}</td>
+                      <td className="num">{formatNumber(item.active_users)}</td>
+                      <td className="num muted">{item.days || '—'}</td>
+                      <td className="c muted text-[12px]">{item.is_manual ? '수동' : item.last_synced_at ? new Date(item.last_synced_at).toLocaleDateString('ko-KR').replace(/\.\s?/g, '.').replace(/\.$/, '') : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
