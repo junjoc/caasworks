@@ -101,15 +101,15 @@ export function Header({ user }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border-light h-[var(--header-height)]">
-      <div className="flex items-center justify-between h-full px-6">
+    <header className="sticky top-0 z-30 bg-ds-bg border-b border-ds-line h-[var(--header-height)]">
+      <div className="flex items-center justify-between h-full px-5">
         {/* Left: page title */}
-        <h1 className="text-heading-md text-text-primary pl-10 lg:pl-0">{getTitle()}</h1>
+        <h1 className="text-[14px] font-semibold text-ds-fg pl-10 lg:pl-0">{getTitle()}</h1>
 
         {/* Right: actions */}
         <div className="flex items-center gap-1">
           {/* Font size controls */}
-          <div className="flex items-center gap-0 mr-1 border border-border rounded-md overflow-hidden">
+          <div className="flex items-center gap-0 mr-1 border border-ds-line rounded-md overflow-hidden">
             <button
               onClick={() => changeFontSize(-1)}
               disabled={fontSize <= FONT_SIZES[0]}

@@ -9,11 +9,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut } = useAuth()
 
   return (
-    <div className="h-screen bg-surface-page overflow-hidden">
+    <div className="h-screen bg-ds-bg overflow-hidden">
       <Sidebar user={user} onSignOut={signOut} />
       <div className="lg:ml-[var(--sidebar-width)] h-screen flex flex-col overflow-hidden">
         <Header user={user} />
-        <main className="flex-1 p-5 overflow-auto">{children}</main>
+        <main className="flex-1 px-5 pt-4 pb-5 overflow-auto">{children}</main>
       </div>
       <FeedbackFloatingButton />
     </div>

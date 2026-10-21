@@ -164,7 +164,7 @@ const config: Config = {
           DEFAULT: '#ffffff',
           secondary: '#FAFAFA',   // gray-50
           tertiary: '#F5F5F5',    // gray-100
-          page: '#F9F9F9',        // gray-80
+          page: '#FFFFFF',        // 레이아웃 정의 v1: 바탕은 하나 (구 #F9F9F9)
         },
         // ─── CaaS Border Colors (Zinc) ───
         border: {
@@ -203,9 +203,9 @@ const config: Config = {
         'micro': ['11px', { lineHeight: '1.3', fontWeight: '600' }],
       },
       boxShadow: {
-        'sm': '0 1px 2px rgba(0,0,0,0.04)',
-        'card': '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)',
-        'card-hover': '0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.03)',
+        'sm': 'none', // 레이아웃 정의 v1: 그림자는 떠 있는 것(드롭다운·모달)만
+        'card': 'none',
+        'card-hover': 'none',
         'dropdown': '0 8px 24px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
         'modal': '0 20px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06)',
         'sidebar': '2px 0 8px rgba(0,0,0,0.05)',

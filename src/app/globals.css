@@ -11,7 +11,7 @@
     --ds-fg: #1a1a1f; --ds-fg2: #5c5f66; --ds-fg3: #9b9ea6;
     --ds-accent: #2563eb; --ds-accent-hover: #1d4ed8; --ds-accent-soft: #eaf1fe;
     --ds-ok: #00c875; --ds-info: #579bfc; --ds-warn: #fdab3d; --ds-bad: #e2445c; --ds-na: #c4c4c4;
-    --sidebar-width: 240px;
+    --sidebar-width: 200px; /* 레이아웃 정의 v1 */
     --header-height: 48px;
     /* CaaS Brand Spacing Tokens */
     --spacing-xs: 0.25rem;
@@ -64,6 +64,8 @@
   .ds-table td:first-child { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
   /* 집계 표: 열 비율 고정 (colgroup %) — 보기 전환해도 열 위치가 그대로 */
   .ds-table.is-fixed { table-layout: fixed; }
+  /* 묶음 열 구분: 묶음 첫 칸 왼쪽에 세로선 (예: 서비스별 이전·올해·누적) */
+  .ds-table th.g, .ds-table td.g { border-left: 1px solid var(--ds-line); }
   .ds-table.is-fixed th:first-child, .ds-table.is-fixed td:first-child { width: auto; min-width: 0; }
   .ds-table tbody tr.ds-row:nth-child(even) td { background: var(--ds-subtle); }
   .ds-table tbody tr.ds-row:hover td { background: var(--ds-accent-soft); }
@@ -93,11 +95,11 @@
 
   /* ─── Card System ─── */
   .card {
-    @apply bg-surface rounded-lg border border-border-light shadow-card;
+    @apply bg-surface rounded-lg border border-ds-line; /* v1: 흰 바탕 위 1px 선, 그림자 없음 */
   }
 
   .card-header {
-    @apply px-5 py-3.5 border-b border-border-light flex items-center justify-between;
+    @apply px-5 py-3.5 border-b border-ds-line flex items-center justify-between;
   }
 
   .card-header-title {
@@ -266,13 +268,15 @@
   }
 
   /* ─── Sidebar ─── */
+  /* 레이아웃 정의 v1: 사이드바 메뉴 32px, 아이콘 16 선, 현재 = 연회색 + 굵게 + 왼쪽 2px 파란 줄 */
   .sidebar-link {
-    @apply flex items-center gap-2.5 px-3 py-2 mx-2 rounded-md text-body-sm transition-all duration-75
-           text-sidebar-text hover:bg-sidebar-hover hover:text-text-primary;
+    @apply flex items-center gap-2 px-2.5 h-8 mx-2 rounded-md text-[13px] font-medium transition-colors duration-75
+           text-ds-fg hover:bg-ds-subtle;
   }
 
   .sidebar-link-active {
-    @apply bg-primary-50 text-primary-500 font-medium;
+    @apply bg-ds-subtle text-ds-fg font-semibold;
+    box-shadow: inset 2px 0 0 var(--ds-accent);
   }
 
   /* ─── Utility ─── */
@@ -289,7 +293,7 @@
   }
 
   .icon-btn {
-    @apply p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-surface-tertiary
+    @apply p-1.5 rounded-md text-ds-fg3 hover:text-ds-fg hover:bg-ds-subtle
            transition-colors duration-75;
   }
 
