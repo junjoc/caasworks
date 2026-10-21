@@ -208,7 +208,7 @@ export default function PipelineBoardPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-var(--header-height)-36px)]">
+    <div className="flex flex-col h-[calc(100vh-var(--header-height)-80px)]">
       <Toolbar
         right={<>
           <div className="relative">

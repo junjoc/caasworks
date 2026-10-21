@@ -51,10 +51,10 @@ export function FeedbackFloatingButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-primary-500 hover:bg-primary-600 text-white shadow-lg flex items-center justify-center transition-all hover:scale-105"
+        className="fixed bottom-4 right-4 z-40 w-10 h-10 rounded-full bg-ds-accent hover:bg-ds-accent-hover text-white shadow-[0_4px_12px_rgba(0,0,0,.15)] flex items-center justify-center transition-all hover:scale-105"
         title="피드백 / 요청 등록"
       >
-        <MessageSquarePlus className="w-6 h-6" />
+        <MessageSquarePlus className="w-5 h-5" />
       </button>
 
       <Modal open={open} onClose={() => setOpen(false)} title="피드백 / 요청 등록" className="max-w-lg">

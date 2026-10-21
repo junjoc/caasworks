@@ -28,7 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar user={user} onSignOut={signOut} />
       <div className="lg:ml-[var(--sidebar-width)] h-screen flex flex-col overflow-hidden">
         <Header user={user} />
-        <main className="flex-1 px-5 pt-4 pb-5 overflow-auto scroll-stable">{children}</main>
+        <main className="flex-1 px-5 pt-4 pb-16 overflow-auto scroll-stable">{/* pb-16: 오른쪽 아래 피드백 버튼이 표 끝(페이지 화살표)을 가리지 않게 */}{children}</main>
       </div>
       <FeedbackFloatingButton />
     </div>
