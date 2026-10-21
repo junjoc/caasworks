@@ -76,8 +76,11 @@ export default function CohortPage() {
 
       {loading ? <Skeleton rows={8} /> : tot.n === 0 && cohorts.every(c => c.n === 0) ? <Empty text="조건에 맞는 유입이 없습니다" /> : (
         <div className="grid lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] gap-5 items-start">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-2 h-5"><h2 className="text-[14px] font-medium text-ds-fg">유입{group === 'month' ? '월' : '분기'}별</h2><span className="text-[12px] text-ds-fg3">{channel === 'all' ? '전체 채널' : channel} · 행을 누르면 회사 목록</span></div>
           <div className={`ds-wrap ${group === 'quarter' ? 'max-h-[70vh]' : ''}`}>
-            <table className="ds-table is-clickable">
+            <table className="ds-table is-clickable is-fixed">
+              <colgroup><col style={{ width: '12%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '20%' }} /><col style={{ width: '14%' }} /><col style={{ width: '18%' }} /><col style={{ width: '16%' }} /></colgroup>
               <thead><tr><th>유입{group === 'month' ? '월' : '분기'}</th><th>유입</th><th>도입</th><th>도입률</th><th>소요일 중앙값</th><th>누적 매출</th><th>도입당</th></tr></thead>
               <tbody>
                 {cohorts.map(c => c.n === 0 ? (
@@ -92,11 +95,13 @@ export default function CohortPage() {
               </tbody>
             </table>
           </div>
+          </div>
 
           <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-2"><h2 className="text-[14px] font-medium text-ds-fg">채널별</h2><span className="text-[12px] text-ds-fg3">{scope} 유입 · 매출순 · 누르면 그 채널만</span></div>
+            <div className="flex items-center gap-2 mb-2 h-5"><h2 className="text-[14px] font-medium text-ds-fg">채널별</h2><span className="text-[12px] text-ds-fg3">{scope} 유입 · 매출순 · 누르면 그 채널만</span></div>
             <div className="ds-wrap max-h-[502px]">
-              <table className="ds-table is-clickable">
+              <table className="ds-table is-clickable is-fixed">
+                <colgroup><col style={{ width: '34%' }} /><col style={{ width: '18%' }} /><col style={{ width: '18%' }} /><col style={{ width: '30%' }} /></colgroup>
                 <thead><tr><th>채널</th><th>유입</th><th>도입</th><th>누적 매출</th></tr></thead>
                 <tbody>
                   {channels.map(c => (

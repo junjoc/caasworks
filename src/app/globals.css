@@ -61,6 +61,9 @@
   .ds-table th:first-child { z-index: 3; }
   .ds-table th:first-child, .ds-table td:first-child { width: 100%; min-width: 140px; text-align: left; }
   .ds-table td:first-child { max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* 집계 표: 열 비율 고정 (colgroup %) — 보기 전환해도 열 위치가 그대로 */
+  .ds-table.is-fixed { table-layout: fixed; }
+  .ds-table.is-fixed th:first-child, .ds-table.is-fixed td:first-child { width: auto; min-width: 0; }
   .ds-table tbody tr.ds-row:nth-child(even) td { background: var(--ds-subtle); }
   .ds-table tbody tr.ds-row:hover td { background: var(--ds-accent-soft); }
   .ds-table tbody tr.ds-row.is-active td { background: var(--ds-accent-soft); box-shadow: inset 2px 0 0 var(--ds-accent); }
