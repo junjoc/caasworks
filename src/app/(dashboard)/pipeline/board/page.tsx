@@ -80,18 +80,15 @@ export default function PipelineBoardPage() {
 
   async function fetchLeads() {
     // Supabase 1000-row 서버 제한 우회: batch 병렬.
-    const size = 1000, maxBatches = 5
-    const results = await Promise.all(
-      Array.from({ length: maxBatches }, (_, i) =>
-        supabase
-          .from('pipeline_leads')
-          .select('*, assigned_user:users!pipeline_leads_assigned_to_fkey(id, name)')
-          .order('created_at', { ascending: false })
-          .range(i * size, i * size + size - 1)
-      )
-    )
+    // 보드에 쓰는 열만 (select * 는 문의내용·utm·first_touch 까지 1,000행에 1MB). 1,000행씩, 다 찰 때만 다음 묶음
+    const COLS = 'id, company_name, contact_person, contact_position, contact_phone, stage, assigned_to, industry, inquiry_date, inquiry_channel, next_action, next_action_date, priority, conversion_probability, site_category, customer_id, converted_at, created_at, updated_at, assigned_user:users!pipeline_leads_assigned_to_fkey(id, name)'
+    const size = 1000
     let data: any[] = []
-    for (const r of results) if (r.data) data = data.concat(r.data)
+    for (let i = 0; i < 10; i++) {
+      const { data: batch } = await supabase.from('pipeline_leads').select(COLS).order('created_at', { ascending: false }).range(i * size, i * size + size - 1)
+      if (batch) data = data.concat(batch)
+      if (!batch || batch.length < size) break
+    }
 
     setLeads(data)
 

@@ -8,5 +8,8 @@
       "path": "/api/warmup",
       "schedule": "0 0 * * *"
     }
+  ],
+  "regions": [
+    "icn1"
   ]
 }
