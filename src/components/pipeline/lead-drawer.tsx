@@ -13,10 +13,10 @@ import { StageBar, PropPills, type Prop } from '@/components/ds/detail'
 import { RecordComposer, Timeline, useLeadOverview, postUpdate } from '@/components/pipeline/lead-record'
 import { toast } from 'sonner'
 
-export const STAGE_OPTIONS = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '예정', '도입완료', '이탈']
+export const STAGE_OPTIONS = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
 export const PROB = ['높음', '중간', '낮음']
 export const PRIO = ['긴급', '높음', '중간', '낮음']
-const FLOW = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료']
+const FLOW = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료']
 
 export function LeadDrawer({ leadId, users, onClose, onChanged }: { leadId: string | null; users: { id: string; name: string }[]; onClose: () => void; onChanged: () => void }) {
   const { user } = useAuth()

@@ -21,7 +21,7 @@ import { fetchJson, getCached, prefetchLead } from '@/lib/swr-cache'
 import { useActiveUsers } from '@/hooks/useActiveUsers'
 import { Plus, Search, Info, ChevronsRight } from 'lucide-react'
 
-const OPEN = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '예정']
+const OPEN = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전'] // 10/21: 팀 원래 순서
 const CLOSED = ['도입완료', '이탈']
 const STEP = 30
 type Card = { id: string; company_name: string; stage: string; priority: string | null; date: string; assigned_to: string | null; next_action: string | null; next_action_date: string | null; group: InflowGroup; sub: string }

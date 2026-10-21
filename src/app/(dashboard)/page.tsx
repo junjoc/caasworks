@@ -25,7 +25,7 @@ type D = {
 }
 type PresetKey = 'exec' | 'marketing' | 'sales' | 'support' | 'hardware'
 const PRESETS: { key: PresetKey; label: string }[] = [{ key: 'exec', label: '경영진' }, { key: 'marketing', label: '마케팅' }, { key: 'sales', label: '세일즈' }, { key: 'support', label: '경영지원' }, { key: 'hardware', label: '하드웨어' }]
-const STAGES = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '예정', '도입완료', '이탈']
+const STAGES = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
 
 const man = (v: number) => (Math.abs(v) >= 1e8 ? `${(v / 1e8).toFixed(1).replace('.0', '')}억` : `${Math.round(v / 1e4).toLocaleString()}만`)
 const won = (v: number) => Math.round(v).toLocaleString()

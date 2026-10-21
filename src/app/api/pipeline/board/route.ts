@@ -6,7 +6,7 @@ import { classifyLead } from '@/lib/inflow-taxonomy'
 // 열 안 순서: 다음 액션 날짜 있는 카드(빠른 순) → 나머지 최근 유입순.
 export const dynamic = 'force-dynamic'
 
-const STAGES = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '예정', '도입완료', '이탈']
+const STAGES = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
 const COLS = 'id, company_name, contact_person, contact_phone, stage, priority, inquiry_date, created_at, inquiry_channel, inquiry_source, assigned_to, industry, next_action, next_action_date'
 type Row = Record<string, string | null> & { id: string; company_name: string; stage: string; created_at: string }
 

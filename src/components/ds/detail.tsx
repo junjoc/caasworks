@@ -12,7 +12,7 @@ import { ChevronDown } from 'lucide-react'
 export function StageBar({ flow, stage, note, onPick, variant = 'full' }: { flow: string[]; stage: string; note?: string; onPick?: (s: string) => void; variant?: 'full' | 'slim' }) {
   const ci = flow.indexOf(stage)
   const fill = (i: number) => (ci < 0 ? '' : i < ci ? 'done' : i === ci ? 'cur' : '')
-  const col = toneVar[stageTone(stage === '도입완료' ? '도입완료' : '컨텍')]
+  const col = toneVar[stageTone(stage === '도입완료' || stage === '예정' ? stage : '컨텍')]
   if (variant === 'slim') return (
     <div className="flex items-center gap-[3px]">
       {flow.map((s, i) => (

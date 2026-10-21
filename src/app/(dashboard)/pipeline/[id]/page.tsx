@@ -21,7 +21,8 @@ import QuotationSection from '@/components/pipeline/QuotationSection'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react'
 
-const FLOW = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료']
+// 10/21: 예정 포함 (팀 원래 순서 컨텍 → 예정 → 제안)
+const FLOW = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료']
 const OPEN = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '예정']
 type Tab = 'act' | 'inflow' | 'quote' | 'voc'
 
@@ -179,9 +180,8 @@ export default function LeadDetailPage() {
         <DsButton size="sm" onClick={() => setTab('quote')}>견적서</DsButton>
         <div className="relative">
           <DsButton size="sm" variant="ghost" icon={<MoreHorizontal className="w-4 h-4" />} onClick={() => setMore(true)} title="더 보기" />
-          <Popover open={more} onClose={() => setMore(false)} align="right" width={160}>
+          <Popover open={more} onClose={() => setMore(false)} align="right" width={140}>
             <div className="grid gap-0.5 text-[12.5px]">
-              {lead.stage !== '예정' && <button onClick={() => { setMore(false); setStage('예정') }} className="text-left px-2 py-1.5 rounded hover:bg-ds-subtle">예정으로</button>}
               {lead.stage !== '이탈' && <button onClick={() => { setMore(false); setStage('이탈') }} className="text-left px-2 py-1.5 rounded hover:bg-ds-subtle text-ds-bad">이탈 처리</button>}
             </div>
           </Popover>
@@ -201,7 +201,7 @@ export default function LeadDetailPage() {
       </p>
 
       <StageBar flow={FLOW} stage={lead.stage} note={since(enteredAt, today)} onPick={setStage} />
-      {!FLOW.includes(lead.stage) && <p className="text-[12px] text-ds-fg2 mt-1.5">지금 <b className="font-medium">{lead.stage}</b> ({since(enteredAt, today)}) — 단계를 누르면 다시 진행으로</p>}
+      {lead.stage === '이탈' && <p className="text-[12px] text-ds-fg2 mt-1.5">지금 <b className="font-medium">이탈</b> ({since(enteredAt, today)}) — 단계를 누르면 다시 진행으로</p>}
       <div className="mt-3 mb-4"><PropertyBar items={props} /></div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] gap-5 items-start">
