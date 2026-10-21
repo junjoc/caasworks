@@ -13,6 +13,7 @@ import { DateRangePicker, type DateRange } from '@/components/ui/date-range-pick
 import { formatCurrency, formatNumber, CHANNEL_SUB_SOURCES as SHARED_SUB_SOURCES } from '@/lib/utils'
 import { toast } from 'sonner'
 import { CompanyTagInput } from '@/components/ui/company-tag-input'
+import { PageHeader, Toolbar, Tabs, DsButton, Skeleton, Empty } from '@/components/ds'
 import {
   Plus, BarChart3, TrendingUp, TrendingDown, MousePointerClick, Target,
   DollarSign, Trash2, Pencil, ChevronUp, ChevronDown,
@@ -178,6 +179,7 @@ export default function AdsPage() {
   const [campaigns, setCampaigns] = useState<CampaignOption[]>([])
   const [adgroups, setAdgroups] = useState<AdGroupOption[]>([])
   const [syncing, setSyncing] = useState<string | null>(null)
+  const [syncOpen, setSyncOpen] = useState(false)
   const [companyOptions, setCompanyOptions] = useState<{value: string, label: string, sub?: string}[]>([])
   const [dateLeadOptions, setDateLeadOptions] = useState<{value: string, label: string, sub?: string}[]>([])
   const supabase = createClient()
@@ -864,163 +866,62 @@ export default function AdsPage() {
 
   // ─── Render ─────────────────────────────────────────────
 
+  const SYNCS: { key: string; label: string }[] = [{ key: 'all', label: '전체 동기화' }, { key: 'google', label: '구글' }, { key: 'naver', label: '네이버' }, { key: 'ga4', label: 'GA4' }, { key: 'ga4-sources', label: '유입소스' }]
+  const dot = { danger: 'var(--ds-bad)', warning: 'var(--ds-warn)', success: 'var(--ds-ok)', info: 'var(--ds-info)' } as const
+  const Kpi = ({ label, value, sub, bar }: { label: string; value: string; sub?: string; bar?: number }) => (
+    <div className="py-2.5 pr-4 md:pl-4 md:border-l border-ds-line2 first:border-l-0 first:pl-0 min-w-0">
+      <div className="text-[12px] text-ds-fg3">{label}</div>
+      <b className="text-[18px] font-semibold tabular-nums text-ds-fg">{value}</b>
+      {bar != null && <div className="h-1 rounded-full bg-ds-line2 mt-1 max-w-[160px]"><div className="h-1 rounded-full bg-ds-warn" style={{ width: `${Math.min(bar, 100)}%` }} /></div>}
+      {sub && <div className="text-[11.5px] text-ds-fg3 truncate mt-0.5">{sub}</div>}
+    </div>
+  )
+
+  // 레이아웃 정의 v1 "집계" 유형: 제목줄 → 탭·동기화 → 숫자줄(5) → 표. 색은 상태에만
   return (
     <div>
-      {/* Header */}
-      <div className="page-header">
-        <h1 className="page-title">광고 성과</h1>
-        <div className="flex items-center gap-2 flex-wrap">
+      <PageHeader title="광고 성과"
+        actions={<>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
-          <Button size="sm" variant="primary" onClick={() => handleSync('all')}
-            loading={syncing === 'all'} disabled={!!syncing}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1" /> 전체 동기화
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => handleSync('google')}
-            loading={syncing === 'google'} disabled={!!syncing}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1" /> 구글
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => handleSync('naver')}
-            loading={syncing === 'naver'} disabled={!!syncing}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1" /> 네이버
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => handleSync('ga4')}
-            loading={syncing === 'ga4'} disabled={!!syncing}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1" /> GA4
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => handleSync('ga4-sources')}
-            loading={syncing === 'ga4-sources'} disabled={!!syncing}>
-            <Link2 className="w-3.5 h-3.5 mr-1" /> 유입소스
-          </Button>
-          <Button size="sm" onClick={openAdd}>
-            <Plus className="w-4 h-4 mr-1" /> 데이터 입력
-          </Button>
-        </div>
+          <div className="relative">
+            <DsButton size="sm" loading={!!syncing} onClick={() => setSyncOpen(o => !o)} icon={<RefreshCw className="w-3.5 h-3.5" />}>{syncing ? '동기화 중' : '동기화'}</DsButton>
+            {syncOpen && !syncing && (
+              <div className="absolute right-0 top-9 z-30 w-36 py-1 bg-ds-bg border border-ds-line rounded-lg shadow-[0_8px_24px_rgba(0,0,0,.08)]" onMouseLeave={() => setSyncOpen(false)}>
+                {SYNCS.map(s => <button key={s.key} onClick={() => { setSyncOpen(false); handleSync(s.key as Parameters<typeof handleSync>[0]) }} className="w-full text-left px-3 h-8 text-[13px] text-ds-fg hover:bg-ds-subtle">{s.label}</button>)}
+              </div>
+            )}
+          </div>
+          <DsButton size="sm" variant="primary" onClick={openAdd} icon={<Plus className="w-3.5 h-3.5" />}>데이터 입력</DsButton>
+        </>} />
+
+      <Toolbar>
+        <Tabs value={tab} onChange={v => setTab(v)} options={TABS.map(t => ({ value: t, label: t }))} />
+      </Toolbar>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 border-y border-ds-line mb-4">
+        <Kpi label="집행비" value={formatCurrency(budgetSummary.totalSpent)} bar={budgetSummary.burnRate}
+          sub={`예산 ${formatCurrency(budgetSummary.totalBudget)} · 소진 ${budgetSummary.burnRate.toFixed(1)}% · 기간 ${budgetSummary.daysPassed}/${budgetSummary.daysInMonth}일`} />
+        <Kpi label="클릭" value={formatNumber(kpi.totalClicks)} sub={`노출 ${formatNumber(kpi.totalImpressions)} · CTR ${kpi.ctr.toFixed(2)}% · CPC ${formatCurrency(kpi.cpc)}`} />
+        <Kpi label="GA 유입" value={formatNumber(kpi.totalGaVisits)} sub={`문의 클릭 ${formatNumber(kpi.totalInquiryClicks)}`} />
+        <Kpi label="문의사" value={formatNumber(kpi.totalInquiries)} sub={`가입사 ${formatNumber(kpi.totalSignups)}`} />
+        <Kpi label="도입사" value={formatNumber(kpi.totalAdoptions)} sub={kpi.cpa > 0 ? `결과당 ${formatCurrency(kpi.cpa)}` : undefined} />
       </div>
 
-      {/* Channel Tabs */}
-      <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit overflow-x-auto">
-        {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
-              tab === t ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'
-            }`}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {/* Budget Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Wallet className="w-4 h-4 text-blue-500" />
-            <span className="text-xs text-text-secondary">월간 예산</span>
-          </div>
-          <p className="text-lg font-bold text-text-primary">{formatCurrency(budgetSummary.totalBudget)}</p>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <DollarSign className="w-4 h-4 text-green-500" />
-            <span className="text-xs text-text-secondary">집행비</span>
-          </div>
-          <p className="text-lg font-bold text-text-primary">{formatCurrency(budgetSummary.totalSpent)}</p>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Gauge className="w-4 h-4 text-orange-500" />
-            <span className="text-xs text-text-secondary">소진율</span>
-          </div>
-          <p className="text-lg font-bold text-text-primary">{budgetSummary.burnRate.toFixed(1)}%</p>
-          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
-            <div className="bg-orange-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.min(budgetSummary.burnRate, 100)}%` }} />
-          </div>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <CalendarDays className="w-4 h-4 text-purple-500" />
-            <span className="text-xs text-text-secondary">기간 경과율</span>
-          </div>
-          <p className="text-lg font-bold text-text-primary">{budgetSummary.timeRate.toFixed(1)}%</p>
-          <p className="text-xs text-text-secondary">{budgetSummary.daysPassed}/{budgetSummary.daysInMonth}일</p>
-        </div>
-      </div>
-
-      {/* Performance KPI Cards */}
-      <div className="grid grid-cols-3 md:grid-cols-9 gap-3 mb-6">
-        <div className="card p-3">
-          <span className="text-xs text-text-secondary">총 비용</span>
-          <p className="text-sm font-bold text-text-primary mt-0.5">{formatCurrency(kpi.totalCost)}</p>
-          <p className="text-[10px] text-text-secondary">CPC {formatCurrency(kpi.cpc)}</p>
-        </div>
-        <div className="card p-3">
-          <span className="text-xs text-text-secondary">노출수</span>
-          <p className="text-sm font-bold text-text-primary mt-0.5">{formatNumber(kpi.totalImpressions)}</p>
-        </div>
-        <div className="card p-3">
-          <span className="text-xs text-text-secondary">클릭수</span>
-          <p className="text-sm font-bold text-text-primary mt-0.5">{formatNumber(kpi.totalClicks)}</p>
-        </div>
-        <div className="card p-3">
-          <span className="text-xs text-text-secondary">CTR</span>
-          <p className="text-sm font-bold text-text-primary mt-0.5">{kpi.ctr.toFixed(2)}%</p>
-        </div>
-        <div className="card p-3">
-          <span className="text-xs text-text-secondary flex items-center gap-1"><TrendingUp className="w-3 h-3" /> GA유입</span>
-          <p className="text-sm font-bold text-cyan-600 mt-0.5">{formatNumber(kpi.totalGaVisits)}</p>
-        </div>
-        <div className="card p-3">
-          <span className="text-xs text-text-secondary flex items-center gap-1"><MousePointerClick className="w-3 h-3" /> 문의클릭</span>
-          <p className="text-sm font-bold text-amber-600 mt-0.5">{formatNumber(kpi.totalInquiryClicks)}</p>
-        </div>
-        <div className="card p-3">
-          <span className="text-xs text-text-secondary flex items-center gap-1"><Users className="w-3 h-3" /> 가입사</span>
-          <p className="text-sm font-bold text-blue-600 mt-0.5">{formatNumber(kpi.totalSignups)}</p>
-        </div>
-        <div className="card p-3">
-          <span className="text-xs text-text-secondary flex items-center gap-1"><MessageSquare className="w-3 h-3" /> 문의사</span>
-          <p className="text-sm font-bold text-purple-600 mt-0.5">{formatNumber(kpi.totalInquiries)}</p>
-        </div>
-        <div className="card p-3">
-          <span className="text-xs text-text-secondary flex items-center gap-1"><Building2 className="w-3 h-3" /> 도입사</span>
-          <p className="text-sm font-bold text-green-600 mt-0.5">{formatNumber(kpi.totalAdoptions)}</p>
-          {kpi.cpa > 0 && <p className="text-[10px] text-text-secondary">결과당 {formatCurrency(kpi.cpa)}</p>}
-        </div>
-      </div>
-
-      {/* Data Table */}
-      {loading ? <Loading /> : filtered.length === 0 ? (
-        <EmptyState icon={BarChart3} title="데이터가 없습니다"
-          description="광고 성과 데이터를 입력하세요"
-          action={<Button size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> 데이터 입력</Button>} />
+      {loading ? <Skeleton rows={10} /> : filtered.length === 0 ? (
+        <Empty text="이 기간에 광고 데이터가 없습니다" action={<DsButton size="sm" onClick={openAdd}>데이터 입력</DsButton>} />
       ) : (
-        <div className="table-container">
-          <table className="data-table w-full min-w-[1200px]">
+        <div className="ds-wrap max-h-[calc(100vh-300px)]">
+          <table className="ds-table">
             <thead>
               <tr>
-                <th className="cursor-pointer w-[80px]" onClick={() => toggleSort('date')}>
-                  날짜 <SortIcon field="date" />
-                </th>
-                <th className="w-[60px]">유형</th>
-                <th className="w-[60px]">채널</th>
-                <th className="w-[140px]">캠페인명</th>
-                <th className="w-[120px]">광고그룹</th>
-                <th className="text-right w-[100px] cursor-pointer" onClick={() => toggleSort('cost')}>
-                  비용 <SortIcon field="cost" />
-                </th>
-                <th className="text-right w-[80px]">노출</th>
-                <th className="text-right w-[70px] cursor-pointer" onClick={() => toggleSort('clicks')}>
-                  클릭 <SortIcon field="clicks" />
-                </th>
-                <th className="text-right w-[60px]">CTR</th>
-                <th className="text-right w-[80px]">CPM</th>
-                <th className="text-right w-[60px]">GA유입</th>
-                <th className="text-right w-[60px]">문의클릭</th>
-                <th className="text-right w-[50px] cursor-pointer" onClick={() => toggleSort('signups')}>
-                  가입 <SortIcon field="signups" />
-                </th>
-                <th className="text-right w-[50px]">문의</th>
-                <th className="text-right w-[50px]">도입</th>
-                <th className="w-[60px]" />
+                <th className="cursor-pointer" onClick={() => toggleSort('date')}>날짜<SortIcon field="date" /></th>
+                <th>유형</th><th>채널</th><th>캠페인</th><th>광고그룹</th>
+                <th className="cursor-pointer" onClick={() => toggleSort('cost')}>비용<SortIcon field="cost" /></th>
+                <th>노출</th>
+                <th className="cursor-pointer" onClick={() => toggleSort('clicks')}>클릭<SortIcon field="clicks" /></th>
+                <th>CTR</th><th>CPM</th><th>GA 유입</th><th>문의 클릭</th>
+                <th className="cursor-pointer" onClick={() => toggleSort('signups')}>가입<SortIcon field="signups" /></th>
+                <th>문의</th><th>도입</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -1028,102 +929,69 @@ export default function AdsPage() {
                 const ctr = row.impressions > 0 ? (row.clicks / row.impressions * 100).toFixed(2) : '0.00'
                 const cpm = row.impressions > 0 ? Math.round(row.cost / row.impressions * 1000) : 0
                 return (
-                  <tr key={row.id}>
-                    <td className="whitespace-nowrap">{row.date.slice(5)}</td>
-                    <td>
-                      <span className="text-xs text-text-secondary">{row.ad_type}</span>
+                  <tr key={row.id} className="ds-row group">
+                    <td className="c">{row.date.slice(5).replace('-', '.')}</td>
+                    <td className="c muted">{row.ad_type}</td>
+                    <td className="c">{row.channel}</td>
+                    <td className="font-medium max-w-[220px] truncate" title={row.campaign_name}>
+                      {row.campaign_name}
+                      {!row.campaign_id && <button onClick={() => openEdit(row)} title="캠페인 연결 안 됨 — 눌러서 연결" className="ml-1 text-ds-warn"><Link2 className="w-3 h-3 inline" /></button>}
                     </td>
-                    <td>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        CHANNEL_COLORS[row.channel] || 'bg-gray-100 text-gray-700'
-                      }`}>{row.channel}</span>
-                    </td>
-                    <td className="font-medium" title={row.campaign_name}>
-                      <div className="truncate max-w-[160px]">
-                        {row.campaign_name}
-                        {!row.campaign_id && (
-                          <button onClick={() => openEdit(row)} title="캠페인 연결"
-                            className="ml-1 text-orange-400 hover:text-orange-600 inline">
-                            <Link2 className="w-3 h-3 inline" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td title={row.adgroup_name || ''}>
-                      <div className="truncate max-w-[140px] text-text-secondary text-xs">
-                        {row.adgroup_name || '-'}
-                      </div>
-                    </td>
-                    <td className="text-right font-medium">{formatCurrency(row.cost)}</td>
-                    <td className="text-right text-gray-500">{formatNumber(row.impressions)}</td>
-                    <td className="text-right">{formatNumber(row.clicks)}</td>
-                    <td className="text-right text-gray-500">{ctr}%</td>
-                    <td className="text-right text-gray-500">{formatCurrency(cpm)}</td>
-                    <td className="text-right text-cyan-600 font-medium">{row.ga_visits || '-'}</td>
-                    <td className="text-right text-amber-600 font-medium">{row.inquiry_clicks || '-'}</td>
-                    <td className="text-right text-blue-600 font-medium cursor-help" title={row.signup_companies || ''}>{row.signups || '-'}</td>
-                    <td className="text-right text-purple-600 font-medium cursor-help" title={row.inquiry_companies || ''}>{row.inquiries || '-'}</td>
-                    <td className="text-right text-green-600 font-medium cursor-help" title={row.adoption_companies || ''}>{row.adoptions || '-'}</td>
-                    <td>
-                      <div className="flex gap-1 justify-end">
-                        <button onClick={() => openEdit(row)} className="icon-btn" title="수정">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => handleDelete(row.id)} className="icon-btn text-red-500" title="삭제">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                    <td className="muted max-w-[180px] truncate" title={row.adgroup_name || ''}>{row.adgroup_name || '—'}</td>
+                    <td className="num font-medium">{formatCurrency(row.cost)}</td>
+                    <td className="num">{formatNumber(row.impressions)}</td>
+                    <td className="num">{formatNumber(row.clicks)}</td>
+                    <td className="num muted">{ctr}%</td>
+                    <td className="num muted">{formatCurrency(cpm)}</td>
+                    <td className="num">{row.ga_visits || '—'}</td>
+                    <td className="num">{row.inquiry_clicks || '—'}</td>
+                    <td className="num" title={row.signup_companies || ''}>{row.signups || '—'}</td>
+                    <td className="num" title={row.inquiry_companies || ''}>{row.inquiries || '—'}</td>
+                    <td className="num" title={row.adoption_companies || ''}>{row.adoptions || '—'}</td>
+                    <td className="c">
+                      <span className="inline-flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEdit(row)} className="icon-btn" title="수정"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDelete(row.id)} className="icon-btn hover:!text-ds-bad" title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </span>
                     </td>
                   </tr>
                 )
               })}
 
-              {/* Channel Subtotals */}
-              {Object.keys(channelSubtotals).length > 1 && (
-                <>
-                  {Object.entries(channelSubtotals).map(([ch, totals]) => {
-                    const subCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions * 100).toFixed(2) : '0.00'
-                    const subCpm = totals.impressions > 0 ? Math.round(totals.cost / totals.impressions * 1000) : 0
-                    return (
-                      <tr key={`sub-${ch}`} className="bg-gray-50 font-semibold text-sm border-t border-border-light">
-                        <td colSpan={4}>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                            CHANNEL_COLORS[ch] || 'bg-gray-100 text-gray-700'
-                          }`}>{ch} 합계</span>
-                        </td>
-                        <td className="text-right text-gray-500 text-xs">{totals.count}건</td>
-                        <td className="text-right">{formatCurrency(totals.cost)}</td>
-                        <td className="text-right text-gray-500">{formatNumber(totals.impressions)}</td>
-                        <td className="text-right">{formatNumber(totals.clicks)}</td>
-                        <td className="text-right text-gray-500">{subCtr}%</td>
-                        <td className="text-right text-gray-500">{formatCurrency(subCpm)}</td>
-                        <td className="text-right text-cyan-600">{totals.ga_visits}</td>
-                        <td className="text-right text-amber-600">{totals.inquiry_clicks}</td>
-                        <td className="text-right text-blue-600">{totals.signups}</td>
-                        <td className="text-right text-purple-600">{totals.inquiries}</td>
-                        <td className="text-right text-green-600">{totals.adoptions}</td>
-                        <td />
-                      </tr>
-                    )
-                  })}
-                </>
-              )}
+              {Object.keys(channelSubtotals).length > 1 && Object.entries(channelSubtotals).map(([ch, totals]) => {
+                const subCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions * 100).toFixed(2) : '0.00'
+                const subCpm = totals.impressions > 0 ? Math.round(totals.cost / totals.impressions * 1000) : 0
+                return (
+                  <tr key={`sub-${ch}`} className="ds-sum">
+                    <td colSpan={4}>{ch} 합계</td>
+                    <td className="c muted">{totals.count}건</td>
+                    <td className="num">{formatCurrency(totals.cost)}</td>
+                    <td className="num">{formatNumber(totals.impressions)}</td>
+                    <td className="num">{formatNumber(totals.clicks)}</td>
+                    <td className="num">{subCtr}%</td>
+                    <td className="num">{formatCurrency(subCpm)}</td>
+                    <td className="num">{totals.ga_visits}</td>
+                    <td className="num">{totals.inquiry_clicks}</td>
+                    <td className="num">{totals.signups}</td>
+                    <td className="num">{totals.inquiries}</td>
+                    <td className="num">{totals.adoptions}</td>
+                    <td />
+                  </tr>
+                )
+              })}
 
-              {/* Grand Total */}
-              <tr className="bg-gray-100 font-bold text-sm border-t-2 border-gray-300">
+              <tr className="ds-sum">
                 <td colSpan={5}>전체 합계</td>
-                <td className="text-right">{formatCurrency(kpi.totalCost)}</td>
-                <td className="text-right">{formatNumber(kpi.totalImpressions)}</td>
-                <td className="text-right">{formatNumber(kpi.totalClicks)}</td>
-                <td className="text-right">{kpi.ctr.toFixed(2)}%</td>
-                <td className="text-right">
-                  {kpi.totalImpressions > 0 ? formatCurrency(Math.round(kpi.totalCost / kpi.totalImpressions * 1000)) : '-'}
-                </td>
-                <td className="text-right text-cyan-600">{kpi.totalGaVisits}</td>
-                <td className="text-right text-amber-600">{kpi.totalInquiryClicks}</td>
-                <td className="text-right text-blue-600">{kpi.totalSignups}</td>
-                <td className="text-right text-purple-600">{kpi.totalInquiries}</td>
-                <td className="text-right text-green-600">{kpi.totalAdoptions}</td>
+                <td className="num">{formatCurrency(kpi.totalCost)}</td>
+                <td className="num">{formatNumber(kpi.totalImpressions)}</td>
+                <td className="num">{formatNumber(kpi.totalClicks)}</td>
+                <td className="num">{kpi.ctr.toFixed(2)}%</td>
+                <td className="num">{kpi.totalImpressions > 0 ? formatCurrency(Math.round(kpi.totalCost / kpi.totalImpressions * 1000)) : '—'}</td>
+                <td className="num">{kpi.totalGaVisits}</td>
+                <td className="num">{kpi.totalInquiryClicks}</td>
+                <td className="num">{kpi.totalSignups}</td>
+                <td className="num">{kpi.totalInquiries}</td>
+                <td className="num">{kpi.totalAdoptions}</td>
                 <td />
               </tr>
             </tbody>
@@ -1131,52 +999,19 @@ export default function AdsPage() {
         </div>
       )}
 
-      {/* Auto Insights */}
       {!loading && insights.length > 0 && (
-        <div className="card mt-6">
-          <div className="card-header">
-            <span className="card-header-title flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-amber-500" />
-              자동 인사이트
-            </span>
-            <span className="text-[10px] text-text-tertiary">{insights.length}건</span>
-          </div>
-          <div className="card-body space-y-2">
-            {insights.map((insight, i) => {
-              const styles = {
-                danger: 'bg-red-50 border-red-200',
-                warning: 'bg-yellow-50 border-yellow-200',
-                success: 'bg-green-50 border-green-200',
-                info: 'bg-blue-50 border-blue-200',
-              }
-              const iconColors = {
-                danger: 'text-red-500',
-                warning: 'text-yellow-600',
-                success: 'text-green-500',
-                info: 'text-blue-500',
-              }
-              const titleColors = {
-                danger: 'text-red-700',
-                warning: 'text-yellow-700',
-                success: 'text-green-700',
-                info: 'text-blue-700',
-              }
-              const descColors = {
-                danger: 'text-red-600',
-                warning: 'text-yellow-600',
-                success: 'text-green-600',
-                info: 'text-blue-600',
-              }
-              return (
-                <div key={i} className={`flex items-start gap-2.5 p-3 rounded-lg border ${styles[insight.type]}`}>
-                  <span className={`mt-0.5 flex-shrink-0 ${iconColors[insight.type]}`}>{insight.icon}</span>
-                  <div className="min-w-0">
-                    <p className={`text-xs font-bold ${titleColors[insight.type]}`}>{insight.title}</p>
-                    <p className={`text-[11px] mt-0.5 ${descColors[insight.type]}`}>{insight.description}</p>
-                  </div>
+        <div className="mt-6">
+          <div className="flex items-baseline gap-2 mb-2"><h2 className="text-[14px] font-medium text-ds-fg">자동 인사이트</h2><span className="text-[12px] text-ds-fg3">{insights.length}건</span></div>
+          <div className="ds-wrap divide-y divide-ds-line2">
+            {insights.map((insight, i) => (
+              <div key={i} className="flex items-start gap-2.5 px-3 py-2.5">
+                <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0" style={{ background: dot[insight.type] }} />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-ds-fg">{insight.title}</p>
+                  <p className="text-[12px] text-ds-fg2 mt-0.5">{insight.description}</p>
                 </div>
-              )
-            })}
+              </div>
+            ))}
           </div>
         </div>
       )}
