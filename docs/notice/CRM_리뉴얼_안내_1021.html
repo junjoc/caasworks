@@ -4,52 +4,55 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
-/* 레이아웃: 한 줄 읽기 문서(최대 760) — 팀별 섹션, 각 섹션은 "바뀐 것 → 이렇게 쓰세요" 순서 */
+/* 레이아웃: 읽는 글은 760, 화면 캡처는 그보다 넓게(최대 1040) — 세일즈 화면별 "그림 → 이렇게 쓰세요" */
 :root {
   --bg: #fbfbfc; --surface: #ffffff; --fg: #1a1a1f; --fg2: #555a64; --fg3: #8b909a; --line: #e4e5ea;
-  --accent: #2563eb; --accent-soft: #eaf1fe; --warn: #b86e00; --warn-soft: #fff4e5; --due: #b4233a;
+  --accent: #2563eb; --accent-soft: #eaf1fe; --warn-soft: #fff4e5; --due: #b4233a;
   --chip-new: #e2445c; --chip-prog: #579bfc; --chip-plan: #fdab3d; --chip-won: #00c875; --chip-out: #c4c4c4;
   --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #121316; --surface: #1a1c20; --fg: #eceef2; --fg2: #a7acb6; --fg3: #7a7f89; --line: #2b2e34;
-  --accent: #7aa7ff; --accent-soft: #1c2a45; --warn: #f0b45a; --warn-soft: #33270f; --due: #ff7b8e; color-scheme: dark } }
+  --accent: #7aa7ff; --accent-soft: #1c2a45; --warn-soft: #33270f; --due: #ff7b8e; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #121316; --surface: #1a1c20; --fg: #eceef2; --fg2: #a7acb6; --fg3: #7a7f89; --line: #2b2e34;
-  --accent: #7aa7ff; --accent-soft: #1c2a45; --warn: #f0b45a; --warn-soft: #33270f; --due: #ff7b8e; color-scheme: dark }
+  --accent: #7aa7ff; --accent-soft: #1c2a45; --warn-soft: #33270f; --due: #ff7b8e; color-scheme: dark }
 * { box-sizing: border-box }
 body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.7;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 64px }
-main { max-width: 760px; margin: 0 auto }
+main { max-width: 1040px; margin: 0 auto }
+.txt { max-width: 760px }
 h1 { font-size: 28px; font-weight: 600; line-height: 1.3; margin: 0 0 6px; text-wrap: balance; letter-spacing: -0.01em }
-.meta { color: var(--fg3); font-size: 13px; margin: 0 0 24px }
+.meta { color: var(--fg3); font-size: 13px; margin: 0 0 20px }
 .lead { font-size: 16px; color: var(--fg2); margin: 0 0 12px }
-nav.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 8px }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 8px }
 nav.toc a { font-size: 13px; color: var(--fg2); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; background: var(--surface) }
 nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); border-color: var(--accent); outline: none }
-section { padding-top: 36px; margin-top: 28px; border-top: 1px solid var(--line) }
-h2 { font-size: 20px; font-weight: 600; margin: 0 0 4px; text-wrap: balance }
-.who { font-size: 13px; color: var(--fg3); margin: 0 0 14px }
-h3 { font-size: 15px; font-weight: 600; margin: 22px 0 6px }
+section { padding-top: 34px; margin-top: 26px; border-top: 1px solid var(--line) }
+h2 { font-size: 20px; font-weight: 600; margin: 0 0 12px; text-wrap: balance }
+h3 { font-size: 15px; font-weight: 600; margin: 20px 0 6px }
 p { margin: 0 0 10px; max-width: 65ch }
 ul, ol { margin: 0 0 10px; padding-left: 20px } li { margin: 3px 0 } li::marker { color: var(--fg3) }
 b { font-weight: 600 }
+figure { margin: 12px 0 18px }
+figure img { display: block; width: 100%; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+figcaption { font-size: 13px; color: var(--fg3); margin-top: 6px }
 .k { font-family: var(--f-mono); font-size: 13px; background: var(--accent-soft); color: var(--accent); border-radius: 4px; padding: 1px 6px; white-space: nowrap }
 .btn { display: inline-block; font-size: 13px; font-weight: 500; border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; background: var(--surface); white-space: nowrap }
 .btn.p { background: var(--accent); border-color: var(--accent); color: #fff }
-.tip { background: var(--accent-soft); border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 14px }
+.tip { background: var(--accent-soft); border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 14px; max-width: 760px }
 .tip.w { background: var(--warn-soft) }
 .tip b:first-child { display: block; margin-bottom: 2px }
 .chips { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 8px 0 12px; font-size: 13px; color: var(--fg2) }
 .chips span { display: inline-flex; align-items: center; gap: 6px }
-.chip { display: inline-grid; place-items: center; min-width: 58px; height: 22px; padding: 0 8px; border-radius: 4px; color: #fff; font-size: 12px; font-weight: 500 }
-.tbl { overflow-x: auto; margin: 10px 0 14px }
-table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 520px }
+.chip { display: inline-grid; place-items: center; min-width: 58px; height: 22px; padding: 0 8px; border-radius: 4px; color: #fff; font-size: 12px; font-weight: 500; font-style: normal }
+.tbl { overflow-x: auto; margin: 10px 0 14px; max-width: 760px }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 480px }
 th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top }
-th { font-size: 12px; font-weight: 500; color: var(--fg3); letter-spacing: 0.02em }
+th { font-size: 12px; font-weight: 500; color: var(--fg3) }
 td:first-child { white-space: nowrap; font-weight: 500 }
-.steps { counter-reset: s; list-style: none; padding: 0 }
+.steps { counter-reset: s; list-style: none; padding: 0; max-width: 760px }
 .steps li { counter-increment: s; position: relative; padding-left: 32px; margin: 8px 0 }
 .steps li::before { content: counter(s); position: absolute; left: 0; top: 2px; width: 22px; height: 22px; border-radius: 50%; background: var(--fg); color: var(--bg); font-size: 12px; font-weight: 600; display: grid; place-items: center }
 footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--fg3) }
@@ -57,50 +60,102 @@ footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line);
 </style>
 
 <main>
-  <h1>카스웍스 CRM 리뉴얼 안내</h1>
-  <p class="meta">2026-10-21 · 세일즈 · 고객관리 · 마케팅 · 대시보드</p>
-  <p class="lead">화면을 한 가지 규칙으로 다시 정리했습니다. 메뉴는 그대로이고, 표·드로어·기록하는 방식이 바뀌었습니다. 더 빨라졌고, 같은 일을 두 번 적지 않아도 됩니다.</p>
+  <div class="txt">
+    <h1>카스웍스 CRM 리뉴얼 안내</h1>
+    <p class="meta">2026-10-21 · 세일즈</p>
+    <p class="lead">세일즈 화면을 새로 정리했습니다. 메뉴는 그대로이고, 리드를 여는 방식과 기록하는 방식이 바뀌었습니다. 더 빨라졌고, 같은 일을 두 번 적지 않아도 됩니다.</p>
+    <nav class="toc" aria-label="목차">
+      <a href="#list">리스트</a><a href="#board">보드</a><a href="#drawer">리드 드로어</a><a href="#detail">리드 상세</a><a href="#record">기록 남기기</a><a href="#newlead">새 리드 등록</a><a href="#common">읽는 법</a><a href="#feedback">피드백</a>
+    </nav>
+  </div>
 
-  <nav class="toc" aria-label="목차">
-    <a href="#sales">세일즈</a><a href="#newlead">새 리드 등록</a><a href="#customers">고객관리</a><a href="#marketing">마케팅</a><a href="#dashboard">대시보드</a><a href="#common">모든 화면 공통</a><a href="#feedback">피드백</a>
-  </nav>
-
-  <section id="sales">
-    <h2>세일즈 — 리스트 · 보드 · 리드</h2>
-    <p class="who">영업팀</p>
-
-    <h3>리스트</h3>
-    <ul>
+  <section id="list">
+    <h2>리스트</h2>
+    <figure><img src="img/1-list.jpg" alt="세일즈 리스트 화면: 위에 탭과 검색·필터, 그 아래 숫자줄, 표"><figcaption>세일즈 › 리스트 (고객사 이름은 가렸습니다)</figcaption></figure>
+    <ul class="txt">
       <li>위 탭으로 <b>전체 · 진행 · 예정 · 도입완료 · 이탈</b>을 나눠 봅니다. 탭 옆 숫자가 건수입니다.</li>
-      <li>50건씩 나눠 보여 줍니다. 아래 <span class="btn">‹ ›</span>로 넘깁니다. 검색·담당·유입 분류·연도로 거릅니다.</li>
-      <li>열은 <b>유입일 · 회사명 · 단계 · 유입 · 담당 · 발주 · 사업분류 · 가능성 · 다음 액션</b>입니다. 회사명 앞 빨간 점은 우선순위 높음·긴급.</li>
-      <li>여러 건을 고르면 화면 아래에 <b>선택 바</b>가 떠서 단계·담당을 한꺼번에 바꿉니다.</li>
+      <li>50건씩 보여 줍니다. 표 아래 <span class="btn">‹ ›</span>로 넘기고, 검색·담당·유입 분류·연도로 거릅니다.</li>
+      <li>회사명 앞 빨간 점은 우선순위 높음·긴급입니다.</li>
+      <li>왼쪽 칸에 체크하면 화면 아래에 <b>선택 바</b>가 떠서 단계·담당을 한꺼번에 바꿉니다.</li>
+      <li>행을 누르면 오른쪽에 <b>리드 드로어</b>가 열립니다.</li>
     </ul>
+  </section>
 
-    <h3>보드</h3>
-    <ul>
-      <li>카드를 끌어서 다른 단계에 놓으면 단계가 바뀝니다. 이탈은 오른쪽에 접혀 있고, 눌러서 펼칩니다.</li>
+  <section id="board">
+    <h2>보드</h2>
+    <figure><img src="img/4-board.jpg" alt="세일즈 보드 화면: 단계별 열과 카드"><figcaption>세일즈 › 보드뷰 — 열 = 단계, 카드 = 리드</figcaption></figure>
+    <ul class="txt">
+      <li>카드를 끌어서 다른 열에 놓으면 단계가 바뀝니다. 이탈은 오른쪽 끝에 접혀 있고, 누르면 펼쳐집니다.</li>
       <li>카드 둘째 줄의 <span class="k">+12일</span>은 문의가 들어온 뒤 지난 날입니다.</li>
-      <li><b>Shift + 클릭</b>으로 여러 장을 골라 한꺼번에 바꿉니다.</li>
+      <li>카드를 누르면 리스트와 같은 드로어가 열립니다. <b>Shift + 클릭</b>으로 여러 장을 골라 한꺼번에 바꿉니다.</li>
     </ul>
+  </section>
 
-    <h3>리드 열기 — 드로어와 상세</h3>
-    <ul>
-      <li>리스트 행이나 보드 카드를 누르면 <b>오른쪽 드로어</b>가 열립니다. 목록을 떠나지 않고 단계·담당·우선순위·가능성을 칩을 눌러 바로 바꿉니다.</li>
-      <li>더 자세히 보려면 드로어 아래 <span class="btn">상세 페이지</span>. 상세에서는 단계 줄을 눌러 단계를 바꾸고, 오른쪽 카드의 <b>수정</b>으로 문의자·회사·현장 정보를 고칩니다.</li>
+  <section id="drawer">
+    <h2>리드 드로어 — 목록을 떠나지 않고</h2>
+    <figure><img src="img/2-drawer.jpg" alt="리스트 위에 열린 오른쪽 리드 드로어: 단계 줄, 속성 칩, 문의자, 기록 칸, 타임라인"><figcaption>리스트에서 리드를 누른 모습 (테스트 리드)</figcaption></figure>
+    <ul class="txt">
+      <li>맨 위 얇은 막대는 단계 진행입니다. 눌러서 단계를 바꿀 수 있습니다.</li>
+      <li><b>단계 · 담당 · 우선 · 가능성</b> 칩을 누르면 그 자리에서 바뀝니다.</li>
+      <li>가운데 <b>기록 칸</b>에 통화·미팅을 적습니다(아래 "기록 남기기").</li>
+      <li>아래는 최근 타임라인 10줄입니다. 전체는 <span class="btn">상세 페이지</span>.</li>
     </ul>
+  </section>
 
-    <h3>기록 남기기 — 한 곳에서 한 번만</h3>
+  <section id="detail">
+    <h2>리드 상세</h2>
+    <figure><img src="img/3-detail.jpg" alt="리드 상세 화면: 이름줄, 단계 줄, 속성 줄 5칸, 왼쪽 기록과 타임라인, 오른쪽 카드"><figcaption>리드 상세 — 위에서부터 이름 · 단계 줄 · 속성 줄 · 기록과 타임라인 · 정보 카드</figcaption></figure>
+    <ul class="txt">
+      <li><b>단계 줄</b>을 누르면 그 단계로 바뀝니다. 지금 단계에는 머문 날(<span class="k">+2일</span>)이 보입니다.</li>
+      <li><b>속성 줄</b>(담당 · 우선순위 · 도입가능성 · 다음 액션 · 고객사)은 누르면 바로 바꿉니다.</li>
+      <li>오른쪽 카드(문의자 · 문의 내용 · 회사·현장·유입)는 <b>수정</b>을 눌러 고칩니다. 비어 있는 칸은 "빈 칸 · 채우기"로 모아 보입니다.</li>
+      <li>위 <span class="btn">‹ 이전</span> <span class="btn">다음 ›</span>은 리스트에서 보던 순서대로 넘깁니다.</li>
+    </ul>
+  </section>
+
+  <section id="record">
+    <h2>기록 남기기 — 한 곳에서 한 번만</h2>
     <ol class="steps">
       <li>드로어나 상세의 기록 칸에서 유형을 고릅니다. <span class="btn">전화 발신</span> <span class="btn">전화 수신</span> <span class="btn">이메일</span> <span class="btn">미팅</span> <span class="btn">견적</span> <span class="btn">메모</span></li>
       <li>내용을 적고 Enter. 줄바꿈은 Shift + Enter.</li>
       <li>필요하면 <b>다음 액션</b>과 날짜를 같이 정합니다. 날짜를 넣은 다음 액션은 대시보드 "이번 주 액션"에 모입니다.</li>
       <li>회의록을 나중에 올릴 때는 오른쪽 위 <b>언제</b>에서 실제 미팅한 날을 고릅니다. 타임라인에는 그날로 들어가고, 적은 날은 옆에 따로 남습니다.</li>
     </ol>
-    <div class="tip"><b>드로어에 쓴 것과 상세에 쓴 것은 같은 곳에 남습니다.</b>단계·담당·다음 액션을 바꾼 것도 타임라인에 한 줄씩 남습니다. 기록 유형에 따라 단계가 앞으로 자동 이동합니다(예: 미팅 기록 → 미팅). 뒤로는 움직이지 않습니다.</div>
+    <div class="tip"><b>드로어에 쓴 것과 상세에 쓴 것은 같은 곳에 남습니다.</b>단계·담당·다음 액션을 바꾼 것도 타임라인에 한 줄씩 남습니다. 기록 유형에 따라 단계가 앞으로 자동 이동합니다(예: 미팅 기록 → 미팅 단계). 뒤로는 움직이지 않습니다.</div>
+  </section>
 
-    <h3>단계 순서와 색</h3>
-    <p>신규리드 → 컨텍 → 예정 → 제안 → 미팅 → 도입직전 → 도입완료 (그리고 이탈)</p>
+  <section id="newlead">
+    <h2>새 리드 등록</h2>
+    <p class="txt">전화·이메일·행사로 들어온 문의를 손으로 넣을 때입니다. 리스트나 보드의 <span class="btn p">+ 새 리드</span>를 누르면 오른쪽에 등록 칸이 열립니다.</p>
+
+    <h3>1. 유입 일시와 연락처부터</h3>
+    <figure><img src="img/5-new-contact.jpg" alt="새 리드 등록: 연락처를 넣자 같은 연락처의 기존 리드가 위에 표시됨"><figcaption>같은 연락처의 리드가 있으면 바로 위에 보입니다</figcaption></figure>
+    <ul class="txt">
+      <li><b>유입 일시</b>(문의가 들어온 날짜·시각)를 맞추면 ID가 자동으로 만들어집니다. 예: 10월 21일 19:27 → <span class="k">2610211927</span></li>
+      <li>연락처를 넣으면 같은 번호·이메일의 리드를 찾아 보여 줍니다. 담당이 없는 온라인 문의면 <span class="btn p">이어받기</span> — 새로 만들지 않고 그 리드의 담당이 나로 바뀝니다. 그 리드에 통화를 기록하세요.</li>
+    </ul>
+
+    <h3>2. 회사명 — 같은 회사 문의가 있으면</h3>
+    <figure><img src="img/6-new-company.jpg" alt="새 리드 등록: 회사명을 넣자 같은 회사의 기존 리드 목록과 세 가지 선택지가 표시됨"><figcaption>같은 회사의 기존 리드가 보이고, 셋 중 하나를 고릅니다 (회사·문의자 이름은 가렸습니다)</figcaption></figure>
+    <ul class="txt">
+      <li><b>같은 문의</b>면 목록의 그 줄을 누릅니다. 그 리드로 이동합니다.</li>
+      <li>같은 회사의 <b>다른 현장이나 본사 다른 팀</b>이면 "새 리드"를 고릅니다. 같은 고객사에 연결됩니다.</li>
+      <li>이름만 비슷한 <b>다른 회사</b>면 "다른 회사"를 고릅니다.</li>
+    </ul>
+
+    <h3>3. 어디서 문의했나 · 유입</h3>
+    <figure><img src="img/7-new-inflow.jpg" alt="새 리드 등록: 문의 수단 대표전화, 유입 경로 검색 › 네이버를 고른 모습"><figcaption>문의 수단과 유입 경로를 따로 고릅니다</figcaption></figure>
+    <ul class="txt">
+      <li><b>어디서 문의했나</b>: 현장이면 현장명·지역, 본사면 팀. 첫 통화에서 모르면 비워 두고 나중에 상세에서 채웁니다.</li>
+      <li><b>어떻게 연락했나</b>(대표전화 · 개인전화 · 홈페이지 문의 …)와 <b>어떻게 알게 됐나</b>(검색 › 네이버, 광고 › 구글 …)를 따로 고릅니다. 물어봐서 모르면 "모름".</li>
+      <li><span class="btn p">등록</span>을 누르면 방금 만든 리드의 드로어가 열립니다. 바로 첫 통화를 기록하세요. 여러 건을 연달아 넣을 때는 <span class="btn">등록하고 하나 더</span>.</li>
+    </ul>
+    <div class="tip w"><b>홈페이지 문의로 같은 사람이 다시 문의하면</b>새 리드가 따로 생기지 않습니다. 진행 중인 리드(최근 30일)의 타임라인에 주황색 <b>온라인 재문의</b>로 붙고, 다음 액션이 비어 있으면 "온라인 재문의 확인 · 오늘"이 들어갑니다. 끝난 리드면 새 리드가 생기고 메모에 이전 문의 ID가 남습니다.</div>
+  </section>
+
+  <section id="common">
+    <h2>읽는 법</h2>
+    <p class="txt">단계 순서: 신규리드 → 컨텍 → 예정 → 제안 → 미팅 → 도입직전 → 도입완료 (그리고 이탈)</p>
     <div class="chips" aria-label="단계 색">
       <span><i class="chip" style="background:var(--chip-new)">신규리드</i>아직 손 안 댄 것</span>
       <span><i class="chip" style="background:var(--chip-prog)">진행</i>컨텍·제안·미팅·도입직전</span>
@@ -108,80 +163,22 @@ footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line);
       <span><i class="chip" style="background:var(--chip-won)">도입완료</i></span>
       <span><i class="chip" style="background:var(--chip-out)">이탈</i></span>
     </div>
-  </section>
-
-  <section id="newlead">
-    <h2>새 리드 등록</h2>
-    <p class="who">영업팀 — 전화·이메일·행사로 들어온 문의를 손으로 넣을 때</p>
-    <ol class="steps">
-      <li>리스트나 보드의 <span class="btn p">+ 새 리드</span>. 오른쪽에 등록 칸이 열립니다.</li>
-      <li><b>유입 일시</b>(문의가 들어온 날짜·시각)를 맞춥니다. ID는 여기서 자동으로 만들어집니다. 예: 10월 21일 17:35 → <span class="k">2610211735</span></li>
-      <li><b>연락처</b>를 넣습니다. 숫자만 눌러도 하이픈이 자동으로 붙습니다(01012345678 → 010-1234-5678). 같은 번호·이메일로 들어온 리드가 있으면 바로 위에 보입니다.
-        <ul><li>담당이 없는 온라인 문의면 <span class="btn p">이어받기</span> — 새로 만들지 않고 그 리드의 담당이 나로 바뀝니다. 그 리드에 통화를 기록하세요.</li></ul></li>
-      <li><b>회사명</b>을 넣습니다. 같은 회사의 기존 리드가 있으면 목록이 보입니다.
-        <ul><li>같은 문의면 그 줄을 누릅니다(그 리드로 이동).</li>
-          <li>같은 회사의 <b>다른 현장이나 본사 다른 팀</b>이면 "새 리드"를 고릅니다. 같은 고객사에 연결됩니다.</li>
-          <li>이름만 비슷한 다른 회사면 "다른 회사"를 고릅니다.</li></ul></li>
-      <li><b>어디서 문의했나</b>: 현장이면 현장명·지역, 본사면 팀. 첫 통화에서 모르면 비워 두고 나중에 상세에서 채웁니다.</li>
-      <li><b>유입</b>은 두 가지를 따로 고릅니다. <b>어떻게 연락했나</b>(대표전화·개인전화·홈페이지 문의…)와 <b>어떻게 알게 됐나</b>(검색 › 네이버, 광고 › 구글 …). 물어봐서 모르면 "모름".</li>
-      <li><span class="btn p">등록</span>을 누르면 방금 만든 리드의 드로어가 열립니다. 바로 첫 통화를 기록하세요. 여러 건을 연달아 넣을 때는 <span class="btn">등록하고 하나 더</span>.</li>
-    </ol>
-    <div class="tip w"><b>홈페이지 문의로 같은 사람이 다시 문의하면</b>새 리드가 따로 생기지 않습니다. 진행 중인 리드(최근 30일)의 타임라인에 주황색 <b>온라인 재문의</b>로 붙고, 다음 액션이 비어 있으면 "온라인 재문의 확인 · 오늘"이 들어갑니다. 끝난 리드면 새 리드가 생기고 메모에 이전 문의 ID가 남습니다.</div>
-  </section>
-
-  <section id="customers">
-    <h2>고객관리 — 고객 목록</h2>
-    <p class="who">경영지원 · 영업팀</p>
-    <ul>
-      <li>메뉴 이름이 <b>고객 목록</b>으로 바뀌었습니다(전 "전체 고객").</li>
-      <li>탭 <b>전체 · 활성 · 이탈 · 미납</b>. 표에 이번 달 매출 · 올해 매출 · 미납이 같이 보이고, 맨 위 합계 줄은 지금 조건 전체의 합입니다.</li>
-      <li>행을 누르면 드로어에서 상태·영업 담당·업종을 바로 바꾸고, 올해 월별 매출 · 미납 청구 · 연결된 리드를 봅니다. 고객 ID 수정과 삭제도 드로어에서 합니다.</li>
-      <li>영업 담당이 비어 있는 고객이 많습니다. "영업 담당 → 미배정"으로 모아서 채워 주세요.</li>
-    </ul>
-  </section>
-
-  <section id="marketing">
-    <h2>마케팅</h2>
-    <p class="who">마케팅팀</p>
-    <ul>
-      <li><b>유입 성과</b>(전 광고 성과): 광고와 유입을 <b>11가지 분류 + 미분류</b>로 한 표에서 봅니다. 열 때 모두 접혀 있고, 분류 줄을 눌러 펼칩니다.</li>
-      <li><b>콘텐츠 성과 › 네이버</b>: 글별 조회수는 한 해만 월별로 펼쳐집니다. 표 머리의 <span class="k">2025 ▸</span>를 누르면 그해가 펼쳐지고 나머지 해는 합계 한 칸으로 접힙니다. 누적은 맨 오른쪽.</li>
-      <li>글 제목 옆 링크 아이콘을 눌러 <b>네이버 글 URL</b>을 넣어 주세요. 넣으면 마케팅 리포트 레퍼러에 글 제목이 보입니다. 지금 연결된 글은 0편입니다.</li>
-      <li>집계 화면은 표 아래에 회색 "기준 · …" 한 줄이 붙습니다. 캡처할 때 같이 담아 쓰세요.</li>
-    </ul>
-  </section>
-
-  <section id="dashboard">
-    <h2>대시보드</h2>
-    <p class="who">모두</p>
-    <ul>
-      <li>로그인하면 <b>내 파트</b>의 대시보드가 열립니다(경영 · 마케팅 · 세일즈 · 지원 · 하드웨어). 파트는 설정 › 사용자 관리에서 지정합니다.</li>
-      <li>위 탭으로 다른 파트 화면도 볼 수 있고, "위젯 선택"으로 안 보는 위젯을 끕니다.</li>
-      <li>월별 매출 그래프에 기준선과 막대 위 금액이 바로 보입니다.</li>
-    </ul>
-  </section>
-
-  <section id="common">
-    <h2>모든 화면 공통</h2>
     <div class="tbl"><table>
       <thead><tr><th>보이는 것</th><th>뜻</th></tr></thead>
       <tbody>
-        <tr><td>표 맨 위 굵은 줄</td><td>합계. 스크롤하거나 펼쳐도 위에 고정됩니다.</td></tr>
-        <tr><td><span class="k">ⓘ</span></td><td>이 화면 숫자의 기준(무엇을 셌는지).</td></tr>
         <tr><td><span class="k">+3일</span> · <span class="k">오늘</span></td><td>지난 날. 예: 유입 10.18 (+3일), 미팅 +2일</td></tr>
         <tr><td><span class="k">2일 남음</span> · <span style="color:var(--due);font-weight:600">1일 지남</span></td><td>다음 액션까지 남은 날 / 지난 날(빨강)</td></tr>
-        <tr><td><span style="color:var(--due);font-weight:600">진한 빨강 금액</span></td><td>미납·연체</td></tr>
+        <tr><td><span class="k">ⓘ</span></td><td>이 화면 숫자의 기준</td></tr>
         <tr><td>오른쪽 아래 둥근 버튼</td><td>피드백·요청 남기기</td></tr>
       </tbody>
     </table></div>
     <div class="tip"><b>처음 열 때 몇 초 걸릴 수 있습니다.</b>한동안 아무도 안 쓰면 서버가 쉬다가 깨어나느라 그렇습니다. 그다음부터는 0.1~0.4초 안에 뜨고, 한 번 본 화면은 바로 다시 뜹니다.</div>
   </section>
 
-  <section id="feedback">
+  <section id="feedback" class="txt">
     <h2>불편하거나 이상하면</h2>
     <p>화면 오른쪽 아래 <b>피드백 버튼</b>으로 남겨 주세요. 어느 화면에서 무엇을 했는지 한 줄이면 충분합니다. 엔조가 매일 확인해서 반영합니다.</p>
-    <p>아직 바뀌지 않은 화면(과금 고객 · 계약 · 재무 · 운영 · VoC 등)은 색과 글자만 맞춰 두었고, 같은 방식으로 차례대로 바꿉니다.</p>
   </section>
 
-  <footer>카스웍스 CRM · 2026-10-21 리뉴얼 · 화면 기준은 디자인 정의 문서를 따릅니다</footer>
+  <footer>카스웍스 CRM · 2026-10-21 세일즈 리뉴얼 · 그림 속 고객사·문의자 이름은 가렸습니다</footer>
 </main>
