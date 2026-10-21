@@ -105,7 +105,7 @@ export function classifyGa(channel: string, sub: string, notes?: string | null):
     if (sub === '기타' && notes) { const s = bySource(notes); if (s && (s.group === '검색' || s.group === '생성형 AI')) return { ...s, raw } }
     return { group: '검색', sub: '기타', raw }
   }
-  if (channel === '블로그') return sub === '자사' || sub === '네이버' ? { group: '자사 블로그', sub: '네이버', raw } : sub === '티스토리' ? { group: '외부 글', sub: '티스토리', raw } : { group: '자사 블로그', sub: '기타', raw }
+  if (channel === '블로그') return sub === '자사' || sub === '네이버' ? { group: '자사 블로그', sub: '네이버', raw } : sub === '티스토리' ? { group: '자사 블로그', sub: '티스토리', raw } /* GA '블로그' 채널은 자사 블로그로 수집된 값. 남의 티스토리 구분은 우리 티스토리 주소를 받은 뒤 */ : { group: '자사 블로그', sub: '기타', raw }
   return classifyLead(channel, sub)
 }
 
