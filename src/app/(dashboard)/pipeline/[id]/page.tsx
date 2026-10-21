@@ -19,6 +19,7 @@ import { RecordComposer, Timeline, useLeadOverview, postUpdate } from '@/compone
 import { PROB, PRIO } from '@/components/pipeline/lead-drawer'
 import QuotationSection from '@/components/pipeline/QuotationSection'
 import { toast } from 'sonner'
+import { formatPhone } from '@/lib/phone'
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react'
 
 // 10/21: 예정 포함 (팀 원래 순서 컨텍 → 예정 → 제안)
@@ -45,7 +46,7 @@ function CardForm({ fields, lead, onSave, onCancel }: { fields: FieldDef[]; lead
           <span className={cn('text-ds-fg3', x.kind === 'textarea' && 'self-start pt-1')}>{x.label}</span>
           {x.kind === 'select' ? <DsSelect value={f[x.key]} onChange={e => setF({ ...f, [x.key]: e.target.value })} className={cn(ctl, 'w-full')}><option value="">—</option>{x.options!.map(o => <option key={o}>{o}</option>)}</DsSelect>
             : x.kind === 'textarea' ? <textarea rows={4} value={f[x.key]} onChange={e => setF({ ...f, [x.key]: e.target.value })} className="w-full px-2.5 py-1.5 rounded-md border border-ds-line text-[12.5px] focus:outline-none focus:ring-2 focus:ring-ds-accent resize-y" />
-            : <input type={x.kind === 'date' ? 'date' : 'text'} value={f[x.key]} onChange={e => setF({ ...f, [x.key]: e.target.value })} className={ctl} />}
+            : <input type={x.kind === 'date' ? 'date' : 'text'} value={f[x.key]} inputMode={x.key === 'contact_phone' ? 'tel' : undefined} onChange={e => setF({ ...f, [x.key]: x.key === 'contact_phone' ? formatPhone(e.target.value) : e.target.value })} className={ctl} />}
         </Fragment>
       ))}
       <span />

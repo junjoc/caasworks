@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { formatPhone } from '@/lib/phone'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { inferLeadChannel, buildFirstTouch, parseUtmFromText } from '@/lib/attribution'
@@ -326,7 +327,7 @@ export async function POST(request: NextRequest) {
           company_name: companyName,
           contact_person: inquiry.name,
           contact_email: inquiry.email,
-          contact_phone: inquiry.phone,
+          contact_phone: inquiry.phone ? formatPhone(inquiry.phone) : inquiry.phone,
           inquiry_date: today,
           inquiry_channel: inquiryChannel,
           inquiry_source: inquirySource,

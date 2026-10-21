@@ -10,6 +10,7 @@ import { INDUSTRY_OPTIONS, cn } from '@/lib/utils'
 import { Drawer, DsButton, DsSelect, StatusChip, stageTone, dsInput } from '@/components/ds'
 import { postUpdate } from '@/components/pipeline/lead-record'
 import { toast } from 'sonner'
+import { formatPhone } from '@/lib/phone'
 
 const METHODS: [string, string][] = [['홈페이지 문의', '자사채널'], ['대표전화', '대표전화'], ['개인전화', '개인전화'], ['이메일', '이메일'], ['해피톡', '해피톡'], ['행사', '행사방문'], ['기타', '기타']]
 const SERVICES = ['AI CCTV', '동영상 기록관리', '스마트 안전장비', '공정관리 플랫폼', '중대재해예방', '통합 솔루션']
@@ -142,7 +143,7 @@ export function NewLeadDrawer({ open, users, onClose, onCreated, onOpenLead }: {
       <div className="px-4 pt-3 pb-5 text-[12.5px]">
         <div className="grid grid-cols-2 gap-2">
           <F label="유입 일시"><input type="datetime-local" className={inp} value={f.at} onChange={e => set({ at: e.target.value })} /></F>
-          <F label="연락처"><input className={inp} value={f.phone} onChange={e => set({ phone: e.target.value })} placeholder="010-0000-0000" /></F>
+          <F label="연락처"><input className={inp} value={f.phone} onChange={e => set({ phone: formatPhone(e.target.value) })} inputMode="tel" placeholder="010-0000-0000" /></F>
         </div>
 
         {/* ① 같은 연락처·이메일 — 같은 사람 재문의 */}
@@ -160,7 +161,7 @@ export function NewLeadDrawer({ open, users, onClose, onCreated, onOpenLead }: {
         )}
 
         <Sec>회사</Sec>
-        <F label="회사명" req><input className={inp} value={f.company} onChange={e => set({ company: e.target.value })} placeholder="예: 원하건설" /></F>
+        <F label="회사명" req><input className={inp} value={f.company} onChange={e => set({ company: e.target.value })} placeholder="예: 카스웍스" /></F>
 
         {/* ② 같은 회사 — 현장·본사 팀마다 따로 문의가 옴 */}
         {(sameCust || companyLeads.length > 0) && (
