@@ -4,7 +4,9 @@ def chips(items, on=None, cls=''):
     return '<div class="nchips ' + cls + '">' + ''.join(f'<span class="{"on" if x == on else ""}">{x}</span>' for x in items) + '</div>'
 def fld(label, val='', ph=False, req=False, w=''):
     return f'<div class="nf {w}"><label>{label}{"<b>*</b>" if req else ""}</label><span class="ni {"ph" if ph else ""}">{val}</span></div>'
-FORM = f'''<div class="ndr"><div class="ndh"><b>새 리드</b><span class="muted">Esc 닫기</span></div><div class="ndb">
+FORM = f'''<div class="ndr"><div class="ndh"><b>새 리드</b><span class="muted">ID 2610211735 · 유입 일시에서 자동</span></div><div class="ndb">
+<div class="nrow">{fld('유입 일시', '2026-10-21 17:35')}{fld('연락처', '010-1234-····')}</div>
+<div class="recent"><b>같은 연락처의 온라인 문의가 있습니다</b> — ID 2610211619 · 오늘 16:19 · 홈페이지 문의 · 담당 미배정 <span class="lk">이 문의 이어받기 →</span><div class="muted">이어받으면 새 리드를 만들지 않고 그 리드에 담당 = 나, 통화 기록을 붙임</div></div>
 <div class="nsec">회사</div>
 {fld('회사명', '원하건', req=True)}
 <div class="dup2"><div class="dh"><b>원하건설 주식회사</b> <span class="muted">고객 · 현장 3 · 리드 3</span></div>
@@ -13,13 +15,13 @@ FORM = f'''<div class="ndr"><div class="ndh"><b>새 리드</b><span class="muted
 <tr class="hit"><td>현장 · 이천 지식산업센터</td><td>최○○ <b>연락처 같음</b></td><td><span class="st info">컨텍</span></td><td class="muted">10.15</td></tr></table>
 <div class="dch"><span class="c1">같은 문의 → 이 리드에 기록 이어 쓰기</span><span class="c2 on">같은 회사 · 다른 현장이나 본사 다른 팀 → 새 리드</span><span class="c1">이름만 비슷한 다른 회사</span></div></div>
 <div class="nrow"><div class="nf"><label>발주</label>{chips(['공공', '민간'], '민간', 'sm')}</div>{fld('사업분류', '종합건설사')}</div>
-<div class="nsec">어디서 문의했나 <span class="muted">— 같은 회사 문의를 가르는 칸 (모르면 비움)</span></div>
+<div class="nsec">어디서 문의했나 <span class="muted">— 첫 통화에서 모르면 비움, 알게 되면 상세에서</span></div>
 {chips(['현장', '본사'], '현장', 'sm')}
 <div class="nrow">{fld('현장명', '평택 데이터센터 신축')}{fld('지역', '경기 평택')}</div>
 <div class="hint" style="margin-top:4px">본사를 고르면 → <b>팀</b> 한 칸 (예: 안전팀 · 품질팀 · 공무팀). 현장 안에서는 팀을 나누지 않음</div>
 <div class="nsec">문의자</div>
 <div class="nrow">{fld('이름', '이○○')}{fld('직급', '과장')}</div>
-<div class="nrow">{fld('연락처', '010-····-····')}{fld('이메일', 'name@company.com', ph=True)}</div>
+<div class="nrow">{fld('이메일', 'name@company.com', ph=True)}<div></div></div>
 <div class="nsec">유입 — 두 가지를 따로 <span class="muted">(지금 "대표전화 / 검색채널" 처럼 섞여 있던 것)</span></div>
 <label class="nl">어떻게 연락했나 (문의 수단)</label>
 {chips(['홈페이지 문의', '대표전화', '개인전화', '이메일', '해피톡', '행사', '기타'], '대표전화')}
@@ -27,12 +29,12 @@ FORM = f'''<div class="ndr"><div class="ndh"><b>새 리드</b><span class="muted
 {chips(GROUPS + ['모름'], '검색')}
 {chips(['네이버', '구글', '다음', '빙', '기타'], '네이버', 'sub')}
 <div class="hint">→ 저장: 유입 분류 <b>검색 › 네이버</b> · 문의 수단 대표전화 (유입 성과·코호트에 그대로)</div>
-<div class="nrow">{fld('유입일', '2026-10-21')}{fld('관심 서비스', '선택', ph=True)}</div>
+<div class="nrow">{fld('관심 서비스', '선택', ph=True)}<div></div></div>
 <div class="nsec">문의 내용</div>
 <div class="nta">통화 내용·요청 사항</div>
 <div class="nsec">진행</div>
 <div class="nrow">{fld('담당', '전성환 (나)')}{fld('다음 액션', '견적서 발송 · 10.23', ph=False)}</div>
-<div class="more">+ 더 입력 — 고객사 코드(비우면 자동) · 우선순위(기본 중간) · 핵심 니즈 · 메모</div>
+<div class="more">+ 더 입력 — ID 직접 입력(기본 = 유입 일시) · 우선순위(기본 중간) · 핵심 니즈 · 메모</div>
 </div><div class="ndf"><span class="btn sm quiet">취소</span><span class="sp"></span><span class="btn sm">등록하고 하나 더</span><span class="btn sm primary">등록</span></div></div>'''
 ETC = f'''<div class="ndr mini"><div class="ndb"><label class="nl">유입 경로에서 "기타"를 고르면</label>
 {chips(['카스웍스 블로그', '네이버', '티스토리', '기타'], '기타', 'sub')}
@@ -51,13 +53,14 @@ CSS = '''<style>
 .nchips{display:flex;flex-wrap:wrap;gap:4px}.nchips span{height:26px;line-height:24px;padding:0 9px;border:1px solid var(--line);border-radius:13px;font-size:12px;color:var(--fg-2)}.nchips .on{background:var(--fg);border-color:var(--fg);color:var(--bg)}
 .nchips.sub{margin-top:6px;padding-left:10px;border-left:2px solid var(--line)}.nchips.sub .on{background:var(--accent);border-color:var(--accent);color:#fff}.nchips.sm span{height:24px;line-height:22px}
 .nrow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px}.dup2{margin-top:6px;border:1px solid color-mix(in srgb,var(--warn) 45%,var(--line));border-radius:6px;padding:8px 9px;background:color-mix(in srgb,var(--warn) 7%,var(--bg))}.dup2 .dh{font-size:12px;margin-bottom:4px}.dl{width:100%;border-collapse:collapse;font-size:11.5px}.dl td{padding:3px 4px;border-top:1px solid var(--line-2)}.dl tr.hit td{background:color-mix(in srgb,var(--warn) 18%,var(--bg))}.dl .st{height:18px;line-height:18px;min-width:auto;font-size:11px}.dch{display:grid;gap:4px;margin-top:6px}.dch span{display:block;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;background:var(--bg)}.dch .on{border-color:var(--accent);color:var(--accent);font-weight:500}
+.recent{margin-top:6px;padding:7px 9px;border-radius:6px;border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));background:var(--accent-soft);font-size:12px}.recent .muted{font-size:11.5px;margin-top:2px}
 .dup{margin-top:6px;padding:7px 9px;border-radius:6px;background:color-mix(in srgb,var(--warn) 12%,var(--bg));font-size:12px}.dup .st{height:18px;line-height:18px;min-width:auto;font-size:11px}
 .hint{margin-top:6px;font-size:12px;color:var(--fg-2)}.more{margin-top:12px;font-size:12px;color:var(--accent)}.lk{color:var(--accent)}
 </style>'''
-SEC = f'''<section id="m-newlead">{CSS}<h2>세일즈 — 새 리드 등록 (시안 v3 · 결정 대기, 2026-10-21 — 현장 / 본사 팀)</h2>
+SEC = f'''<section id="m-newlead">{CSS}<h2>세일즈 — 새 리드 등록 (시안 v4 · 결정 대기, 2026-10-21 — 현장 / 본사 팀 · ID = 유입 일시)</h2>
 <p class="rule"><b>10/21 수정: 우리 서비스는 현장 단위 — 같은 회사라도 현장마다, 본사는 팀마다 따로 문의(현장 안에서는 통합)</b>(같은 회사 리드 2건 이상 121곳 · 360건, 대우건설 10 · 롯데건설 7). 지금 리드엔 현장·팀 칸이 없어 어느 현장 건인지 모름. 지금은 별도 페이지(/pipeline/new, 칸 19개 한 화면). 리스트·보드의 "+ 새 리드"에서 <b>480 드로어</b>로 열고, 등록하면 그 리드 드로어가 바로 열려 첫 통화를 기록.</p>
 <div class="cmp"><div><h4>데이터로 본 것 (2026년 리드 1,291)</h4><ul><li>손으로 입력 991 · 홈페이지 문의 자동(Slack) 300</li><li>유입이 <b>"대표전화 / 검색채널"</b>처럼 문의 수단 + 알게 된 경로가 한 칸에 섞임 (대표전화 / 검색채널 70 · 대표전화 / 공식홈페이지 51 …)</li><li>관심 서비스 7% · 핵심 니즈 6% · 직급 41% 만 채워짐, 우선순위는 99% "중간"</li></ul></div>
-<div><h4>바뀌는 것</h4><ul><li>유입을 <b>두 줄로</b>: 문의 수단(어떻게 연락) + 유입 경로(어떻게 알게 됨, 유입 분류 11 › 세부, 모르면 "모름")</li><li>기타는 이름 + 링크</li><li>리드 = <b>회사 + (현장 또는 본사 팀)</b>. 현장 안에서는 통합해서 쓰므로 팀은 본사 문의일 때만. 칸 추가: 현장명 · 지역 · 본사 팀</li><li>회사명을 치면 그 회사의 기존 리드(현장 또는 본사 팀 · 문의자 · 단계)를 보여 주고 셋 중 고름: <b>같은 문의 → 그 리드에 기록</b> / 같은 회사 다른 현장·본사 팀 → 새 리드(회사 정보 자동, 같은 고객에 연결) / 다른 회사</li><li>연락처가 같은 리드가 있으면 그 줄을 강조 (같은 사람 재문의)</li><li>잘 안 쓰는 칸(코드·우선순위·핵심 니즈·메모)은 "더 입력"</li><li>담당 기본 = 나, 유입일 기본 = 오늘</li></ul></div>
+<div><h4>바뀌는 것</h4><ul><li>유입을 <b>두 줄로</b>: 문의 수단(어떻게 연락) + 유입 경로(어떻게 알게 됨, 유입 분류 11 › 세부, 모르면 "모름")</li><li>기타는 이름 + 링크</li><li>리드 = <b>회사 + (현장 또는 본사 팀)</b>. 현장 안에서는 통합해서 쓰므로 팀은 본사 문의일 때만. 칸 추가: 현장명 · 지역 · 본사 팀</li><li>회사명을 치면 그 회사의 기존 리드(현장 또는 본사 팀 · 문의자 · 단계)를 보여 주고 셋 중 고름: <b>같은 문의 → 그 리드에 기록</b> / 같은 회사 다른 현장·본사 팀 → 새 리드(회사 정보 자동, 같은 고객에 연결) / 다른 회사</li><li><b>ID = 유입 일시</b>(YYMMDDHHmm, 지금 1,275건 중 1,261건이 이 규칙). 유입 일시를 맨 위에서 받고 ID 는 거기서 자동 — 저장한 시각이 아님</li><li><b>연락처·이메일이 먼저</b>: 같은 연락처의 최근 온라인 문의가 있으면 "이 문의 이어받기"(새 리드 안 만들고 담당·통화 기록만) — 홈페이지 문의에 다시 전화할 때 이중 등록 방지. 연락처가 같은 리드 2건 이상 지금 40곳</li><li>회사명이 같으면 그 회사의 기존 리드 목록 → 같은 문의 / 새 문의 / 다른 회사</li><li>현장·본사 팀은 첫 통화에서 모르면 비움 — 중복 판단에 쓰지 않음</li><li>잘 안 쓰는 칸(코드·우선순위·핵심 니즈·메모)은 "더 입력"</li><li>담당 기본 = 나, 유입일 기본 = 오늘</li></ul></div>
 <div><h4>정해 주실 것</h4><ul><li>현장명·지역·본사 팀 칸 추가 (DB 칸 3개, 비워도 됨)</li><li>드로어(추천) / 지금처럼 페이지</li><li>유입 두 줄 (추천)</li><li>"더 입력"으로 숨길 칸</li><li>등록 뒤: 그 리드 드로어 열기(추천) / 목록으로</li></ul></div></div>
 <div class="npair"><div>{FORM}</div><div>{ETC}</div></div>
 <p class="rule" style="color:var(--fg-3)">저장 방식: 문의 수단 → inquiry_channel, 유입 경로 → inquiry_source("검색 › 네이버" 형태, 유입 분류 규칙이 그대로 읽음). DB 칸 추가 없음.</p></section>'''
