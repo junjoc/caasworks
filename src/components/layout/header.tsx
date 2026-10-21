@@ -51,6 +51,7 @@ const pageTitles: Record<string, string> = {
   // 세일즈
   '/pipeline/board': '세일즈 · 보드뷰',
   '/pipeline/list': '세일즈 · 리스트',
+  '/pipeline/new': '세일즈 · 새 리드',
   '/quotations': '견적서 관리',
   '/quotations/simulator': '견적 모의계산',
   '/quotations/price-list': '단가표',
