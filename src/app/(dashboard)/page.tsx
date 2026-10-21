@@ -59,7 +59,7 @@ function RevTrend({ rev, month }: { rev: [number, number][]; month: number }) {
   const top = Math.ceil(mx / unit) * unit
   const ticks = Array.from({ length: Math.round(top / unit) + 1 }, (_, i) => i * unit)
   const lab = (v: number) => (v >= 1e8 ? `${(v / 1e8).toFixed(v % 1e8 ? 1 : 0)}억` : `${Math.round(v / 1e4).toLocaleString()}만`)
-  const bar = (v: number) => (v >= 1e8 ? `${(v / 1e8).toFixed(1)}억` : v ? `${Math.round(v / 1e6) / 10}천` : '')
+  const bar = (v: number) => (v >= 1e7 ? `${(v / 1e8).toFixed(1)}억` : v ? `${Math.round(v / 1e4).toLocaleString()}만` : '')
   return (
     <div>
       <div className="relative h-[190px] ml-9 mt-3">
