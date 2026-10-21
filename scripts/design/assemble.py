@@ -74,6 +74,8 @@ lay = lay.replace('<body><div class="doc">', '<body><div class="shell">' + ''.jo
 lay = lay.replace('</div>\n<script>', '</main></div>\n<script>', 1) if '</div>\n<script>' in lay else lay.replace('</body>', '</main></div></body>', 1)
 
 TOC_CSS = '''
+.ph3{margin:18px 0 6px;font-size:14px;font-weight:600}.w .more2{margin-left:auto;font-size:11.5px;color:var(--accent);font-weight:400}.wempty{color:var(--fg-3);font-size:12px;padding:18px 4px;line-height:1.5}.hbar.w2{grid-template-columns:72px 1fr 32px}.w{min-height:200px}
+
 .frame .ph:not(.entity) h1{display:none}.frame .ph:not(.entity){min-height:0}
 
 .ds th+th,.ds td+td{border-left:1px solid var(--line-2)}
