@@ -14,3 +14,14 @@ TAX_SEC = f'''<section id="inflow"><h2>유입 분류 11 + 미분류 (2026-10-21 
 <div class="wrap"><table class="ds fixed log"><colgroup><col style="width:5%"><col style="width:13%"><col style="width:42%"><col style="width:40%"></colgroup><thead><tr><th>#</th><th>대분류</th><th>세부</th><th>메모</th></tr></thead><tbody>{tax_rows}</tbody></table></div>
 <p class="note">적용 단계: ① 변환표(src/lib/inflow-taxonomy.ts)로 저장값을 읽어 분석에 표시 — <b>적용됨</b>(채널별 생애 가치·전환 소요 기간) ② GA 동기화 규칙을 11 분류로 + 미분류 사이트 버리지 않기 + 과거 재동기화 — 다음 ③ 리드 입력을 "유입 경로 + 문의 수단" 두 칸으로, 기타는 이름·링크 입력 — 다음 ④ 설정 › 유입 분류(미분류 사이트 지정) — 다음</p></section>'''
 lay = lay.replace('<section id="list">', TAX_SEC + '<section id="list">', 1)
+
+HEAD_SEC = '''<section id="pagehead"><h2>화면 머리 규칙 (2026-10-21)</h2>
+<p class="rule">모든 메뉴 공통. <b>제목은 헤더(48)에만</b> — 헤더의 메뉴 이름이 곧 화면 제목이고 본문에 다시 쓰지 않는다.</p>
+<div class="wrap"><table class="ds fixed log"><colgroup><col style="width:16%"><col style="width:52%"><col style="width:32%"></colgroup><thead><tr><th>줄</th><th>내용</th><th>비고</th></tr></thead><tbody>
+<tr><td><b>헤더 48</b></td><td>메뉴 이름(= 화면 제목)</td><td class="muted">상세 화면은 대상 이름(회사명·청구서 번호)을 본문 이름줄에 둔다 — 예외</td></tr>
+<tr><td><b>툴바 40</b></td><td>왼쪽: 탭·필터 │ 오른쪽: 보기 조절(접기/펴기) → 기간 → 보조 동작(동기화 등) → ⓘ 기준 → <b>주 동작(맨 오른쪽)</b></td><td class="muted">설명 문장(부제)은 쓰지 않고 ⓘ 기준 툴팁으로</td></tr>
+<tr><td><b>숫자줄 64</b></td><td>칸마다 라벨 12 / 값 18 / 보조 11.5. 칸 수 = 항목 수(최대 5)</td><td class="muted"><b>보여줄 숫자가 없으면 줄 자체가 없음</b>. "A · B · C" 글 한 줄 요약 금지 (공용 부품 KpiRow)</td></tr>
+<tr><td><b>표</b></td><td>합계 줄은 맨 위, 머리 아래 고정</td><td class="muted"></td></tr>
+</tbody></table></div>
+<p class="note">적용: 새 디자인 5화면(캠페인 관리·유입 성과·유입 코호트·전환 소요 기간·채널별 생애 가치)은 툴바 → 숫자줄 → 표로 재배치. 나머지 55화면은 헤더와 겹치는 본문 제목만 먼저 제거(동작 버튼은 오른쪽 유지), 숫자줄 전환은 메뉴별 정리 때. 아래 시안들의 제목줄은 이 규칙에 맞춰 숨김.</p></section>'''
+lay = lay.replace('<section id="inflow">', HEAD_SEC + '<section id="inflow">', 1)

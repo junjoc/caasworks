@@ -62,7 +62,7 @@ MENU = [('마케팅', [('m-campaign', '캠페인 관리 — 표형 vs 카드형'
         ('대시보드', [('dash', '대시보드 → 화면 유형 · 대시보드', 'ref')])]
 nav = ['<nav class="toc"><div class="h">카스웍스 CRM 디자인 정의</div>', a('decisions', '정한 것 (요약)'),
        '<div class="g">전역 디자인</div><div class="g2">기초 부품</div>'] + [a('b-' + i, t, 'i') for i, t in base_titles] + \
-      ['<div class="g2">공통 · 화면 유형</div>', a('common', '색 · 상태 칩', 'i'), a('inflow', '유입 분류 11', 'i')] + \
+      ['<div class="g2">공통 · 화면 유형</div>', a('common', '색 · 상태 칩', 'i'), a('pagehead', '화면 머리 규칙', 'i'), a('inflow', '유입 분류 11', 'i')] + \
       [a(h, t, 'i') for h, t in [('list', '목록'), ('agg', '집계'), ('detail', '상세'), ('form', '입력'), ('dash', '대시보드'), ('board', '보드')]] + \
       ['<div class="g">메뉴별 시안</div>']
 for cat, items in MENU:
@@ -74,6 +74,8 @@ lay = lay.replace('<body><div class="doc">', '<body><div class="shell">' + ''.jo
 lay = lay.replace('</div>\n<script>', '</main></div>\n<script>', 1) if '</div>\n<script>' in lay else lay.replace('</body>', '</main></div></body>', 1)
 
 TOC_CSS = '''
+.frame .ph:not(.entity) h1{display:none}.frame .ph:not(.entity){min-height:0}
+
 .ds th+th,.ds td+td{border-left:1px solid var(--line-2)}
 .vl.v2 th+th,.vl.v2 td+td{border-left:0}.vl.v2 .g,.vl.v3 .g{border-left:1px solid #d9d9de!important}.vl.v1 .g{border-left:1px solid var(--line-2)}
 .vl tr.off td{color:var(--fg-3)}.vl td{height:32px}
