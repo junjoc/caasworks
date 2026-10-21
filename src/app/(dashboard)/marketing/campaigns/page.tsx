@@ -145,6 +145,7 @@ export default function CampaignsPage() {
   const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const supabase = createClient()
   // 캠페인별 성과 합계 (누적·이번 달) — 표 한 줄에 쓰는 값. 한 번만 읽는다
+  const [folded, setFolded] = useState<Set<string>>(new Set())
   const [agg, setAgg] = useState<Record<string, { cost: number; month: number; clicks: number; inq: number; ad: number }>>({})
 
   useEffect(() => { fetchData() }, [])
@@ -612,6 +613,7 @@ export default function CampaignsPage() {
   const allCost = Object.values(agg).reduce((s, a) => s + a.cost, 0)
   const thisMonthCost = Object.values(agg).reduce((s, a) => s + a.month, 0)
   const selCampaign = data.find(c => c.id === expandedId) || null
+  const toggleGroup = (ch: string) => setFolded(f => { const n = new Set(f); n.has(ch) ? n.delete(ch) : n.add(ch); return n })
   const n = (v: number) => (v ? v.toLocaleString() : '—')
 
   return (
@@ -638,13 +640,21 @@ export default function CampaignsPage() {
                 const gInq = cs.reduce((s, c) => s + (agg[c.id]?.inq || 0), 0)
                 return (
                   <Fragment key={ch}>
-                    <tr className="ds-group-h" style={{ ['--grp' as string]: g }}>
-                      <td colSpan={10} style={{ boxShadow: `inset 4px 0 0 ${g}` }}>
-                        <span className="text-ds-fg">{ch}</span> <span className="text-ds-fg3 font-normal text-[12px] ml-1">{cs.length}개 · 진행 {cs.filter(c => c.status === '진행중').length}</span>
-                        <span className="float-right text-ds-fg2 font-normal text-[12px]">이번 달 {formatCurrency(gMonth)} · 누적 {formatCurrency(gCost)} · 문의 {gInq}</span>
+                    <tr className="cursor-pointer select-none" onClick={() => toggleGroup(ch)} title={folded.has(ch) ? '펼치기' : '접기'}>
+                      <td colSpan={10} className="!h-11 !bg-ds-bg border-b border-ds-line" style={{ boxShadow: `inset 4px 0 0 ${g}`, paddingLeft: 12 }}>
+                        <span className="inline-flex items-center gap-2">
+                          <ChevronDown className={`w-4 h-4 text-ds-fg3 transition-transform ${folded.has(ch) ? '-rotate-90' : ''}`} />
+                          <b className="text-[14px] font-semibold text-ds-fg">{ch}</b>
+                          <span className="text-ds-fg3 text-[12px]">{cs.length}개 · 진행 {cs.filter(c => c.status === '진행중').length}</span>
+                        </span>
+                        <span className="float-right inline-flex items-baseline gap-5 text-[12px] text-ds-fg3 mt-0.5">
+                          <span>이번 달 <b className="text-[14px] font-semibold text-ds-fg tabular-nums">{gMonth.toLocaleString()}</b></span>
+                          <span>누적 <b className="text-[14px] font-semibold text-ds-fg tabular-nums">{gCost.toLocaleString()}</b></span>
+                          <span>문의 <b className="text-[14px] font-semibold text-ds-fg tabular-nums">{gInq}</b></span>
+                        </span>
                       </td>
                     </tr>
-                    {cs.map(c => {
+                    {!folded.has(ch) && cs.map(c => {
                       const a = agg[c.id] || { cost: 0, month: 0, clicks: 0, inq: 0, ad: 0 }
                       const off = c.status !== '진행중' && c.status !== '준비'
                       const pct = c.budget > 0 ? a.month / c.budget * 100 : null
@@ -661,9 +671,10 @@ export default function CampaignsPage() {
                           <td className="c muted text-[12px]">{c.start_date ? `${c.start_date.slice(2).replace(/-/g, '.')} ~ ${c.end_date ? c.end_date.slice(2).replace(/-/g, '.') : ''}` : '—'}</td>
                           <td className="num">{c.budget ? c.budget.toLocaleString() : '—'}</td>
                           <td className="num">
-                            <span className="inline-flex items-center gap-1.5 justify-end">
-                              {pct != null && !off && <span className="inline-block w-10 h-1 rounded-full bg-ds-line2 overflow-hidden"><span className="block h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: pct > 100 ? 'var(--ds-bad)' : pct > 90 ? 'var(--ds-warn)' : 'var(--ds-info)' }} /></span>}
-                              {n(a.month)}
+                            {/* 막대 칸 44 고정 + 숫자 칸 오른쪽 정렬 — 숫자 길이와 상관없이 막대 위치 고정 */}
+                            <span className="grid grid-cols-[44px_1fr] items-center gap-2">
+                              <span className="block h-1 rounded-full bg-ds-line2 overflow-hidden" title={pct != null ? `월 예산의 ${Math.round(pct)}%` : '월 예산 없음'}>{pct != null && !off && <span className="block h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: pct > 100 ? 'var(--ds-bad)' : pct > 90 ? 'var(--ds-warn)' : 'var(--ds-info)' }} />}</span>
+                              <span>{n(a.month)}</span>
                             </span>
                           </td>
                           <td className="num font-medium">{n(a.cost)}</td>

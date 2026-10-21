@@ -22,7 +22,8 @@ function build(key: string, label: string, rs: LifecycleRow[]): Cohort {
 
 function RateBar({ won, n }: { won: number; n: number }) {
   const p = n ? won / n : 0
-  return <span className="inline-flex items-center gap-1.5"><span className="inline-block w-[60px] h-1.5 rounded-full bg-ds-line2 overflow-hidden"><span className="block h-full bg-ds-info rounded-full" style={{ width: `${Math.min(100, p * 300)}%` }} /></span><span className="w-9 text-right">{n ? fmtPct(won, n) : '—'}</span></span>
+  // 막대 칸 60 + 숫자 칸 52 고정 → 모든 행에서 막대 위치가 같다
+  return <span className="inline-grid grid-cols-[60px_52px] items-center gap-2"><span className="block h-1.5 rounded-full bg-ds-line2 overflow-hidden"><span className="block h-full bg-ds-info rounded-full" style={{ width: `${Math.min(100, p * 300)}%` }} /></span><span className="text-right">{n ? fmtPct(won, n) : '—'}</span></span>
 }
 
 export default function CohortPage() {
