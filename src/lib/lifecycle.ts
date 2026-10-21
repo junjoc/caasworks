@@ -1,3 +1,4 @@
+import { classifyLead } from '@/lib/inflow-taxonomy'
 // 고객 생애주기 화면 공용 (코호트 / 전환 소요 기간)
 import type { LifecycleRow } from '@/app/api/analytics/lifecycle/route'
 export type { LifecycleRow }
@@ -11,7 +12,8 @@ export const BUCKETS = [
 export const bucketOf = (days: number) => BUCKETS.find(b => days >= b.min && days <= b.max)!.key
 
 export const AXES = [
-  { key: 'inquiry_channel', label: '유입 채널' },
+  { key: 'inflow_group', label: '유입 분류 (11)' },
+  { key: 'inquiry_channel', label: '유입 채널 (저장값)' },
   { key: 'site_category', label: '발주유형 (공공/민간)' },
   { key: 'industry', label: '업종' },
   { key: 'service', label: '서비스 유형' },
@@ -24,7 +26,8 @@ export type AxisKey = (typeof AXES)[number]['key']
 // 축 값: 서비스는 여러 개일 수 있어 회사가 여러 그룹에 들어간다
 export function axisValues(r: LifecycleRow, axis: AxisKey): string[] {
   if (axis === 'service') return r.services.length ? r.services : ['(서비스 없음)']
-  const v = r[axis]
+  if (axis === 'inflow_group') return [classifyLead(r.inquiry_channel, r.inquiry_source).group]
+  const v = r[axis as keyof LifecycleRow]
   return [v && String(v).trim() ? String(v) : '(미입력)']
 }
 
