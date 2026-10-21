@@ -58,8 +58,15 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   if (has('gitbook', 'docs.caas')) return { channel: '자사채널', campaign_name: '깃북' }
   if (has('happytalk', 'channel.io', '채널톡')) return { channel: '자사채널', campaign_name: '해피톡' }
 
-  // 광고 대행사 중복체크 레퍼러 → 광고 › 네이버 › 캠페인 미확인
-  if (has('miracleintip')) return { channel: '네이버', campaign_name: '캠페인 미확인', ad_type: '검색' }
+  // 광고 대행사 중복체크 레퍼러·네이버 광고 utm(nads) → 광고 › 네이버 › 캠페인 미확인
+  if (has('miracleintip') || src === 'nads' || src === 'naver_ads' || src === 'naverads') return { channel: '네이버', campaign_name: '캠페인 미확인', ad_type: '검색' }
+  // 검색 결과 페이지에서 레퍼러로 넘어온 경우(organic 표시가 없을 때)도 검색
+  if (has('search.naver') || src === 'naver') return { channel: '검색유입', campaign_name: '네이버' }
+  if (has('search.daum') || src === 'daum.net' || src === 'daum') return { channel: '검색유입', campaign_name: '다음' }
+  if (src === 'google' || has('google.co', 'google.com')) return { channel: '검색유입', campaign_name: '구글' }
+  if (has('bing.com')) return { channel: '검색유입', campaign_name: '빙' }
+  // 자사 단축 링크(파이어베이스 등)
+  if (has('page.link')) return { channel: '자사채널', campaign_name: '기타' }
 
   // 외주 블로그: 팀부스터 유입체크 링크. blog.naver.com 은 아래 POST 에서 글 주소로 자사·인플루언서·팀부스터를 나눈다
   if (has('boosterlink')) return { channel: '외주 블로그', campaign_name: '팀부스터' }
@@ -73,7 +80,8 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   if (has('cafe.daum')) return { channel: '커뮤니티', campaign_name: '다음 카페' }
   // 소셜
   if (has('youtube', 'youtu.be')) return { channel: '소셜', campaign_name: '유튜브' }
-  if (has('instagram')) return { channel: '소셜', campaign_name: '인스타그램' }
+  if (has('instagram') || src === 'ig') return { channel: '소셜', campaign_name: '인스타그램' }
+  if (has('threads')) return { channel: '소셜', campaign_name: '기타' }
   if (has('facebook', 'fb.com', 'fb.me')) return { channel: '소셜', campaign_name: '페이스북' }
   if (has('linkedin', 'lnkd.in')) return { channel: '소셜', campaign_name: '링크드인' }
   if (has('kakao')) return { channel: '소셜', campaign_name: '카카오' }
@@ -83,6 +91,7 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   if (has('brunch')) return { channel: '외부 글', campaign_name: '브런치' }
   if (has('namu.wiki')) return { channel: '외부 글', campaign_name: '나무위키' }
   if (has('velog', 'medium.com', 'notion.site', 'wikipedia')) return { channel: '외부 글', campaign_name: '기타' }
+  if (has('msn.com')) return { channel: '언론·뉴스', campaign_name: '기타' } // MSN 첫 화면 뉴스
   if (NEWS.some(k => src.includes(k))) return { channel: '언론·뉴스', campaign_name: '언론사' }
   if (COMMUNITY.some(k => src.includes(k)) || has('cafe.')) return { channel: '커뮤니티', campaign_name: '기타' }
   if (has('icon')) return { channel: '블로그', campaign_name: '기타' }
