@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, Fragment } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,7 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
+import { PageHeader, Toolbar, Tabs, DsButton, Skeleton, Empty, StatusChip, Drawer } from '@/components/ds'
 import {
   Plus, Megaphone, Pencil, Trash2,
   Calendar, DollarSign, Target, TrendingUp,
@@ -124,7 +125,7 @@ export default function CampaignsPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [statusFilter, setStatusFilter] = useState('진행중')
+  const [statusFilter, setStatusFilter] = useState('전체')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [perfData, setPerfData] = useState<AdPerf[]>([])
   const [perfLoading, setPerfLoading] = useState(false)
@@ -143,11 +144,30 @@ export default function CampaignsPage() {
   // 기간 필터 (기본: 이번 달)
   const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
   const supabase = createClient()
+  // 캠페인별 성과 합계 (누적·이번 달) — 표 한 줄에 쓰는 값. 한 번만 읽는다
+  const [agg, setAgg] = useState<Record<string, { cost: number; month: number; clicks: number; inq: number; ad: number }>>({})
 
   useEffect(() => { fetchData() }, [])
 
+  async function fetchAgg() {
+    const ym = new Date().toISOString().slice(0, 7)
+    const out: Record<string, { cost: number; month: number; clicks: number; inq: number; ad: number }> = {}
+    for (let i = 0; i < 30; i++) {
+      const { data: rows } = await supabase.from('ad_performance').select('campaign_id, date, cost, clicks, inquiries, adoptions').not('campaign_id', 'is', null).range(i * 1000, i * 1000 + 999)
+      for (const r of rows || []) {
+        const a = out[r.campaign_id] ||= { cost: 0, month: 0, clicks: 0, inq: 0, ad: 0 }
+        const cost = Number(r.cost) || 0
+        a.cost += cost; if (String(r.date).startsWith(ym)) a.month += cost
+        a.clicks += Number(r.clicks) || 0; a.inq += Number(r.inquiries) || 0; a.ad += Number(r.adoptions) || 0
+      }
+      if (!rows || rows.length < 1000) break
+    }
+    setAgg(out)
+  }
+
   async function fetchData() {
     setLoading(true)
+    fetchAgg() // 저장·삭제 뒤에도 합계가 같이 갱신되게
     const { data: rows, error } = await supabase
       .from('campaigns')
       .select('*')
@@ -575,135 +595,99 @@ export default function CampaignsPage() {
     )
   }
 
+  // 레이아웃 정의 v1: 채널별 그룹 표 (docs/design/레이아웃정의_v1.html §7 A안). 행 클릭 → 60vw 드로어에 성과·비용 등록
+  const CH_ORDER = ['네이버', '구글', '메타', '외주 블로그', '콘텐츠', '이벤트', '기타']
+  const CH_COLOR: Record<string, string> = { '네이버': 'var(--ds-ok)', '구글': 'var(--ds-info)', '메타': 'var(--ds-info)', '외주 블로그': 'var(--ds-warn)' }
+  const statusTone = (s: string) => (s === '진행중' ? 'ok' : s === '준비' ? 'warn' : 'na') as 'ok' | 'warn' | 'na'
+  const grouped = (() => {
+    const m = new Map<string, Campaign[]>()
+    for (const c of filtered) { const k = c.channel || '기타'; (m.get(k) || m.set(k, []).get(k)!).push(c) }
+    const live = (c: Campaign) => (c.status === '진행중' ? 0 : c.status === '준비' ? 1 : 2)
+    return Array.from(m.entries())
+      .sort((x, y) => (CH_ORDER.indexOf(x[0]) + 1 || 99) - (CH_ORDER.indexOf(y[0]) + 1 || 99))
+      .map(([ch, cs]) => ({ ch, cs: [...cs].sort((a, b) => live(a) - live(b) || (agg[b.id]?.cost || 0) - (agg[a.id]?.cost || 0)) }))
+  })()
+  const counts = (s: string) => (s === '전체' ? data.length : data.filter(d => d.status === s).length)
+  const liveBudget = data.filter(d => d.status === '진행중').reduce((s, d) => s + (d.budget || 0), 0)
+  const allCost = Object.values(agg).reduce((s, a) => s + a.cost, 0)
+  const thisMonthCost = Object.values(agg).reduce((s, a) => s + a.month, 0)
+  const selCampaign = data.find(c => c.id === expandedId) || null
+  const n = (v: number) => (v ? v.toLocaleString() : '—')
+
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">캠페인 관리</h1>
-        <div className="flex items-center gap-2">
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
-          <Button size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> 새 캠페인</Button>
-        </div>
-      </div>
+      <PageHeader title="캠페인 관리"
+        kpis={[{ label: '캠페인', value: data.length }, { label: '진행', value: summaryStats.activeCount }, { label: '진행 중 월 예산', value: formatCurrency(liveBudget) }, { label: '이번 달 집행', value: formatCurrency(thisMonthCost) }, { label: '누적 집행', value: formatCurrency(allCost) }]}
+        actions={<DsButton size="sm" variant="primary" onClick={openAdd} icon={<Plus className="w-3.5 h-3.5" />}>새 캠페인</DsButton>} />
+      <Toolbar right={<DateRangePicker value={dateRange} onChange={setDateRange} />}>
+        <Tabs value={statusFilter} onChange={setStatusFilter} options={['전체', '진행중', '준비', '중단', '종료'].map(s => ({ value: s, label: s, count: counts(s) }))} />
+      </Toolbar>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Megaphone className="w-4 h-4 text-blue-500" />
-            <span className="text-xs text-text-secondary">전체 캠페인</span>
-          </div>
-          <p className="text-lg font-bold">{summaryStats.total}개</p>
-          <p className="text-xs text-text-secondary">진행중 {summaryStats.activeCount}개</p>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <DollarSign className="w-4 h-4 text-green-500" />
-            <span className="text-xs text-text-secondary">총 예산</span>
-          </div>
-          <p className="text-lg font-bold">{formatCurrency(summaryStats.totalBudget)}</p>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="w-4 h-4 text-orange-500" />
-            <span className="text-xs text-text-secondary">총 집행액</span>
-          </div>
-          <p className="text-lg font-bold">{formatCurrency(summaryStats.totalSpend)}</p>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Target className="w-4 h-4 text-purple-500" />
-            <span className="text-xs text-text-secondary">예산 소진율</span>
-          </div>
-          <p className="text-lg font-bold">
-            {summaryStats.totalBudget > 0
-              ? ((summaryStats.totalSpend / summaryStats.totalBudget) * 100).toFixed(0)
-              : 0}%
-          </p>
-        </div>
-      </div>
-
-      {/* Filter */}
-      <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
-        {['전체', '준비', '진행중', '종료', '중단'].map(s => (
-          <button key={s} onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              statusFilter === s ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'
-            }`}>
-            {s}
-          </button>
-        ))}
-      </div>
-
-      {/* List */}
-      {loading ? <Loading /> : filtered.length === 0 ? (
-        <EmptyState icon={Megaphone} title="캠페인이 없습니다"
-          action={<Button size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> 새 캠페인</Button>} />
+      {loading ? <Skeleton rows={10} /> : filtered.length === 0 ? (
+        <Empty text="캠페인이 없습니다" action={<DsButton size="sm" onClick={openAdd}>새 캠페인</DsButton>} />
       ) : (
-        <div className="space-y-3">
-          {filtered.map(campaign => {
-            const budgetPct = campaign.budget > 0
-              ? Math.min((campaign.actual_spend / campaign.budget) * 100, 100)
-              : 0
-            const isExpanded = expandedId === campaign.id
-            return (
-              <div key={campaign.id} className="card overflow-hidden">
-                {/* Campaign Header */}
-                <div className="p-4 hover:bg-surface-secondary/50 transition-colors cursor-pointer"
-                  onClick={() => toggleExpand(campaign.id)}>
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-text-primary">{campaign.name}</h3>
-                        <Badge className={STATUS_COLORS[campaign.status]}>{campaign.status}</Badge>
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">{campaign.channel}</span>
-                        {campaign.ad_type && (
-                          <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded">{campaign.ad_type}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-text-secondary">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {campaign.start_date ? formatDate(campaign.start_date) : '-'} ~ {campaign.end_date ? formatDate(campaign.end_date) : '진행중'}
-                        </span>
-                        {campaign.daily_budget > 0 && (
-                          <span className="flex items-center gap-1">
-                            <Wallet className="w-3 h-3" />
-                            일 예산: {formatCurrency(campaign.daily_budget)}
-                          </span>
-                        )}
-                        {campaign.target_audience && <span>대상: {campaign.target_audience}</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button onClick={(e) => { e.stopPropagation(); openEdit(campaign) }}
-                        className="icon-btn"><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDelete(campaign.id) }}
-                        className="icon-btn text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
-                      {isExpanded
-                        ? <ChevronUp className="w-4 h-4 text-text-tertiary ml-1" />
-                        : <ChevronDown className="w-4 h-4 text-text-tertiary ml-1" />}
-                    </div>
-                  </div>
+        <div className="ds-wrap max-h-[calc(100vh-220px)]">
+          <table className="ds-table is-clickable is-fixed">
+            <colgroup>{[24, 8, 12, 9, 13, 10, 7, 6, 5, 6].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
+            <thead><tr><th>캠페인</th><th>상태</th><th>기간</th><th>월 예산</th><th title="이번 달 집행 ÷ 월 예산">이번 달 집행</th><th>누적 집행</th><th>클릭</th><th>문의</th><th>도입</th><th>문의당</th></tr></thead>
+            <tbody>
+              {grouped.map(({ ch, cs }) => {
+                const g = CH_COLOR[ch] || 'var(--ds-na)'
+                const gCost = cs.reduce((s, c) => s + (agg[c.id]?.cost || 0), 0)
+                const gMonth = cs.reduce((s, c) => s + (agg[c.id]?.month || 0), 0)
+                const gInq = cs.reduce((s, c) => s + (agg[c.id]?.inq || 0), 0)
+                return (
+                  <Fragment key={ch}>
+                    <tr className="ds-group-h" style={{ ['--grp' as string]: g }}>
+                      <td colSpan={10} style={{ boxShadow: `inset 4px 0 0 ${g}` }}>
+                        <span className="text-ds-fg">{ch}</span> <span className="text-ds-fg3 font-normal text-[12px] ml-1">{cs.length}개 · 진행 {cs.filter(c => c.status === '진행중').length}</span>
+                        <span className="float-right text-ds-fg2 font-normal text-[12px]">이번 달 {formatCurrency(gMonth)} · 누적 {formatCurrency(gCost)} · 문의 {gInq}</span>
+                      </td>
+                    </tr>
+                    {cs.map(c => {
+                      const a = agg[c.id] || { cost: 0, month: 0, clicks: 0, inq: 0, ad: 0 }
+                      const off = c.status !== '진행중' && c.status !== '준비'
+                      const pct = c.budget > 0 ? a.month / c.budget * 100 : null
+                      return (
+                        <tr key={c.id} className={`ds-row group ${expandedId === c.id ? 'is-active' : ''} ${off ? 'text-ds-fg3' : ''}`} onClick={() => toggleExpand(c.id)}>
+                          <td className={off ? '' : 'font-medium'} style={{ boxShadow: `inset 4px 0 0 ${g}`, paddingLeft: 16 }} title={c.name}>
+                            {c.name}
+                            <span className="ml-2 inline-flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity align-middle">
+                              <button onClick={e => { e.stopPropagation(); openEdit(c) }} className="icon-btn" title="수정"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={e => { e.stopPropagation(); handleDelete(c.id) }} className="icon-btn hover:!text-ds-bad" title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </span>
+                          </td>
+                          <td className="c"><span className={off ? 'opacity-70' : ''}><StatusChip tone={statusTone(c.status)}>{c.status}</StatusChip></span></td>
+                          <td className="c muted text-[12px]">{c.start_date ? `${c.start_date.slice(2).replace(/-/g, '.')} ~ ${c.end_date ? c.end_date.slice(2).replace(/-/g, '.') : ''}` : '—'}</td>
+                          <td className="num">{c.budget ? c.budget.toLocaleString() : '—'}</td>
+                          <td className="num">
+                            <span className="inline-flex items-center gap-1.5 justify-end">
+                              {pct != null && !off && <span className="inline-block w-10 h-1 rounded-full bg-ds-line2 overflow-hidden"><span className="block h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: pct > 100 ? 'var(--ds-bad)' : pct > 90 ? 'var(--ds-warn)' : 'var(--ds-info)' }} /></span>}
+                              {n(a.month)}
+                            </span>
+                          </td>
+                          <td className="num font-medium">{n(a.cost)}</td>
+                          <td className="num">{n(a.clicks)}</td>
+                          <td className="num">{n(a.inq)}</td>
+                          <td className="num">{n(a.ad)}</td>
+                          <td className="num muted">{a.inq ? Math.round(a.cost / a.inq / 10000).toLocaleString() + '만' : '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-                  {/* Budget Bar */}
-                  <div className="mt-2">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-text-secondary">예산 대비 집행</span>
-                      <span className="font-medium">
-                        {formatCurrency(campaign.actual_spend)} / {formatCurrency(campaign.budget)}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
-                      <div className={`h-2 rounded-full transition-all ${
-                        budgetPct > 90 ? 'bg-red-500' : budgetPct > 70 ? 'bg-yellow-500' : 'bg-blue-500'
-                      }`} style={{ width: `${budgetPct}%` }} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expanded Detail Panel */}
-                {isExpanded && (
-                  <div className="border-t border-border-light bg-surface-secondary/30">
+      <Drawer open={!!selCampaign} onClose={() => { setExpandedId(null); setPerfData([]) }} width="60vw"
+        title={selCampaign ? <span className="inline-flex items-center gap-2">{selCampaign.name}<StatusChip tone={statusTone(selCampaign.status)}>{selCampaign.status}</StatusChip></span> : ''}
+        meta={selCampaign ? `${selCampaign.channel}${selCampaign.ad_type ? ' · ' + selCampaign.ad_type : ''} · ${selCampaign.start_date || '—'} ~ ${selCampaign.end_date || ''}${selCampaign.daily_budget ? ' · 일 예산 ' + formatCurrency(selCampaign.daily_budget) : ''}${selCampaign.target_audience ? ' · 대상 ' + selCampaign.target_audience : ''}` : ''}
+        footer={selCampaign ? <><DsButton size="sm" variant="danger" onClick={() => handleDelete(selCampaign.id)}>삭제</DsButton><span className="flex-1" /><DsButton size="sm" onClick={() => openEdit(selCampaign)}>수정</DsButton></> : undefined}>
+        {selCampaign && (() => { const campaign = selCampaign; return (
+                  <div>
                     {perfLoading ? (
                       <div className="p-6"><Loading /></div>
                     ) : perfData.length === 0 ? (
@@ -925,12 +909,8 @@ export default function CampaignsPage() {
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+        ) })()}
+      </Drawer>
 
       {/* Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}
