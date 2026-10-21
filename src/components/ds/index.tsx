@@ -77,7 +77,7 @@ export const stageTone = (stage: string | null | undefined): Tone =>
 export function StatusChip({ tone, children, cell }: { tone: Tone; children: ReactNode; cell?: boolean }) {
   return cell
     ? <span className={cn('ds-cell-status', toneBg[tone])}>{children}</span>
-    : <span className={cn('inline-block h-[22px] leading-[22px] min-w-[64px] px-2 rounded text-white text-[12px] font-medium text-center', toneBg[tone])}>{children}</span>
+    : <span className={cn('inline-flex items-center justify-center align-middle h-[22px] leading-none min-w-[64px] px-2 rounded text-white text-[12px] font-medium', toneBg[tone])}>{children}</span>
 }
 export function Avatar({ name }: { name: string | null | undefined }) {
   const n = (name || '').trim()

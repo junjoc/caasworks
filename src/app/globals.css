@@ -70,7 +70,7 @@
   .ds-table tr.ds-group-h td { @apply h-[30px] font-semibold text-left; color: var(--grp, var(--ds-accent)); background: var(--ds-bg); }
   .ds-table tr.ds-group td:first-child { border-left: 4px solid var(--grp, var(--ds-accent)); }
   .ds-table tr.ds-sum td { @apply font-semibold border-b-0 border-t-2 border-ds-line; color: var(--ds-fg); background: var(--ds-bg); }
-  .ds-table td .ds-cell-status { @apply block -mx-3 h-9 leading-9 text-center text-white font-medium; min-width: 88px; }
+  .ds-table td .ds-cell-status { @apply flex items-center justify-center -mx-3 h-9 leading-none text-white font-medium; min-width: 88px; }
   .ds-table.is-clickable tbody tr.ds-row { cursor: pointer; }
   .ds-wrap { @apply overflow-auto border border-ds-line rounded-lg bg-ds-bg; }
   .ds-edit { @apply border-b border-dashed border-ds-line cursor-text; }
