@@ -259,36 +259,40 @@ export async function POST(request: NextRequest) {
         const utm = parseUtmFromText([inquiry.extra_content, fullText].filter(Boolean).join('\n'))
         const { channel: inquiryChannel, source: inquirySource } = inferLeadChannel({ ...utm, referrer: inquiry.referrer })
 
-        // 중복 체크 (같은 이메일 또는 전화번호 + 같은 날짜)
-        // KST(한국시간) 기준으로 오늘 날짜 계산 (Vercel 서버는 UTC)
+        // 재문의 처리 (2026-10-21) — 전에는 같은 날 같은 이메일·번호면 건너뛰어 두 번째 문의 내용이 CRM 에 남지 않았다.
+        // 같은 사람(번호는 숫자만, 이메일은 대소문자 무시)의 리드를 찾아
+        //  ① 같은 날이거나 ② 진행 중(이탈·도입완료 아님)이고 최근 30일 안이면 → 새 리드 없이 그 리드 타임라인에 "온라인 재문의"로 붙임
+        //  ③ 그 밖이면(오래됐거나 끝난 리드) → 새 리드를 만들고 메모에 "이전 문의 ID" 를 남김 (다른 현장일 수 있음)
         const now = new Date()
         const kstOffset = 9 * 60 * 60 * 1000
         const today = new Date(now.getTime() + kstOffset).toISOString().substring(0, 10)
-        let isDuplicate = false
-
-        if (inquiry.email) {
-          const { data: dup } = await supabase
-            .from('pipeline_leads')
-            .select('id')
-            .eq('contact_email', inquiry.email)
-            .eq('inquiry_date', today)
-            .limit(1)
-          if (dup && dup.length > 0) isDuplicate = true
+        const ago30 = new Date(now.getTime() + kstOffset - 30 * 86400000).toISOString().substring(0, 10)
+        const phoneDigits = (inquiry.phone || '').replace(/\D/g, '')
+        const email = (inquiry.email || '').trim().toLowerCase()
+        let prev: { id: string; customer_code: string | null; stage: string; inquiry_date: string | null; created_at: string; assigned_to: string | null; next_action: string | null } | null = null
+        if (phoneDigits.length >= 8 || email.includes('@')) {
+          const ors = [phoneDigits.length >= 8 && `contact_phone.ilike.%${phoneDigits.slice(-4)}%`, email.includes('@') && `contact_email.ilike.${email}`].filter(Boolean).join(',')
+          const { data: cands } = await supabase.from('pipeline_leads')
+            .select('id, customer_code, stage, inquiry_date, created_at, assigned_to, next_action, contact_phone, contact_email')
+            .or(ors).order('created_at', { ascending: false }).limit(30)
+          prev = (cands || []).find(l =>
+            (phoneDigits.length >= 8 && String(l.contact_phone || '').replace(/\D/g, '').endsWith(phoneDigits.slice(-8))) ||
+            (email.includes('@') && String(l.contact_email || '').toLowerCase() === email)) || null
         }
+        const prevDate = prev ? (prev.inquiry_date || prev.created_at.slice(0, 10)) : ''
+        const attach = !!prev && (prevDate === today || (!['이탈', '도입완료'].includes(prev.stage) && prevDate >= ago30))
+        const reContent = [inquiry.company_name && `회사: ${inquiry.company_name}`, inquiry.name && `문의자: ${inquiry.name}`, inquiry.extra_content, inquiry.referrer && `레퍼러: ${inquiry.referrer}`].filter(Boolean).join('\n')
 
-        if (!isDuplicate && inquiry.phone) {
-          const { data: dup } = await supabase
-            .from('pipeline_leads')
-            .select('id')
-            .eq('contact_phone', inquiry.phone)
-            .eq('inquiry_date', today)
-            .limit(1)
-          if (dup && dup.length > 0) isDuplicate = true
-        }
-
-        if (isDuplicate) {
-          console.log('Slack webhook: duplicate inquiry detected, skipping')
-          return NextResponse.json({ ok: true, action: 'duplicate_skipped' })
+        if (prev && attach) {
+          await supabase.from('pipeline_history').insert({
+            lead_id: prev.id, field_changed: 'reinquiry', changed_by: null,
+            old_value: `홈페이지 문의 · ${inquiryChannel || ''}${inquirySource ? ` / ${inquirySource}` : ''}`.slice(0, 200),
+            new_value: reContent.slice(0, 2000) || '(내용 없음)',
+          })
+          // 담당자가 놓치지 않게: 다음 액션이 비어 있으면 "온라인 재문의 확인 · 오늘"
+          if (!prev.next_action) await supabase.from('pipeline_leads').update({ next_action: '온라인 재문의 확인', next_action_date: today }).eq('id', prev.id)
+          console.log('Slack webhook: re-inquiry attached to', prev.id)
+          return NextResponse.json({ ok: true, action: 'reinquiry_attached', lead_id: prev.id })
         }
 
         // 회사명 처리
@@ -342,7 +346,7 @@ export async function POST(request: NextRequest) {
           stage: '신규리드',
           priority: '중간',
           inquiry_hour: (new Date().getUTCHours() + 9) % 24, // KST
-          notes: '[Slack 문의알림] 자동등록',
+          notes: ['[Slack 문의알림] 자동등록', prev && `[재문의] 이전 문의 ID ${prev.customer_code || '-'} (${prev.stage}, ${prevDate})`].filter(Boolean).join('\n'),
         }).select('id').single()
 
         if (leadError) {

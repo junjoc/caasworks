@@ -223,6 +223,14 @@ export function Timeline({ items, limit, editable, leadId, onChanged }: { items:
                     </li>
                   )
                 }
+                // 온라인 재문의 (홈페이지 문의폼으로 같은 사람이 다시 문의 — 10/21)
+                if (it.kind === 'reinq') return (
+                  <li key={it.id} className="relative mb-2.5">
+                    <span className="absolute -left-[20.5px] top-[5px] w-[7px] h-[7px] rounded-full bg-ds-warn" />
+                    <div className="flex items-center gap-2"><span className="text-[12px] px-1.5 rounded bg-[color-mix(in_srgb,var(--ds-warn)_18%,var(--ds-bg))] text-ds-fg whitespace-nowrap">온라인 재문의</span>{meta(it)}<span className="text-[12px] text-ds-fg3 truncate">{it.old}</span></div>
+                    {it.new && <p className="mt-1 text-ds-fg whitespace-pre-wrap break-words leading-relaxed">{it.new}</p>}
+                  </li>
+                )
                 if (it.kind === 'next') return (
                   <li key={it.id} className="relative mb-2 text-ds-fg2">
                     {dot('next')}
