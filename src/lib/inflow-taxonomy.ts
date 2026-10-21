@@ -5,21 +5,22 @@
 // 원칙: "어떻게 알게 됐나"(유입 경로)를 먼저 본다. 경로를 모를 때만 "어떻게 연락했나"(직접 연락)로 분류.
 //   예) 대표전화 | 검색채널 → 검색 › 기타,  대표전화 | (빈값) → 직접 연락 › 대표전화
 
+// 순서 = 화면 순서 (2026-10-21 사용자 지정)
 export const INFLOW_GROUPS = [
+  { key: '광고', subs: ['네이버', '구글', '메타', '기타'] },
+  { key: '소셜', subs: ['유튜브', '인스타그램', '페이스북', '링크드인', '카카오', '기타'] },
   { key: '검색', subs: ['네이버', '구글', '다음', '빙', '기타'] },
-  { key: '생성형 AI', subs: ['ChatGPT', 'Gemini', 'Claude', 'Perplexity', 'Copilot', '기타'] },
   { key: '자사 채널', subs: ['홈페이지', '깃북', '해피톡', '기타'] },
+  { key: '직접 연락', subs: ['대표전화', '개인전화', '이메일', '추천', '행사', '기타'] },
   { key: '자사 블로그', subs: ['카스웍스 블로그', '네이버', '티스토리', '기타'] },
   { key: '외주 블로그', subs: ['팀부스터', '인플루언서', '기타'] },
+  { key: '생성형 AI', subs: ['ChatGPT', 'Gemini', 'Claude', 'Perplexity', 'Copilot', '기타'] },
   { key: '외부 글', subs: ['네이버', '티스토리', '브런치', '나무위키', '기타'] },
   { key: '언론·뉴스', subs: ['네이버 뉴스', '다음 뉴스', '언론사', '기타'] },
   { key: '커뮤니티', subs: ['네이버 카페', '다음 카페', '기타'] },
-  { key: '소셜', subs: ['유튜브', '인스타그램', '페이스북', '링크드인', '카카오', '기타'] },
-  { key: '광고', subs: ['네이버', '구글', '메타', '기타'] },
-  { key: '직접 연락', subs: ['대표전화', '개인전화', '이메일', '추천', '행사', '기타'] },
 ] as const
-// 11 분류 밖: 고객사 사내 메일·공유 문서·메신저 등 출처를 확인해야 하는 유입. 반복되면 11 분류로 옮긴다
-export const OTHER_GROUP = '공유·출처 확인' as const
+// 12. 미분류: 11 분류 밖 — 고객사 사내 메일·공유 문서·메신저 등 출처 확인이 필요한 유입. 반복되면 11 분류로 옮긴다
+export const OTHER_GROUP = '미분류' as const
 export type InflowGroup = (typeof INFLOW_GROUPS)[number]['key'] | typeof OTHER_GROUP
 export interface Inflow { group: InflowGroup; sub: string; raw: string }
 

@@ -14,7 +14,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 
 // ─── 소스 매핑 규칙 — 유입 분류 11 (2026-10-21, src/lib/inflow-taxonomy.ts) ───
 // 저장 채널명: 기존 값(검색유입·자사채널·블로그·외주 블로그)은 그대로, 새 분류는 분류 이름 그대로
-// (외부 글·언론·뉴스·커뮤니티·소셜·공유·출처 확인). 규칙에 없는 사이트도 버리지 않는다.
+// (외부 글·언론·뉴스·커뮤니티·소셜·미분류). 규칙에 없는 사이트도 버리지 않는다.
 interface ChannelMapping {
   channel: string        // ad_performance.channel
   campaign_name: string  // ad_performance.campaign_name (세부)
@@ -30,6 +30,8 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
 
   // 유료 광고 클릭(cpc 등)은 광고 API 동기화가 따로 넣는다 → 중복 방지로 제외
   if (['cpc', 'ppc', 'paid', 'paidsearch', 'display', 'cpm'].includes(med)) return null
+  // NAds = 네이버 광고 캠페인, GAds = 구글 광고 캠페인. 광고 행의 GA 유입은 팀이 일괄 입력하므로 여기서 또 넣으면 중복
+  if (['nads', 'gads', 'naver_ads', 'naverads', 'google_ads'].includes(src)) return null
 
   // 자사 블로그 배너: "tistory / contact_banner", "naver_blog / contact_banner" (우리 글이라는 표시)
   if (med === 'contact_banner') {
@@ -58,8 +60,8 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   if (has('gitbook', 'docs.caas')) return { channel: '자사채널', campaign_name: '깃북' }
   if (has('happytalk', 'channel.io', '채널톡')) return { channel: '자사채널', campaign_name: '해피톡' }
 
-  // 광고 대행사 중복체크 레퍼러·네이버 광고 utm(nads) → 광고 › 네이버 › 캠페인 미확인
-  if (has('miracleintip') || src === 'nads' || src === 'naver_ads' || src === 'naverads') return { channel: '네이버', campaign_name: '캠페인 미확인', ad_type: '검색' }
+  // 광고 대행사 중복체크 레퍼러 → 광고 › 네이버 › 캠페인 미확인
+  if (has('miracleintip')) return { channel: '네이버', campaign_name: '캠페인 미확인', ad_type: '검색' }
   // 검색 결과 페이지에서 레퍼러로 넘어온 경우(organic 표시가 없을 때)도 검색
   if (has('search.naver') || src === 'naver') return { channel: '검색유입', campaign_name: '네이버' }
   if (has('search.daum') || src === 'daum.net' || src === 'daum') return { channel: '검색유입', campaign_name: '다음' }
@@ -96,9 +98,9 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   if (COMMUNITY.some(k => src.includes(k)) || has('cafe.')) return { channel: '커뮤니티', campaign_name: '기타' }
   if (has('icon')) return { channel: '블로그', campaign_name: '기타' }
 
-  // 그 밖의 모든 레퍼러(고객사 사내 메일·공유 문서·메신저 등) → 공유·출처 확인. 도메인을 세부로 남긴다
-  if (src && src !== '(direct)' && src !== '(not set)') return { channel: '공유·출처 확인', campaign_name: src.slice(0, 80) }
-  return { channel: '공유·출처 확인', campaign_name: '(출처 없음)' }
+  // 그 밖의 모든 레퍼러(고객사 사내 메일·공유 문서·메신저 등) → 미분류. 도메인을 세부로 남긴다
+  if (src && src !== '(direct)' && src !== '(not set)') return { channel: '미분류', campaign_name: src.slice(0, 80) }
+  return { channel: '미분류', campaign_name: '(출처 없음)' }
 }
 
 export async function POST(request: NextRequest) {
@@ -318,7 +320,7 @@ export async function POST(request: NextRequest) {
     // ─── Supabase에 저장 ───
     const supabase = createClient(supabaseUrl, supabaseKey)
     // 외주 블로그는 월 비용 행(캠페인 연결, campaign_id 있음)이 같은 채널에 있어서 campaign_id 없는 행만 다룬다
-    const organicChannels = ['검색유입', '자사채널', '블로그', '외주 블로그', '언론', '외부 글', '언론·뉴스', '커뮤니티', '소셜', '공유·출처 확인']
+    const organicChannels = ['검색유입', '자사채널', '블로그', '외주 블로그', '언론', '외부 글', '언론·뉴스', '커뮤니티', '소셜', '미분류']
 
     // 기존 수동 입력 데이터(문의/도입 등) 보존을 위해 먼저 조회 (기본 1000행 제한이 있어서 나눠 읽음)
     const existingRows: Record<string, any>[] = []
@@ -376,7 +378,7 @@ export async function POST(request: NextRequest) {
 
       // 비고(notes)에 실제 유입 소스 상세 기록 (기타/생성형AI 등)
       let notes: string | null = null
-      if (r.sources.size > 0 && (r.campaign_name === '기타' || r.campaign_name === '생성형AI' || r.campaign_name === '언론사' || r.channel === '공유·출처 확인')) {
+      if (r.sources.size > 0 && (r.campaign_name === '기타' || r.campaign_name === '생성형AI' || r.campaign_name === '언론사' || r.channel === '미분류')) {
         const sourceList = Array.from(r.sources.entries())
           .sort((a, b) => b[1] - a[1])
           .map(([src, cnt]) => `${src}(${cnt})`)
