@@ -12,98 +12,90 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 // 검색유입(네이버/구글/생성형AI), 자사채널(홈페이지/깃북/해피톡), 블로그(네이버/티스토리/아이콘)
 // → ad_performance 테이블에 오가닉 채널 데이터로 저장
 
-// ─── 소스 매핑 규칙 ───
+// ─── 소스 매핑 규칙 — 유입 분류 11 (2026-10-21, src/lib/inflow-taxonomy.ts) ───
+// 저장 채널명: 기존 값(검색유입·자사채널·블로그·외주 블로그)은 그대로, 새 분류는 분류 이름 그대로
+// (외부 글·언론·뉴스·커뮤니티·소셜·공유·출처 확인). 규칙에 없는 사이트도 버리지 않는다.
 interface ChannelMapping {
-  channel: string      // ad_performance.channel
-  campaign_name: string // ad_performance.campaign_name (서브소스)
+  channel: string        // ad_performance.channel
+  campaign_name: string  // ad_performance.campaign_name (세부)
+  ad_type?: string       // 기본 '콘텐츠'. 광고 대행사 유입은 '검색'
 }
+const NEWS = ['news', 'press', 'media', 'herald', 'chosun', 'donga', 'joongang', 'hani', 'khan', 'mk.co', 'sedaily', 'etnews', 'zdnet', 'bloter', 'venturesquare', 'platum', 'byline', 'cnews', 'dnews', 'kharn', 'safetynews', 'yna.co', 'newsis', 'edaily', 'hankyung', 'mt.co', 'asiae', 'fnnews', 'heraldcorp']
+const COMMUNITY = ['clien', 'dcinside', 'fmkorea', 'ruliweb', 'theqoo', 'ppomppu', 'inven', 'blind', 'okky', 'disquiet']
 
 function mapSourceToChannel(source: string, medium: string): ChannelMapping | null {
   const src = (source || '').toLowerCase()
   const med = (medium || '').toLowerCase()
+  const has = (...ks: string[]) => ks.some(k => src.includes(k))
 
-  // ─── 검색유입 (오가닉 검색) ───
-  if (med === 'organic' || med === 'organic search') {
-    if (src.includes('naver') || src.includes('search.naver')) {
-      return { channel: '검색유입', campaign_name: '네이버' }
-    }
-    if (src.includes('google')) {
-      return { channel: '검색유입', campaign_name: '구글' }
-    }
-    if (src.includes('daum') || src.includes('zum') || src.includes('bing') || src.includes('yahoo')) {
-      return { channel: '검색유입', campaign_name: '기타' }
-    }
-    // 기타 오가닉 검색
-    return { channel: '검색유입', campaign_name: '기타' }
+  // 유료 광고 클릭(cpc 등)은 광고 API 동기화가 따로 넣는다 → 중복 방지로 제외
+  if (['cpc', 'ppc', 'paid', 'paidsearch', 'display', 'cpm'].includes(med)) return null
+
+  // 자사 블로그 배너: "tistory / contact_banner", "naver_blog / contact_banner" (우리 글이라는 표시)
+  if (med === 'contact_banner') {
+    if (has('tistory')) return { channel: '블로그', campaign_name: '티스토리' }
+    if (has('naver')) return { channel: '블로그', campaign_name: '네이버' }
+    return { channel: '블로그', campaign_name: '기타' }
   }
 
-  // ─── 생성형AI 검색 ───
-  if (
-    src.includes('chatgpt') || src.includes('openai') ||
-    src.includes('perplexity') || src.includes('claude') || src.includes('anthropic') ||
-    src.includes('bard') || src.includes('gemini') ||
-    src.includes('copilot') || src.includes('bing-chat') ||
-    src.includes('you.com') || src.includes('phind') ||
-    src.includes('ai-search') || src.includes('searchgpt')
-  ) {
+  // 생성형 AI — 검색보다 먼저 (chatgpt 가 organic 으로 들어오는 경우가 있음)
+  if (has('chatgpt', 'openai', 'searchgpt', 'perplexity', 'claude.ai', 'anthropic', 'gemini', 'bard', 'copilot', 'bing-chat', 'you.com', 'phind', 'ai-search')) {
     return { channel: '검색유입', campaign_name: '생성형AI' }
   }
 
-  // ─── 자사채널 ───
-  // 직접 유입 (direct)
-  if (src === '(direct)' && (med === '(none)' || med === 'none')) {
-    return { channel: '자사채널', campaign_name: '홈페이지' }
-  }
-  // caas.works 자체 도메인 유입
-  if (src.includes('caas.works') || src.includes('caasworks')) {
-    return { channel: '자사채널', campaign_name: '홈페이지' }
-  }
-  // 깃북
-  if (src.includes('gitbook') || src.includes('docs.caas')) {
-    return { channel: '자사채널', campaign_name: '깃북' }
-  }
-  // 해피톡 / 채널톡
-  if (src.includes('happytalk') || src.includes('channel.io') || src.includes('채널톡')) {
-    return { channel: '자사채널', campaign_name: '해피톡' }
+  // 검색 (오가닉)
+  if (med === 'organic' || med === 'organic search') {
+    if (has('naver')) return { channel: '검색유입', campaign_name: '네이버' }
+    if (has('google')) return { channel: '검색유입', campaign_name: '구글' }
+    if (has('daum')) return { channel: '검색유입', campaign_name: '다음' }
+    if (has('bing')) return { channel: '검색유입', campaign_name: '빙' }
+    return { channel: '검색유입', campaign_name: '기타' }
   }
 
-  // 외주 블로그 대행사 링크 (src/config/blog_channels.json)
-  if (src.includes('boosterlink')) {
-    return { channel: '외주 블로그', campaign_name: '팀부스터' }
-  }
+  // 자사 채널
+  if (src === '(direct)' && (med === '(none)' || med === 'none')) return { channel: '자사채널', campaign_name: '홈페이지' }
+  if (has('caas.works', 'caasworks')) return { channel: '자사채널', campaign_name: '홈페이지' }
+  if (has('gitbook', 'docs.caas')) return { channel: '자사채널', campaign_name: '깃북' }
+  if (has('happytalk', 'channel.io', '채널톡')) return { channel: '자사채널', campaign_name: '해피톡' }
 
-  // ─── 블로그 (referral) ───
-  if (med === 'referral' || med === 'social') {
-    if (src.includes('blog.naver') || src.includes('m.blog.naver') || (src.includes('naver') && !src.includes('search'))) {
-      return { channel: '블로그', campaign_name: '네이버' }
-    }
-    if (src.includes('tistory')) {
-      return { channel: '블로그', campaign_name: '티스토리' }
-    }
-    if (src.includes('brunch')) {
-      return { channel: '블로그', campaign_name: '기타' }
-    }
-    // 아이콘 (icon.kr 등)
-    if (src.includes('icon')) {
-      return { channel: '블로그', campaign_name: '아이콘' }
-    }
-  }
+  // 광고 대행사 중복체크 레퍼러 → 광고 › 네이버 › 캠페인 미확인
+  if (has('miracleintip')) return { channel: '네이버', campaign_name: '캠페인 미확인', ad_type: '검색' }
 
-  // ─── 언론 ───
-  if (med === 'referral') {
-    const newsKeywords = ['news', 'press', 'media', 'herald', 'chosun', 'donga', 'joongang', 'hani', 'khan', 'mk', 'sedaily', 'etnews', 'zdnet', 'bloter', 'venturesquare', 'platum', 'byline']
-    if (newsKeywords.some(kw => src.includes(kw))) {
-      return { channel: '언론', campaign_name: src }
-    }
-  }
+  // 외주 블로그: 팀부스터 유입체크 링크. blog.naver.com 은 아래 POST 에서 글 주소로 자사·인플루언서·팀부스터를 나눈다
+  if (has('boosterlink')) return { channel: '외주 블로그', campaign_name: '팀부스터' }
+  if (has('blog.naver') || src === 'naver_blog') return { channel: '외주 블로그', campaign_name: '팀부스터' }
 
-  // 매핑 안 되는 소스는 null (무시)
-  return null
+  // 언론·뉴스 (네이버·다음 뉴스는 블로그·검색보다 먼저)
+  if (has('news.naver')) return { channel: '언론·뉴스', campaign_name: '네이버 뉴스' }
+  if (has('news.daum', 'v.daum')) return { channel: '언론·뉴스', campaign_name: '다음 뉴스' }
+  // 커뮤니티
+  if (has('cafe.naver')) return { channel: '커뮤니티', campaign_name: '네이버 카페' }
+  if (has('cafe.daum')) return { channel: '커뮤니티', campaign_name: '다음 카페' }
+  // 소셜
+  if (has('youtube', 'youtu.be')) return { channel: '소셜', campaign_name: '유튜브' }
+  if (has('instagram')) return { channel: '소셜', campaign_name: '인스타그램' }
+  if (has('facebook', 'fb.com', 'fb.me')) return { channel: '소셜', campaign_name: '페이스북' }
+  if (has('linkedin', 'lnkd.in')) return { channel: '소셜', campaign_name: '링크드인' }
+  if (has('kakao')) return { channel: '소셜', campaign_name: '카카오' }
+  if (med === 'social') return { channel: '소셜', campaign_name: '기타' }
+  // 외부 글 (남이 쓴 글·위키). contact_banner 없는 티스토리는 남의 글
+  if (has('tistory')) return { channel: '외부 글', campaign_name: '티스토리' }
+  if (has('brunch')) return { channel: '외부 글', campaign_name: '브런치' }
+  if (has('namu.wiki')) return { channel: '외부 글', campaign_name: '나무위키' }
+  if (has('velog', 'medium.com', 'notion.site', 'wikipedia')) return { channel: '외부 글', campaign_name: '기타' }
+  if (NEWS.some(k => src.includes(k))) return { channel: '언론·뉴스', campaign_name: '언론사' }
+  if (COMMUNITY.some(k => src.includes(k)) || has('cafe.')) return { channel: '커뮤니티', campaign_name: '기타' }
+  if (has('icon')) return { channel: '블로그', campaign_name: '기타' }
+
+  // 그 밖의 모든 레퍼러(고객사 사내 메일·공유 문서·메신저 등) → 공유·출처 확인. 도메인을 세부로 남긴다
+  if (src && src !== '(direct)' && src !== '(not set)') return { channel: '공유·출처 확인', campaign_name: src.slice(0, 80) }
+  return { channel: '공유·출처 확인', campaign_name: '(출처 없음)' }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    const dryRun = !!body.dryRun // 미리보기: GA 를 읽고 분류 결과만 돌려준다 (DB 쓰기 없음)
 
     // 날짜 미지정 시 최근 90일 기본값
     const today = new Date()
@@ -206,6 +198,7 @@ export async function POST(request: NextRequest) {
       date: string
       channel: string
       campaign_name: string
+      ad_type?: string
       ga_visits: number
       active_users: number
       page_views: number
@@ -256,6 +249,7 @@ export async function POST(request: NextRequest) {
           date: dateStr,
           channel: mapping.channel,
           campaign_name: mapping.campaign_name,
+          ad_type: mapping.ad_type || '콘텐츠',
           ga_visits: sessions,
           active_users: users,
           page_views: views,
@@ -306,10 +300,16 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    if (dryRun) {
+      const preview: Record<string, number> = {}
+      for (const r of Array.from(aggregated.values())) preview[`${r.channel} › ${r.campaign_name}`] = (preview[`${r.channel} › ${r.campaign_name}`] || 0) + r.ga_visits
+      return NextResponse.json({ success: true, dryRun: true, startDate, endDate, gaRows: gaRows.length, groups: aggregated.size, preview })
+    }
+
     // ─── Supabase에 저장 ───
     const supabase = createClient(supabaseUrl, supabaseKey)
     // 외주 블로그는 월 비용 행(캠페인 연결, campaign_id 있음)이 같은 채널에 있어서 campaign_id 없는 행만 다룬다
-    const organicChannels = ['검색유입', '자사채널', '블로그', '외주 블로그', '언론']
+    const organicChannels = ['검색유입', '자사채널', '블로그', '외주 블로그', '언론', '외부 글', '언론·뉴스', '커뮤니티', '소셜', '공유·출처 확인']
 
     // 기존 수동 입력 데이터(문의/도입 등) 보존을 위해 먼저 조회 (기본 1000행 제한이 있어서 나눠 읽음)
     const existingRows: Record<string, any>[] = []
@@ -348,6 +348,9 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // 광고 대행사 레퍼러(네이버 › 캠페인 미확인)만 지운다 — 같은 '네이버' 채널의 광고 행은 건드리지 않음
+    await supabase.from('ad_performance').delete().eq('channel', '네이버').eq('campaign_name', '캠페인 미확인').is('campaign_id', null).gte('date', startDate).lte('date', endDate)
+
     // 기존 동기화 데이터만 삭제 (수동 입력 data_source='manual'은 보존)
     await supabase.from('ad_performance')
       .delete()
@@ -364,7 +367,7 @@ export async function POST(request: NextRequest) {
 
       // 비고(notes)에 실제 유입 소스 상세 기록 (기타/생성형AI 등)
       let notes: string | null = null
-      if (r.sources.size > 0 && (r.campaign_name === '기타' || r.campaign_name === '생성형AI')) {
+      if (r.sources.size > 0 && (r.campaign_name === '기타' || r.campaign_name === '생성형AI' || r.campaign_name === '언론사' || r.channel === '공유·출처 확인')) {
         const sourceList = Array.from(r.sources.entries())
           .sort((a, b) => b[1] - a[1])
           .map(([src, cnt]) => `${src}(${cnt})`)
@@ -375,7 +378,7 @@ export async function POST(request: NextRequest) {
       return {
         date: r.date,
         channel: r.channel,
-        ad_type: '콘텐츠',
+        ad_type: r.ad_type || '콘텐츠',
         campaign_name: r.campaign_name,
         campaign_id: null,
         impressions: 0,                  // 오가닉은 노출 없음

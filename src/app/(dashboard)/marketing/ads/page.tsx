@@ -14,7 +14,7 @@ import { formatCurrency, formatNumber, CHANNEL_SUB_SOURCES as SHARED_SUB_SOURCES
 import { toast } from 'sonner'
 import { CompanyTagInput } from '@/components/ui/company-tag-input'
 import { PageHeader, Toolbar, Tabs, DsButton, Skeleton, Empty, Drawer } from '@/components/ds'
-import { classifyAdRow, splitNotes, INFLOW_GROUPS, INFLOW_ORDER, PAID_GROUPS, subOrder, type InflowGroup } from '@/lib/inflow-taxonomy'
+import { classifyAdRow, splitNotes, INFLOW_GROUPS, INFLOW_ORDER, PAID_GROUPS, OTHER_GROUP, subOrder, type InflowGroup } from '@/lib/inflow-taxonomy'
 
 const isPaid = (d: { channel: string; ad_type: string; campaign_name: string; notes?: string | null }) => PAID_GROUPS.includes(classifyAdRow(d.channel, d.ad_type, d.campaign_name, d.notes).group)
 const tabMatch = (tab: TabType, d: { channel: string; ad_type: string; campaign_name: string; notes?: string | null }) => tab === '전체' || (tab === '유료') === isPaid(d)
@@ -880,7 +880,7 @@ export default function AdsPage() {
 
   // ─── 광고 표: 광고비·노출이 있는 행만, 채널 › 캠페인 › 광고그룹 기간 합계 (10/21) ───
   type AdTot = { cost: number; impressions: number; clicks: number; ga: number; inqClicks: number; inquiries: number; adoptions: number }
-  const GROUP_COLOR = (g: InflowGroup) => (g === '광고' ? 'var(--ds-accent)' : g === '외주 블로그' ? 'var(--ds-warn)' : g === '직접 연락' ? 'var(--ds-ok)' : g === '미분류' ? 'var(--ds-na)' : 'var(--ds-info)')
+  const GROUP_COLOR = (g: InflowGroup) => (g === '광고' ? 'var(--ds-accent)' : g === '외주 블로그' ? 'var(--ds-warn)' : g === '직접 연락' ? 'var(--ds-ok)' : g === OTHER_GROUP ? 'var(--ds-na)' : 'var(--ds-info)')
   const add = (t: AdTot, d: AdPerformance) => { t.cost += d.cost; t.impressions += d.impressions; t.clicks += d.clicks; t.ga += d.ga_visits || 0; t.inqClicks += d.inquiry_clicks || 0; t.inquiries += d.inquiries; t.adoptions += d.adoptions }
   const zero = (): AdTot => ({ cost: 0, impressions: 0, clicks: 0, ga: 0, inqClicks: 0, inquiries: 0, adoptions: 0 })
   type Row = AdTot & { key: string; group: InflowGroup; sub: string; label: string; detail: string; campaignId: string | null; type: string; raw: string; days: AdPerformance[] }
@@ -918,7 +918,7 @@ export default function AdsPage() {
     list.forEach(r => r.days.sort((a, b) => b.date.localeCompare(a.date)))
     const total = zero(); list.forEach(r => { total.cost += r.cost; total.impressions += r.impressions; total.clicks += r.clicks; total.ga += r.ga; total.inqClicks += r.inqClicks; total.inquiries += r.inquiries; total.adoptions += r.adoptions })
     // 11 분류는 비어 있어도 모두 보인다 (빠진 유입을 알아볼 수 있게). 미분류는 있을 때만
-    const order = INFLOW_ORDER.filter(g => g !== '미분류' || list.some(r => r.group === '미분류'))
+    const order = INFLOW_ORDER.filter(g => g !== OTHER_GROUP || list.some(r => r.group === OTHER_GROUP))
       .filter(g => tab === '전체' || (tab === '유료') === PAID_GROUPS.includes(g))
     const groups = order.map(ch => {
       const rs = list.filter(r => r.group === ch).sort((a, b) => ch === '광고' ? b.cost - a.cost : subOrder(ch, a.sub) - subOrder(ch, b.sub) || b.ga - a.ga)

@@ -11,14 +11,16 @@ export const INFLOW_GROUPS = [
   { key: '자사 채널', subs: ['홈페이지', '깃북', '해피톡', '기타'] },
   { key: '자사 블로그', subs: ['카스웍스 블로그', '네이버', '티스토리', '기타'] },
   { key: '외주 블로그', subs: ['팀부스터', '인플루언서', '기타'] },
-  { key: '외부 글', subs: ['네이버', '티스토리', '브런치', '기타'] },
+  { key: '외부 글', subs: ['네이버', '티스토리', '브런치', '나무위키', '기타'] },
   { key: '언론·뉴스', subs: ['네이버 뉴스', '다음 뉴스', '언론사', '기타'] },
   { key: '커뮤니티', subs: ['네이버 카페', '다음 카페', '기타'] },
   { key: '소셜', subs: ['유튜브', '인스타그램', '페이스북', '링크드인', '카카오', '기타'] },
   { key: '광고', subs: ['네이버', '구글', '메타', '기타'] },
   { key: '직접 연락', subs: ['대표전화', '개인전화', '이메일', '추천', '행사', '기타'] },
 ] as const
-export type InflowGroup = (typeof INFLOW_GROUPS)[number]['key'] | '미분류'
+// 11 분류 밖: 고객사 사내 메일·공유 문서·메신저 등 출처를 확인해야 하는 유입. 반복되면 11 분류로 옮긴다
+export const OTHER_GROUP = '공유·출처 확인' as const
+export type InflowGroup = (typeof INFLOW_GROUPS)[number]['key'] | typeof OTHER_GROUP
 export interface Inflow { group: InflowGroup; sub: string; raw: string }
 
 const has = (s: string, ...ks: string[]) => ks.some(k => s.includes(k))
@@ -93,15 +95,18 @@ export function classifyLead(channel: string | null | undefined, source: string 
   if (C[ch]) return { ...C[ch], raw }
   const viaCh = bySource(ch)
   if (viaCh) return { ...viaCh, raw }
-  return { group: '미분류', sub: ch || '(미입력)', raw }
+  return { group: OTHER_GROUP, sub: ch || '(미입력)', raw }
 }
 
 /** GA 유입 행(ad_performance 비광고): channel / campaign_name / notes(실제 출처) */
 export function classifyGa(channel: string, sub: string, notes?: string | null): Inflow {
   const raw = `${channel} / ${sub}`
+  // 새 저장 채널명은 분류 이름 그대로
+  if (INFLOW_GROUPS.some(g => g.key === channel) || channel === OTHER_GROUP) return { group: channel as InflowGroup, sub, raw }
+  if (channel === '언론') return { group: '언론·뉴스', sub: '기타', raw }
   if (channel === '검색유입') {
     if (sub === '생성형AI') { const s = bySource(notes || ''); return { group: '생성형 AI', sub: s && s.group === '생성형 AI' ? s.sub : '기타', raw } }
-    if (sub === '네이버' || sub === '구글') return { group: '검색', sub, raw }
+    if (sub === '네이버' || sub === '구글' || sub === '다음' || sub === '빙') return { group: '검색', sub, raw }
     if (sub === '기타' && notes) { const s = bySource(notes); if (s && (s.group === '검색' || s.group === '생성형 AI')) return { ...s, raw } }
     return { group: '검색', sub: '기타', raw }
   }
@@ -109,7 +114,7 @@ export function classifyGa(channel: string, sub: string, notes?: string | null):
   return classifyLead(channel, sub)
 }
 
-export const INFLOW_ORDER: InflowGroup[] = [...INFLOW_GROUPS.map(g => g.key), '미분류']
+export const INFLOW_ORDER: InflowGroup[] = [...INFLOW_GROUPS.map(g => g.key), OTHER_GROUP]
 export const PAID_GROUPS: InflowGroup[] = ['광고', '외주 블로그']
 export const subOrder = (group: InflowGroup, sub: string) => { const g = INFLOW_GROUPS.find(x => x.key === group); const i = g ? (g.subs as readonly string[]).indexOf(sub) : -1; return i < 0 ? 99 : i }
 
