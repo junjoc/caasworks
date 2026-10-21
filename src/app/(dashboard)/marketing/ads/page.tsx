@@ -991,6 +991,10 @@ export default function AdsPage() {
             <colgroup>{[22, 15, 6, 10, 8, 6, 6, 7, 6, 6, 4, 4].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
             <thead><tr><th>분류 › 세부 · 캠페인</th><th>광고그룹</th><th>유형</th><th>비용</th><th>노출</th><th>클릭</th><th>CTR</th><th>CPM</th><th>GA 유입</th><th>문의 클릭</th><th>문의</th><th>도입</th></tr></thead>
             <tbody>
+              {/* 합계 줄은 맨 위 + 머리 바로 아래 고정 — 분류를 다 펼쳐도 보이게 (10/21) */}
+              <tr className="ds-sum [&>td]:sticky [&>td]:top-[34px] [&>td]:z-[2] [&>td]:!bg-ds-subtle [&>td]:border-b-2 [&>td]:border-ds-line">
+                <td colSpan={3}>{tab === '전체' ? '광고·유입 합계' : tab + ' 합계'}</td><AdNums t={adTotal} />
+              </tr>
               {adGroups.map(g => {
                 const color = GROUP_COLOR(g.ch)
                 const isFolded = !openCh.has(g.ch)
@@ -1017,7 +1021,6 @@ export default function AdsPage() {
                   </Fragment>
                 )
               })}
-              <tr className="ds-sum"><td colSpan={3}>{tab === '전체' ? '광고·유입 합계' : tab + ' 합계'}</td><AdNums t={adTotal} /></tr>
             </tbody>
           </table>
         </div>
