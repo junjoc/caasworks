@@ -34,7 +34,11 @@ S = {}
 S['경영진'] = (kpis([('10월 매출', man(rev[10]), f'9월 {man(rev[9])}', ''), ('미납', man(d['unpaid_sum']), f"{d['unpaid_n']}건 · {d['unpaid_cust']}곳", 'bad'), ('도입률', f'{rate:.1f}%', f"2026 · {d['y_won']}/{d['y_leads']}", ''), ('신규 리드', f"{d['month_leads']}", f"이번 달 · 전월 {d['prev_month_leads']}", ''), ('광고비', man(d['ad_cost']), f"이번 달 · 9월 {man(d['ad_cost_prev'])}", '')]),
   w('c8', '월별 매출', '2026 공급가 · 11·12월은 계약 기준', trend, '매출 현황') + w('c4', '단계 분포', '2026 유입', funnel, '파이프라인') +
   w('c4', '10월 매출 상위', f"{d['rev_customers']}곳 중", top, '매출 현황') + w('c4', '미납 상위', f"{d['unpaid_n']}건", unp, '미납 현황') + w('c4', '유입 분류', '이번 달 리드', inflow, '유입 성과'))
-S['마케팅'] = (kpis([('광고비', man(d['ad_cost']), f"이번 달 · 9월 {man(d['ad_cost_prev'])}", ''), ('유입', f"{d['ga_month']:,}", 'GA 세션', ''), ('신규 리드', f"{d['month_leads']}", f"전월 {d['prev_month_leads']}", ''), ('리드당 비용', man(cpl), '광고비 ÷ 신규 리드', ''), ('이번 달 도입', f"{d['won_month']}", '도입일 기준', '')]),
+_s = json.load(open('sample.json', encoding='utf-8'))
+recent = lst([(f'<b>{esc(l["company_name"])}</b>', chip(tone(l['stage']), l['stage']), esc(l['inquiry_channel'] or '—'), l['inquiry_date'][5:].replace('-', '.')) for l in _s['leads'][:6]], ['l', 'c', 'c muted', 'c num'])
+S['마케팅'] = (kpis([('신규 리드', f"{d['month_leads']}", f"이번 달 전체 · 전월 {d['prev_month_leads']}", ''), ('10월 매출', man(rev[10]), f'9월 {man(rev[9])}', ''), ('광고비', man(d['ad_cost']), f"이번 달 · 9월 {man(d['ad_cost_prev'])}", ''), ('유입', f"{d['ga_month']:,}", 'GA 세션', ''), ('리드당 비용', man(cpl), '광고비 ÷ 신규 리드', '')]),
+  # 10/21 사용자: 마케팅은 전체 리드·매출이 위
+  w('c8', '월별 매출', '2026 공급가 · 11·12월은 계약 기준', trend, '매출 현황') + w('c4', '최근 리드', f"이번 달 {d['month_leads']}건 · 전체", recent, '리스트') +
   w('c8', '유입 분류', '이번 달 리드 · 11 분류 + 미분류', inflow, '유입 성과') + w('c4', '단계 분포', '2026 유입', funnel, '파이프라인'))
 S['세일즈'] = (kpis([('10월 매출', man(rev[10]), f'9월 {man(rev[9])}', ''), ('미납', man(d['unpaid_sum']), f"{d['unpaid_n']}건 · {d['unpaid_cust']}곳", 'bad'), ('오늘 신규 리드', f"{d['today_leads']}", f"어제 {d['yday_leads']} · 이번 달 {d['month_leads']}", ''), ('내 진행 리드', f"{d['my_open']}", '전성환 · 이탈·도입 제외', ''), ('도입직전·예정', f"{d['pre_n']}", '전체', '')]),
   # 10/21 사용자: 세일즈도 매출을 본다. 위 = 월별 매출 · 미납, 아래 = 리드. 단계 분포·유입 분류는 뺌
