@@ -81,6 +81,14 @@ export function findPreset(roleKey: string): RolePreset | undefined {
   return DASHBOARD_PRESETS.find(p => p.roleKey === roleKey)
 }
 
+// 파트(사용자 관리에서 관리자가 지정) → 대시보드 프리셋. 파트가 없으면 역할로 추측
+export const PARTS = ['경영진', '마케팅', '세일즈', '경영지원', '하드웨어'] as const
+const PART_KEY: Record<string, string> = { '경영진': 'exec', '마케팅': 'marketing', '세일즈': 'sales', '경영지원': 'support', '하드웨어': 'hardware' }
+export function presetForUser(u: { part?: string | null; role?: string | null } | null | undefined): RolePreset {
+  const k = u?.part ? PART_KEY[u.part] : undefined
+  return (k && findPreset(k)) || presetForRole(u?.role)
+}
+
 export function presetForRole(roleName: string | null | undefined): RolePreset {
   if (!roleName) return DASHBOARD_PRESETS[0]
   const direct = findPreset(roleName)

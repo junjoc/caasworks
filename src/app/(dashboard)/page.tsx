@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
-import { presetForRole } from '@/lib/dashboard/presets'
+import { presetForUser } from '@/lib/dashboard/presets'
 import { INFLOW_COLOR, type InflowGroup } from '@/lib/inflow-taxonomy'
 import { Toolbar, Tabs, KpiRow, DsButton, Skeleton, StatusChip, Avatar, Check, stageTone, toneVar } from '@/components/ds'
 
@@ -90,18 +90,18 @@ export default function DashboardPage() {
   const saved = useRef(false)
 
   useEffect(() => { fetch('/api/dashboard').then(r => r.json()).then(j => j.error ? setErr(j.error) : setD(j)).catch(e => setErr(String(e))) }, [])
-  // 내 설정(마지막 프리셋·숨긴 위젯). 없으면 역할 프리셋
+  // 항상 내 파트(사용자 관리에서 지정) 화면으로 연다. 다른 파트 탭은 둘러보기만 — 다시 들어오면 내 파트. 숨긴 위젯만 저장
   useEffect(() => {
     if (!user || preset) return
-    const cfg = (user as unknown as { dashboard_config?: { v?: number; preset?: PresetKey; hidden?: Record<string, string[]> } }).dashboard_config
-    if (cfg?.v === 3) { setPreset(cfg.preset || (presetForRole(user.role).roleKey as PresetKey)); setHidden(cfg.hidden || {}) }
-    else setPreset(presetForRole(user.role).roleKey as PresetKey)
+    const cfg = (user as unknown as { dashboard_config?: { v?: number; hidden?: Record<string, string[]> } }).dashboard_config
+    if (cfg?.v === 3) setHidden(cfg.hidden || {})
+    setPreset(presetForUser(user).roleKey as PresetKey)
   }, [user, preset])
   useEffect(() => {
     if (!user || !preset) return
     if (!saved.current) { saved.current = true; return }
-    createClient().from('users').update({ dashboard_config: { v: 3, preset, hidden } }).eq('id', user.id).then(() => {})
-  }, [preset, hidden, user])
+    createClient().from('users').update({ dashboard_config: { v: 3, hidden } }).eq('id', user.id).then(() => {})
+  }, [hidden, user, preset])
 
   const p = preset || 'exec'
   const mine = user && d ? d.mine[user.id] : undefined

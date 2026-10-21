@@ -55,6 +55,7 @@ export interface User {
   position: string | null
   avatar_url: string | null
   created_at: string
+  part?: string | null  // 파트 (경영진·마케팅·세일즈·경영지원·하드웨어) — 대시보드가 이 파트로 열린다 (2026-10-21)
 }
 
 export interface Role {

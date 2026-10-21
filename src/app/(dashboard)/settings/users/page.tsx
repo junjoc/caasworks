@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/modal'
 import { Loading } from '@/components/ui/loading'
 import type { User, Role } from '@/types/database'
 import { POSITION_OPTIONS } from '@/lib/nav-menu'
+import { PARTS } from '@/lib/dashboard/presets'
 import { uploadAvatar } from '@/lib/avatar-upload'
 import { toast } from 'sonner'
 import { Plus, Edit2, Camera, Trash2 } from 'lucide-react'
@@ -107,6 +108,17 @@ export default function UsersSettingsPage() {
     fetchAll()
   }
 
+  // 파트 지정 (관리자) — 대시보드 기본 화면
+  async function setPart(u: User, part: string) {
+    const { error } = await supabase.from('users').update({ part: part || null }).eq('id', u.id)
+    if (error) {
+      toast.error(/column .*part/i.test(error.message) ? 'DB에 파트 칸이 아직 없습니다 — 수파베이스에서 021_users_part.sql 실행 필요' : error.message)
+      return
+    }
+    setUsers(list => list.map(x => (x.id === u.id ? { ...x, part: part || null } : x)))
+    toast.success(`${u.name} → ${part || '미지정'}`)
+  }
+
   const toggleActive = async (u: User) => {
     const { error } = await supabase
       .from('users')
@@ -199,6 +211,7 @@ export default function UsersSettingsPage() {
                 <th className="w-12"></th>
                 <th>이름</th>
                 <th>직급</th>
+                <th title="로그인하면 대시보드가 이 파트 화면으로 열립니다">파트</th>
                 <th>이메일</th>
                 <th>역할</th>
                 <th>연락처</th>
@@ -221,6 +234,12 @@ export default function UsersSettingsPage() {
                   </td>
                   <td className="font-medium">{u.name}</td>
                   <td className="text-gray-500">{u.position || '-'}</td>
+                  <td>
+                    <select value={u.part || ''} onChange={e => setPart(u, e.target.value)}
+                      className="h-7 px-2 rounded-md border border-ds-line text-[12.5px] bg-ds-bg" title="대시보드가 이 파트 화면으로 열립니다">
+                      <option value="">미지정</option>{PARTS.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </td>
                   <td className="text-gray-500">{u.email}</td>
                   <td><Badge className={roleColor(u.role)}>{roleLabel(u.role)}</Badge></td>
                   <td className="text-gray-500">{u.phone || '-'}</td>
