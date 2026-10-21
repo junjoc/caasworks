@@ -84,6 +84,8 @@ export default function CohortPage() {
               <colgroup><col style={{ width: '12%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '20%' }} /><col style={{ width: '14%' }} /><col style={{ width: '18%' }} /><col style={{ width: '16%' }} /></colgroup>
               <thead><tr><th>유입{group === 'month' ? '월' : '분기'}</th><th>유입</th><th>도입</th><th>도입률</th><th>소요일 중앙값</th><th>누적 매출</th><th>도입당</th></tr></thead>
               <tbody>
+                <tr className="ds-sum top"><td>합계</td><td className="num">{tot.n}</td><td className="num">{tot.won}</td><td className="num">{fmtPct(tot.won, tot.n)}</td><td className="num">{tot.days != null ? `${tot.days}일` : '—'}</td><td className="num">{fmtWon(tot.total)}</td><td className="num">{tot.won ? fmtWon(tot.total / tot.won) : '—'}</td></tr>
+
                 {cohorts.map(c => c.n === 0 ? (
                   <tr key={c.key} className="ds-row"><td className="muted">{c.label}</td><td className="num muted">—</td><td className="num muted">—</td><td className="num muted">—</td><td className="num muted">—</td><td className="num muted">—</td><td className="num muted">—</td></tr>
                 ) : (
@@ -92,7 +94,6 @@ export default function CohortPage() {
                     <td className="num">{c.days != null ? `${c.days}일` : '—'}</td><td className="num font-medium">{fmtWon(c.total)}</td><td className="num">{c.won ? fmtWon(c.total / c.won) : '—'}</td>
                   </tr>
                 ))}
-                <tr className="ds-sum"><td>합계</td><td className="num">{tot.n}</td><td className="num">{tot.won}</td><td className="num">{fmtPct(tot.won, tot.n)}</td><td className="num">{tot.days != null ? `${tot.days}일` : '—'}</td><td className="num">{fmtWon(tot.total)}</td><td className="num">{tot.won ? fmtWon(tot.total / tot.won) : '—'}</td></tr>
               </tbody>
             </table>
           </div>

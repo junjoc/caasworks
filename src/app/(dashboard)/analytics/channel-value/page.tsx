@@ -61,6 +61,8 @@ export default function ChannelValuePage() {
             <colgroup>{[18, 8, 8, 9, 11, 13, 12, 11, 10].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
             <thead><tr><th>{mode === '11' ? '유입 분류' : '채널'}{sub ? ' › 세부' : ''}</th><th>회사</th><th>도입</th><th>도입률</th><th>소요일 중앙값</th><th>누적 매출</th><th>도입 회사당</th><th>광고비</th><th title="누적 매출 ÷ 광고비">매출/광고비</th></tr></thead>
             <tbody>
+              <tr className="ds-sum top"><td>합계</td><td className="num">{tot.n}</td><td className="num">{tot.won}</td><td className="num">{fmtPct(tot.won, tot.n)}</td><td></td><td className="num">{fmtWon(tot.rev)}</td><td className="num">{tot.won ? fmtWon(tot.rev / tot.won) : '—'}</td><td className="num">{tot.cost ? fmtWon(tot.cost) : '—'}</td><td className="num">{tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—'}</td></tr>
+
               {table.map(t => (
                 <tr key={t.key} className={`ds-row ${open === t.key ? 'is-active' : ''}`} onClick={() => setOpen(t.key)}>
                   <td className="font-medium" title={t.key}>{t.key}</td><td className="num">{t.n}</td><td className="num">{t.won}</td><td className="num">{fmtPct(t.won, t.n)}</td>
@@ -68,7 +70,6 @@ export default function ChannelValuePage() {
                   <td className="num">{t.cost ? fmtWon(t.cost) : '—'}</td><td className="num">{t.roas != null ? `${t.roas.toFixed(1)}배` : '—'}</td>
                 </tr>
               ))}
-              <tr className="ds-sum"><td>합계</td><td className="num">{tot.n}</td><td className="num">{tot.won}</td><td className="num">{fmtPct(tot.won, tot.n)}</td><td></td><td className="num">{fmtWon(tot.rev)}</td><td className="num">{tot.won ? fmtWon(tot.rev / tot.won) : '—'}</td><td className="num">{tot.cost ? fmtWon(tot.cost) : '—'}</td><td className="num">{tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—'}</td></tr>
             </tbody>
           </table>
         </div>

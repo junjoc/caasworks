@@ -78,6 +78,8 @@
   .ds-table tr.ds-group-h td { @apply h-[30px] font-semibold text-left; color: var(--grp, var(--ds-accent)); background: var(--ds-bg); }
   .ds-table tr.ds-group td:first-child { border-left: 4px solid var(--grp, var(--ds-accent)); }
   .ds-table tr.ds-sum td { @apply font-semibold border-b-0 border-t-2 border-ds-line; color: var(--ds-fg); background: var(--ds-bg); }
+  /* 10/21 결정: 합계 줄은 표 맨 위, 머리 바로 아래에 고정 (펼치거나 스크롤해도 보이게) */
+  .ds-table tr.ds-sum.top td { position: sticky; top: 34px; z-index: 3 !important; background: var(--ds-subtle) !important; border-top: 0; border-bottom: 2px solid var(--ds-line); }
   .ds-table td .ds-cell-status { @apply flex items-center justify-center -mx-3 h-9 leading-none text-white font-medium; min-width: 88px; }
   .ds-table.is-clickable tbody tr.ds-row { cursor: pointer; }
   /* 10/21: 세로 스크롤 막대가 생겨도 내용이 좌로 밀리지 않게 막대 자리를 항상 비워 둔다 */

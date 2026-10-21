@@ -633,6 +633,26 @@ export default function CampaignsPage() {
             <colgroup>{[24, 8, 12, 9, 13, 10, 7, 6, 5, 6].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
             <thead><tr><th>캠페인</th><th>상태</th><th>기간</th><th>월 예산</th><th title="이번 달 집행 ÷ 월 예산">이번 달 집행</th><th>누적 집행</th><th>클릭</th><th>문의</th><th>도입</th><th>문의당</th></tr></thead>
             <tbody>
+              {(() => {
+                const all = grouped.flatMap(x => x.cs)
+                const s = (k: 'cost' | 'month' | 'clicks' | 'inq' | 'ad') => all.reduce((v, c) => v + (agg[c.id]?.[k] || 0), 0)
+                const live = all.filter(c => c.status === '진행중')
+                const inq = s('inq'), cost = s('cost')
+                return (
+                  <tr className="ds-sum top">
+                    <td>전체 합계 <span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{all.length}개</span></td>
+                    <td className="c !font-normal text-ds-fg3 !text-[12px]">{live.length ? `진행 ${live.length}` : '—'}</td>
+                    <td />
+                    <td className="num">{n(live.reduce((v, c) => v + (c.budget || 0), 0))}</td>
+                    <td className="num">{n(s('month'))}</td>
+                    <td className="num">{n(cost)}</td>
+                    <td className="num">{n(s('clicks'))}</td>
+                    <td className="num">{n(inq)}</td>
+                    <td className="num">{n(s('ad'))}</td>
+                    <td className="num !font-normal text-ds-fg3">{inq ? Math.round(cost / inq / 10000).toLocaleString() + '만' : '—'}</td>
+                  </tr>
+                )
+              })()}
               {grouped.map(({ ch, cs }) => {
                 const g = CH_COLOR[ch] || 'var(--ds-na)'
                 // 채널 머리 줄 = 그 채널의 합계 줄 (접어도 열마다 합계가 보이게, 10/21)
