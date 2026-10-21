@@ -50,6 +50,7 @@ lay = lay.replace('<section id="common">',
 lay = lay.replace('<section id="m-campaign">', part('p-menu', '메뉴별 시안', '카테고리별 실제 화면 시안. 확정되면 코드에 반영') + '<div class="sub" id="m-marketing">마케팅</div><section id="m-campaign">', 1)
 lay = lay.replace('<section><h2>다음</h2>', '<section id="next"><h2>다음</h2>', 1)
 exec(open('decisions.py', encoding='utf-8').read())
+exec(open('taxonomy_sec.py', encoding='utf-8').read())
 
 # 4) 왼쪽 목차
 def a(h, t, cls=''): return f'<a href="#{h}" class="{cls}">{t}</a>'
@@ -61,7 +62,7 @@ MENU = [('마케팅', [('m-campaign', '캠페인 관리 — 표형 vs 카드형'
         ('대시보드', [('dash', '대시보드 → 화면 유형 · 대시보드', 'ref')])]
 nav = ['<nav class="toc"><div class="h">카스웍스 CRM 디자인 정의</div>', a('decisions', '정한 것 (요약)'),
        '<div class="g">전역 디자인</div><div class="g2">기초 부품</div>'] + [a('b-' + i, t, 'i') for i, t in base_titles] + \
-      ['<div class="g2">공통 · 화면 유형</div>', a('common', '색 · 상태 칩', 'i')] + \
+      ['<div class="g2">공통 · 화면 유형</div>', a('common', '색 · 상태 칩', 'i'), a('inflow', '유입 분류 11', 'i')] + \
       [a(h, t, 'i') for h, t in [('list', '목록'), ('agg', '집계'), ('detail', '상세'), ('form', '입력'), ('dash', '대시보드'), ('board', '보드')]] + \
       ['<div class="g">메뉴별 시안</div>']
 for cat, items in MENU:
