@@ -17,6 +17,8 @@ import { SelectionBar, Toolbar, Tabs, DsButton, DsSelect, Check, Skeleton, stage
 import { LeadDrawer, STAGE_OPTIONS } from '@/components/pipeline/lead-drawer'
 import { toast } from 'sonner'
 import { since } from '@/lib/elapsed'
+import { fetchJson, getCached, prefetchLead } from '@/lib/swr-cache'
+import { useActiveUsers } from '@/hooks/useActiveUsers'
 import { Plus, Search, Info, ChevronsRight } from 'lucide-react'
 
 const OPEN = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '예정']
@@ -51,7 +53,7 @@ function CardBody({ c, uname, follow, today: t }: { c: Card; uname: string; foll
 function DraggableCard({ c, children, selected, onClick }: { c: Card; children: React.ReactNode; selected: boolean; onClick: (e: React.MouseEvent) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: c.id, data: { stage: c.stage } })
   return (
-    <div ref={setNodeRef} {...attributes} {...listeners} onClick={onClick}
+    <div ref={setNodeRef} {...attributes} {...listeners} onClick={onClick} onMouseEnter={() => prefetchLead(c.id)}
       className={cn('bg-ds-bg border rounded-md px-2.5 py-2 cursor-grab select-none transition-[border-color,opacity] hover:border-ds-fg3 outline-none',
         selected ? 'border-ds-accent ring-1 ring-ds-accent' : 'border-ds-line', isDragging && 'opacity-30')}>
       {children}
@@ -102,7 +104,7 @@ export default function PipelineBoardPage() {
   const [limits, setLimits] = useState<Record<string, number>>({})
   // 10/21 피드백: 도입완료는 펼친 채로 시작, 이탈만 접힘
   const [unfold, setUnfold] = useState<Set<string>>(new Set(['도입완료']))
-  const [users, setUsers] = useState<{ id: string; name: string }[]>([])
+  const users = useActiveUsers()
   const [openId, setOpenId] = useState<string | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
   const [showHelp, setShowHelp] = useState(false)
@@ -112,18 +114,18 @@ export default function PipelineBoardPage() {
   const [busy, setBusy] = useState(false)
   const t = today()
 
-  useEffect(() => { supabase.from('users').select('id, name').eq('is_active', true).order('name').then(({ data }) => setUsers(data || [])) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const x = setTimeout(() => setQ(search), 300); return () => clearTimeout(x) }, [search])
 
   const who = mine && user ? user.id : assignee
   const reqId = useRef(0)
   const fetchBoard = useCallback(async () => {
     const id = ++reqId.current
+    const body = JSON.stringify({ q, assignee: who, year, limits })
+    const cached = getCached<{ cols: Cols }>(`board:${body}`)
+    if (cached) setCols(cached.cols)
     try {
-      const res = await fetch('/api/pipeline/board', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q, assignee: who, year, limits }) })
-      const j = await res.json()
+      const j = await fetchJson<{ cols: Cols }>(`board:${body}`, '/api/pipeline/board', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
       if (id !== reqId.current) return
-      if (!res.ok) throw new Error(j.error)
       setCols(j.cols)
     } catch (e) { if (id === reqId.current) toast.error(`보드를 불러오지 못했습니다. ${(e as Error).message || ''}`) }
   }, [q, who, year, limits])

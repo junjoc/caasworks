@@ -13,6 +13,7 @@ type Row = Record<string, string | null> & { id: string; company_name: string; s
 export async function POST(request: Request) {
   try {
     const p = await request.json() as { q?: string; assignee?: string; year?: string; limits?: Record<string, number> }
+    if ((p as { warm?: boolean }).warm) return NextResponse.json({ ok: true }) // 깨우기 (app-shell)
     if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
     const leads = await readLeads<Row>(COLS)

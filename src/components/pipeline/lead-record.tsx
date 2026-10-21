@@ -9,6 +9,7 @@ import { DsButton, DsSelect, dsInput } from '@/components/ds'
 import type { TimelineItem } from '@/app/api/pipeline/lead/[id]/route'
 import { toast } from 'sonner'
 import { kstToday, kstDate } from '@/lib/elapsed'
+import { fetchJson, getCached, setCached } from '@/lib/swr-cache'
 
 export type { TimelineItem }
 export type LeadOverview = { lead: Record<string, any>; timeline: TimelineItem[]; users: { id: string; name: string }[]; customer: { id: string; company_name: string; customer_code: string | null } | null; voc: any[] }
@@ -17,17 +18,22 @@ export type LeadOverview = { lead: Record<string, any>; timeline: TimelineItem[]
 export function useLeadOverview(id: string | null) {
   const [data, setData] = useState<LeadOverview | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const load = useCallback(async () => {
+  const load = useCallback(async (fresh = true) => {
     if (!id) return
     try {
-      const res = await fetch(`/api/pipeline/lead/${id}`)
-      const j = await res.json()
-      if (!res.ok) throw new Error(j.error)
+      // 저장 뒤 다시 읽을 때는 진행 중인 미리 읽기를 쓰지 않도록 키를 바꾼다
+      const j = await fetchJson<LeadOverview>(fresh ? `lead:${id}:${Date.now()}` : `lead:${id}`, `/api/pipeline/lead/${id}`)
+      setCached(`lead:${id}`, j)
       setData(j); setError(null)
     } catch (e) { setError((e as Error).message) }
   }, [id])
-  useEffect(() => { setData(null); setError(null); load() }, [load])
-  return { data, error, reload: load }
+  // 본 적 있거나 미리 읽은 리드는 바로 보여 주고, 뒤에서 새로 읽는다
+  useEffect(() => {
+    const c = id ? getCached<LeadOverview>(`lead:${id}`) : undefined
+    setData(c || null); setError(null)
+    load(false)
+  }, [id, load])
+  return { data, error, reload: () => load(true) }
 }
 
 export async function postUpdate(body: Record<string, unknown>) {

@@ -13,6 +13,7 @@ export type TimelineItem = {
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
+    if (params.id === 'warm') return NextResponse.json({ ok: true }) // 깨우기 (app-shell)
     if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
     const id = params.id

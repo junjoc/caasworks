@@ -14,6 +14,8 @@ import { INFLOW_ORDER, INFLOW_COLOR, type InflowGroup } from '@/lib/inflow-taxon
 import { SelectionBar, Toolbar, Tabs, KpiRow, DsButton, DsSelect, Check, StatusChip, Avatar, Skeleton, Empty, stageTone, dsInput } from '@/components/ds'
 import { LeadDrawer, STAGE_OPTIONS } from '@/components/pipeline/lead-drawer'
 import { toast } from 'sonner'
+import { fetchJson, getCached, prefetchLead } from '@/lib/swr-cache'
+import { useActiveUsers } from '@/hooks/useActiveUsers'
 import { Plus, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Info, Trash2 } from 'lucide-react'
 
 type Tab = '전체' | '진행' | '예정' | '도입완료' | '이탈'
@@ -52,7 +54,7 @@ export default function PipelineListPage() {
   const [page, setPage] = useState(0)
   const [data, setData] = useState<Res | null>(null)
   const [loading, setLoading] = useState(true)
-  const [users, setUsers] = useState<{ id: string; name: string }[]>([])
+  const users = useActiveUsers()
   const [openId, setOpenId] = useState<string | null>(null)
   const [showHelp, setShowHelp] = useState(false)
 
@@ -62,7 +64,6 @@ export default function PipelineListPage() {
   const [bulkAssignee, setBulkAssignee] = useState('')
   const [bulkProcessing, setBulkProcessing] = useState(false)
 
-  useEffect(() => { supabase.from('users').select('id, name').eq('is_active', true).order('name').then(({ data }) => setUsers(data || [])) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // 검색은 입력이 멈추고 0.3초 뒤
   useEffect(() => { const t = setTimeout(() => setQ(search), 300); return () => clearTimeout(t) }, [search])
   // 필터가 바뀌면 첫 페이지로
@@ -71,15 +72,14 @@ export default function PipelineListPage() {
   const reqId = useRef(0)
   const fetchLeads = useCallback(async () => {
     const id = ++reqId.current
+    const body = JSON.stringify({ tab, q, assignee, inflow, year, sort, asc, page, followIds: followupOnly ? Array.from(followupIds) : undefined })
+    // 같은 조건으로 본 적 있으면 바로 보여 주고 뒤에서 새로 읽는다
+    const cached = getCached<Res>(`leads:${body}`)
+    if (cached) setData(cached)
     setLoading(true)
     try {
-      const res = await fetch('/api/pipeline/leads', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tab, q, assignee, inflow, year, sort, asc, page, followIds: followupOnly ? Array.from(followupIds) : undefined }),
-      })
-      const j = await res.json()
+      const j = await fetchJson<Res>(`leads:${body}`, '/api/pipeline/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
       if (id !== reqId.current) return
-      if (!res.ok) throw new Error(j.error)
       setData(j)
       // 상세 페이지의 이전·다음 = 지금 보던 페이지 순서
       try { sessionStorage.setItem('leadNav', JSON.stringify(j.rows.map((r: Row) => r.id))) } catch { /* 저장 불가 */ }
@@ -219,7 +219,7 @@ export default function PipelineListPage() {
           </thead>
           <tbody className={cn(loading && data && 'opacity-60 transition-opacity')}>
             {rows.map(l => (
-              <tr key={l.id} className={cn('ds-row', openId === l.id && 'is-active')} onClick={() => setOpenId(l.id)}>
+              <tr key={l.id} className={cn('ds-row', openId === l.id && 'is-active')} onMouseEnter={() => prefetchLead(l.id)} onClick={() => setOpenId(l.id)}>
                 <td className="!px-0 !text-center" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(l.id)} onChange={() => toggleSelect(l.id)} className="w-3.5 h-3.5 accent-[var(--ds-accent)] align-middle" /></td>
                 <td className="c">{md(l.date)}</td>
                 <td className="truncate" title={l.company_name}>

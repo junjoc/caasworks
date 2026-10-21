@@ -17,6 +17,7 @@ const kst = (d = new Date()) => new Date(d.getTime() + 9 * 3600 * 1000).toISOStr
 export async function POST(request: Request) {
   try {
     const p = await request.json() as { tab?: string; q?: string; assignee?: string; inflow?: string; year?: string; followIds?: string[]; sort?: 'inquiry' | 'next'; asc?: boolean; page?: number }
+    if ((p as { warm?: boolean }).warm) return NextResponse.json({ ok: true }) // 깨우기 (app-shell)
     if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
     const leads = await readLeads<Row>(COLS)
