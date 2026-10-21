@@ -62,7 +62,6 @@ export default function FeedbackListPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">피드백 / 요청사항</h1>
           <p className="text-xs text-text-tertiary mt-0.5">
             버그 · 기능 요청 · 개선사항 — 총 {items.length}건 / 표시 {filtered.length}건
           </p>

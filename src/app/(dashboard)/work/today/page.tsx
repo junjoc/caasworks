@@ -249,7 +249,6 @@ export default function TodayPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">오늘 할일</h1>
           <p className="text-sm text-text-secondary mt-0.5">
             {formatDate(new Date(), 'yyyy년 M월 d일 EEEE')}
             {totalCount > 0 && ` \u00b7 ${doneCount}/${totalCount} 완료`}

@@ -288,7 +288,6 @@ export default function MarketingReportPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">마케팅 리포트</h1>
           <p className="text-sm text-text-secondary mt-1">
             유입일 {range.from} ~ {range.to} · 리드 {base.length}건
             {loadMs != null && !loading && <span className="text-text-tertiary ml-2">({(loadMs / 1000).toFixed(1)}초)</span>}

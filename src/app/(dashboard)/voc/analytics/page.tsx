@@ -6,7 +6,6 @@ export default function VocAnalyticsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">VoC 분석</h1>
       </div>
       <div className="card p-12 text-center">
         <Construction className="w-12 h-12 text-gray-300 mx-auto mb-4" />

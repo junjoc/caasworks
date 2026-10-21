@@ -504,7 +504,6 @@ export default function ProductsSettingsPage() {
       <div className="page-header">
         <div className="flex items-center gap-2">
           <Package className="w-6 h-6 text-primary-600" />
-          <h1 className="page-title">제품/서비스 관리</h1>
         </div>
       </div>
 

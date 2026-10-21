@@ -514,7 +514,6 @@ export default function InvoicesPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">청구/계산서 관리</h1>
         <Button size="sm" onClick={openNewInvoice}><Plus className="w-4 h-4 mr-1" /> 청구서 생성</Button>
       </div>
 

@@ -296,7 +296,6 @@ ${tomorrowPlan}`
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">일일업무보고</h1>
           <p className="text-sm text-text-secondary mt-0.5">{user?.name || '-'}</p>
         </div>
         <div className="flex items-center gap-2">

@@ -348,7 +348,6 @@ export default function PipelineBoardPage() {
       {/* Header - fixed */}
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
-          <h1 className="page-title">파이프라인 보드</h1>
           {(overdueTotal > 0 || urgentTotal > 0) && (
             <p className="text-xs text-text-tertiary mt-1">
               {urgentTotal > 0 && (

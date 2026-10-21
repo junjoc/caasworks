@@ -248,7 +248,6 @@ export default function CameraShipmentsPage() {
     <div className="p-6 max-w-[1600px] mx-auto">
       <div className="page-header mb-6">
         <div>
-          <h1 className="page-title">카메라 반출 현황</h1>
           <p className="text-sm text-text-tertiary mt-1">전체 고객의 카메라 반출/설치/회수 현황을 관리합니다.</p>
         </div>
         <Button onClick={() => openModal()}>

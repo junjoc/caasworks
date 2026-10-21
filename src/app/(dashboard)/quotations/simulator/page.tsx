@@ -223,7 +223,6 @@ export default function SimulatorPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">견적 모의계산</h1>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={reset}><RotateCcw className="w-4 h-4 mr-1" />초기화</Button>
           {items.length > 0 && (

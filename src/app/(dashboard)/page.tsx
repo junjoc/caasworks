@@ -184,7 +184,6 @@ export default function DashboardPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">대시보드</h1>
           <p className="text-xs text-text-tertiary mt-0.5">
             안녕하세요, {user?.name}님 · {editing ? '드래그로 이동, 모서리로 크기 조절' : '위젯 클릭 시 해당 기능으로 이동'}
           </p>

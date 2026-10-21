@@ -276,7 +276,6 @@ export default function PipelineListPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">파이프라인 트래커</h1>
           <p className="text-sm text-text-secondary mt-1">
             총 {filteredLeads.length}건
             {overdueCount > 0 && (

@@ -197,7 +197,6 @@ export default function ContentPage() {
     <div>
       {/* Header */}
       <div className="page-header">
-        <h1 className="page-title">콘텐츠 성과</h1>
         <div className="flex items-center gap-2 flex-wrap">
           {channelFilter === 'caasworks_blog' && <>
             <DateRangePicker value={dateRange} onChange={setDateRange} />

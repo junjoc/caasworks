@@ -238,7 +238,6 @@ export default function EquipmentPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">장비 반출</h1>
         <Button size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> 장비 등록</Button>
       </div>
 

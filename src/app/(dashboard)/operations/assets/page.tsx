@@ -66,7 +66,6 @@ export default function AssetsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">자산 관리</h1>
           <p className="text-xs text-text-tertiary mt-0.5">
             카메라 · LTE · AP 등 보유 장비 — 총 {items.length}대 / 표시 {filtered.length}대
           </p>

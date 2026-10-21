@@ -96,7 +96,6 @@ export default function CustomersPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">전체 고객</h1>
         <Link href="/customers/new">
           <Button size="sm">
             <Plus className="w-4 h-4 mr-1" />

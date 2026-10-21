@@ -54,7 +54,6 @@ export default function InventoryPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">재고 관리</h1>
           <p className="text-xs text-text-tertiary mt-0.5">
             총 {items.length}종 · 재주문 필요 {lowStock}종 · 재고 가치 {formatCurrency(totalValue)}
           </p>

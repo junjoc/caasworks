@@ -881,7 +881,6 @@ export default function AnalyticsDashboardPage() {
       {/* Header */}
       <div className="page-header flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="page-title">분석 대시보드</h1>
           <p className="text-sm text-text-tertiary mt-0.5">위젯을 드래그하여 이동하고, 모서리를 잡아 크기를 조절하세요</p>
         </div>
         <div className="flex items-center gap-2">

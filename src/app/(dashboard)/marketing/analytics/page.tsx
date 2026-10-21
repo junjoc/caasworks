@@ -718,7 +718,6 @@ export default function AnalyticsPage() {
       {/* ─── Header ─── */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">마케팅 분석</h1>
           <p className="page-subtitle">{year}년 마케팅 성과 종합 대시보드</p>
         </div>
         <div className="flex items-center gap-2">

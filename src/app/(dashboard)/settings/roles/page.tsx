@@ -151,7 +151,6 @@ export default function RolesSettingsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">역할 관리</h1>
         <Button size="sm" onClick={openAdd}>
           <Plus className="w-4 h-4 mr-1" /> 역할 추가
         </Button>

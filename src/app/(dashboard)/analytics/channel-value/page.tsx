@@ -9,7 +9,7 @@ import { classifyLead, INFLOW_ORDER } from '@/lib/inflow-taxonomy'
 
 // 11개 분류에서 광고비를 붙일 수 있는 분류 → 광고 성과의 채널
 const COST_CH: Record<string, string[]> = { '광고': ['네이버', '구글', '메타', '유튜브'], '외주 블로그': ['외주 블로그'] }
-import { PageHeader, Toolbar, DsSelect, Check, Skeleton, Empty, StatusChip, Drawer, DsButton } from '@/components/ds'
+import { KpiRow, Toolbar, DsSelect, Check, Skeleton, Empty, StatusChip, Drawer, DsButton } from '@/components/ds'
 
 export default function ChannelValuePage() {
   const [rows, setRows] = useState<LifecycleRow[]>([])
@@ -45,15 +45,20 @@ export default function ChannelValuePage() {
 
   return (
     <div>
-      <PageHeader title="채널별 생애 가치"
-        kpis={[{ label: '유입 회사', value: tot.n }, { label: '도입', value: `${tot.won} (${fmtPct(tot.won, tot.n)})` }, { label: '누적 매출', value: `${fmtWon(tot.rev)}원` }, { label: '광고비', value: tot.cost ? `${fmtWon(tot.cost)}원` : '—' }, { label: '매출/광고비', value: tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—' }]}
-        actions={<DsButton variant="ghost" size="sm" title="첫 리드의 유입 채널 기준 · 매출은 유입 이후 공급가 누적 · 광고비는 유입 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 — · 행을 누르면 회사 목록">ⓘ 기준</DsButton>} />
       <Toolbar right={<>
         <DsSelect value={mode} onChange={e => { setMode(e.target.value as '11' | 'raw'); setOpen(null) }}><option value="11">유입 분류 11</option><option value="raw">저장된 채널값</option></DsSelect>
         <DsSelect value={year} onChange={e => { setYear(e.target.value); setOpen(null) }}><option value="all">전체 연도</option>{years.map(y => <option key={y} value={y}>{y}년 유입</option>)}</DsSelect>
         <Check label="세부까지" checked={sub} onChange={v => { setSub(v); setOpen(null) }} />
         <Check label="기존 고객 포함" checked={includeExisting} onChange={setIncludeExisting} />
+        <DsButton variant="ghost" size="sm" title="첫 리드의 유입 채널 기준 · 매출은 유입 이후 공급가 누적 · 광고비는 유입 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 — · 행을 누르면 회사 목록">ⓘ 기준</DsButton>
       </>} />
+      <KpiRow items={[
+        { label: '유입 회사', value: `${tot.n.toLocaleString()}곳` },
+        { label: '도입', value: `${tot.won}곳`, sub: `도입률 ${fmtPct(tot.won, tot.n)}` },
+        { label: '누적 매출', value: `${fmtWon(tot.rev)}원`, sub: '유입 이후 공급가' },
+        { label: '광고비', value: tot.cost ? `${fmtWon(tot.cost)}원` : '—', sub: '광고·외주 블로그' },
+        { label: '매출/광고비', value: tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—' },
+      ]} />
 
       {loading ? <Skeleton rows={8} /> : table.length === 0 ? <Empty text="조건에 맞는 유입이 없습니다" /> : (
         <div className="ds-wrap max-h-[70vh] min-w-[880px]">

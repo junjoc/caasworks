@@ -63,7 +63,6 @@ export default function AnalysisPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">손익 분석</h1>
         <Select options={yearOptions} value={String(year)} onChange={(e) => setYear(Number(e.target.value))} className="w-28" />
       </div>
 

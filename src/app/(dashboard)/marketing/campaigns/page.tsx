@@ -14,7 +14,7 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
-import { PageHeader, Toolbar, Tabs, DsButton, Skeleton, Empty, StatusChip, Drawer } from '@/components/ds'
+import { KpiRow, Toolbar, Tabs, DsButton, Skeleton, Empty, StatusChip, Drawer } from '@/components/ds'
 import {
   Plus, Megaphone, Pencil, Trash2,
   Calendar, DollarSign, Target, TrendingUp,
@@ -618,12 +618,17 @@ export default function CampaignsPage() {
 
   return (
     <div>
-      <PageHeader title="캠페인 관리"
-        kpis={[{ label: '캠페인', value: data.length }, { label: '진행', value: summaryStats.activeCount }, { label: '진행 중 월 예산', value: formatCurrency(liveBudget) }, { label: '이번 달 집행', value: formatCurrency(thisMonthCost) }, { label: '누적 집행', value: formatCurrency(allCost) }]}
-        actions={<DsButton size="sm" variant="primary" onClick={openAdd} icon={<Plus className="w-3.5 h-3.5" />}>새 캠페인</DsButton>} />
-      <Toolbar right={<DateRangePicker value={dateRange} onChange={setDateRange} />}>
+      {/* 화면 머리 규칙: 제목은 헤더에만 → 툴바(탭 | 기간·주 동작) → 숫자줄 → 표 */}
+      <Toolbar right={<><DateRangePicker value={dateRange} onChange={setDateRange} /><DsButton size="sm" variant="primary" onClick={openAdd} icon={<Plus className="w-3.5 h-3.5" />}>새 캠페인</DsButton></>}>
         <Tabs value={statusFilter} onChange={setStatusFilter} options={['전체', '진행중', '준비', '중단', '종료'].map(s => ({ value: s, label: s, count: counts(s) }))} />
       </Toolbar>
+      <KpiRow items={[
+        { label: '전체 캠페인', value: `${data.length}개`, sub: `준비 ${counts('준비')} · 중단 ${counts('중단')} · 종료 ${counts('종료')}` },
+        { label: '진행중', value: `${summaryStats.activeCount}개` },
+        { label: '진행중 월 예산', value: formatCurrency(liveBudget) },
+        { label: '이번 달 집행', value: formatCurrency(thisMonthCost), sub: liveBudget ? `월 예산의 ${(thisMonthCost / liveBudget * 100).toFixed(1)}%` : undefined, bar: liveBudget ? thisMonthCost / liveBudget * 100 : undefined },
+        { label: '누적 집행', value: formatCurrency(allCost) },
+      ]} />
 
       {loading ? <Skeleton rows={10} /> : filtered.length === 0 ? (
         <Empty text="캠페인이 없습니다" action={<DsButton size="sm" onClick={openAdd}>새 캠페인</DsButton>} />

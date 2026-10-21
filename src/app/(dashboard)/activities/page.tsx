@@ -116,7 +116,6 @@ export default function ActivitiesPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">활동 로그</h1>
       </div>
 
       {/* Summary Cards */}

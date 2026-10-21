@@ -68,7 +68,6 @@ export default function ProfilePage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">내 프로필</h1>
       </div>
 
       <div className="card p-6 max-w-xl space-y-6">

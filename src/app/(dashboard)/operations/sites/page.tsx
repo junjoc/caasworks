@@ -101,7 +101,6 @@ export default function SitesPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">현장 관리</h1>
       </div>
 
       {/* Status Summary */}

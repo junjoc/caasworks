@@ -184,7 +184,6 @@ export default function UsersSettingsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">사용자 관리</h1>
         <Button size="sm" onClick={openAdd}>
           <Plus className="w-4 h-4 mr-1" /> 사용자 추가
         </Button>

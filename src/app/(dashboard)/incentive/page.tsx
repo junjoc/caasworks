@@ -39,7 +39,6 @@ export default function MyIncentivePage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">내 인센티브</h1>
         <Select
           value={String(year)}
           onChange={(e) => setYear(Number(e.target.value))}

@@ -59,7 +59,6 @@ export default function InvoicesPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">청구서 관리</h1>
         <Link href="/invoices/new">
           <Button size="sm"><Plus className="w-4 h-4 mr-1" /> 새 청구서</Button>
         </Link>

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { fetchLifecycle, fmtWon, BUCKETS, bucketOf, AXES, axisValues, median, type AxisKey, type LifecycleRow } from '@/lib/lifecycle'
-import { PageHeader, Toolbar, DsSelect, Check, Skeleton, Empty, SectionTitle, Avatar, Drawer, DsButton } from '@/components/ds'
+import { KpiRow, Toolbar, DsSelect, Check, Skeleton, Empty, SectionTitle, Avatar, Drawer, DsButton } from '@/components/ds'
 
 export default function ConversionPage() {
   const [rows, setRows] = useState<LifecycleRow[]>([])
@@ -35,17 +35,20 @@ export default function ConversionPage() {
 
   return (
     <div>
-      <PageHeader title="전환 소요 기간"
-        kpis={[{ label: '도입 회사', value: won.length }, { label: '소요일 중앙값', value: med != null ? `${med}일` : '—' }, { label: '평균', value: won.length ? `${(won.reduce((s, r) => s + r.days_to_convert!, 0) / won.length).toFixed(0)}일` : '—' }, { label: '누적 매출', value: `${fmtWon(won.reduce((s, r) => s + r.rev_total, 0))}원` }]}
-        subtitle={noDate > 0 ? <span className="text-ds-warn">도입일을 모르는 {noDate}곳 제외</span> : undefined}
-        actions={<DsButton variant="ghost" size="sm" title="소요 기간 = 첫 리드 유입일 → 도입일(단계 이력, 없으면 고객사 과금 시작일) · 매출은 유입 이후 공급가 누적 · 칸을 누르면 회사 목록">ⓘ 기준</DsButton>} />
       <Toolbar right={<>
         <DsSelect value={year} onChange={e => { setYear(e.target.value); setSel(null) }}><option value="all">전체 연도</option>{years.map(y => <option key={y} value={y}>{y}년 유입</option>)}</DsSelect>
         <Check label="기존 고객 포함" checked={includeExisting} onChange={setIncludeExisting} />
+        <DsButton variant="ghost" size="sm" title="소요 기간 = 첫 리드 유입일 → 도입일(단계 이력, 없으면 고객사 과금 시작일) · 매출은 유입 이후 공급가 누적 · 칸을 누르면 회사 목록">ⓘ 기준</DsButton>
       </>}>
         <span className="text-[12px] text-ds-fg2">축</span>
         <DsSelect value={axis} onChange={e => { setAxis(e.target.value as AxisKey); setSel(null) }}>{AXES.map(a => <option key={a.key} value={a.key}>{a.label}</option>)}</DsSelect>
       </Toolbar>
+      <KpiRow items={[
+        { label: '도입 회사', value: `${won.length}곳`, sub: noDate > 0 ? `도입일 모르는 ${noDate}곳 제외` : undefined },
+        { label: '소요일 중앙값', value: med != null ? `${med}일` : '—' },
+        { label: '평균', value: won.length ? `${(won.reduce((s, r) => s + r.days_to_convert!, 0) / won.length).toFixed(0)}일` : '—' },
+        { label: '누적 매출', value: `${fmtWon(won.reduce((s, r) => s + r.rev_total, 0))}원`, sub: '유입 이후 공급가' },
+      ]} />
 
       {loading ? <Skeleton rows={8} /> : won.length === 0 ? <Empty text="소요일을 알 수 있는 도입 회사가 없습니다" /> : (
         <>

@@ -69,7 +69,6 @@ export default function VocListPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">VoC/CS</h1>
         <Link href="/voc/new">
           <Button size="sm">
             <Plus className="w-4 h-4 mr-1" /> 새 티켓

@@ -545,7 +545,6 @@ export default function RevenuePage() {
     <div>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="page-header">
-        <h1 className="page-title">CaaS.Works 현장별 매출 현황</h1>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer select-none px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">
             <input type="checkbox" checked={onlyWithRev} onChange={e => setOnlyWithRev(e.target.checked)} className="w-3.5 h-3.5" />

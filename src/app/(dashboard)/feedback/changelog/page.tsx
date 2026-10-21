@@ -50,7 +50,6 @@ export default function ChangelogPage() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="page-title">개발일지</h1>
             <p className="text-xs text-text-tertiary mt-0.5">
               완료된 피드백/요청을 시간순으로 — 총 {items.length}건
             </p>

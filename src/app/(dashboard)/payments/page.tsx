@@ -34,7 +34,6 @@ export default function PaymentsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">납부 관리</h1>
       </div>
 
       {loading ? (

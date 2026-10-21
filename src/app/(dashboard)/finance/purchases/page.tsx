@@ -75,7 +75,6 @@ export default function PurchasesPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">매입/비용</h1>
           <p className="text-xs text-text-tertiary mt-0.5">
             {filtered.length}건 · 총액 {formatCurrency(totalAmount)} · 결제완료 {formatCurrency(paidAmount)}
           </p>

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { fetchLifecycle, fmtWon, fmtPct, median, type LifecycleRow } from '@/lib/lifecycle'
-import { PageHeader, Toolbar, Tabs, DsSelect, Check, Skeleton, Empty, StatusChip, Drawer, DsButton } from '@/components/ds'
+import { KpiRow, Toolbar, Tabs, DsSelect, Check, Skeleton, Empty, StatusChip, Drawer, DsButton } from '@/components/ds'
 
 type Group = 'month' | 'quarter'
 const thisYear = String(new Date().getFullYear())
@@ -66,14 +66,18 @@ export default function CohortPage() {
 
   return (
     <div>
-      <PageHeader title="유입 코호트"
-        kpis={[{ label: `${scope} 유입`, value: `${tot.n.toLocaleString()}곳` }, { label: '도입', value: `${tot.won} (${fmtPct(tot.won, tot.n)})` }, { label: '누적 매출', value: `${fmtWon(tot.total)}원` }, { label: '도입당', value: tot.won ? `${fmtWon(tot.total / tot.won)}원` : '—' }]}
-        actions={<DsButton variant="ghost" size="sm" title={HELP}>ⓘ 기준</DsButton>} />
-      <Toolbar right={<Check label="기존 고객 포함" checked={includeExisting} onChange={setIncludeExisting} />}>
+      <Toolbar right={<><Check label="기존 고객 포함" checked={includeExisting} onChange={setIncludeExisting} /><DsButton variant="ghost" size="sm" title={HELP}>ⓘ 기준</DsButton></>}>
         <Tabs value={group} onChange={setGroupAnd} options={[{ value: 'month', label: '월별' }, { value: 'quarter', label: '분기별' }]} />
         <DsSelect value={year} onChange={e => { setYear(e.target.value); setOpen(null) }}>{group === 'quarter' && <option value="all">전체 연도</option>}{years.map(y => <option key={y} value={y}>{y}년</option>)}</DsSelect>
         <DsSelect value={channel} onChange={e => { setChannel(e.target.value); setOpen(null) }}><option value="all">채널 전체</option>{channels.map(c => <option key={c.key} value={c.key}>{c.key}</option>)}</DsSelect>
       </Toolbar>
+      <KpiRow items={[
+        { label: `${scope} 유입`, value: `${tot.n.toLocaleString()}곳` },
+        { label: '도입', value: `${tot.won}곳`, sub: `도입률 ${fmtPct(tot.won, tot.n)}` },
+        { label: '소요일 중앙값', value: tot.days != null ? `${tot.days}일` : '—' },
+        { label: '누적 매출', value: `${fmtWon(tot.total)}원`, sub: '유입 이후 공급가' },
+        { label: '도입당', value: tot.won ? `${fmtWon(tot.total / tot.won)}원` : '—' },
+      ]} />
 
       {loading ? <Skeleton rows={8} /> : tot.n === 0 && cohorts.every(c => c.n === 0) ? <Empty text="조건에 맞는 유입이 없습니다" /> : (
         <div className="grid lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] gap-5 items-start">

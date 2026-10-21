@@ -220,7 +220,6 @@ export default function UnpaidPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">미납 현황</h1>
       </div>
 
       {/* ───── Summary stat cards ───── */}

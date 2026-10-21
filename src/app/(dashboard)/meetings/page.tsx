@@ -39,7 +39,6 @@ export default function MeetingsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">미팅 관리</h1>
         <div className="flex items-center gap-2">
           <DateRangePicker value={dateRange} onChange={setDateRange} />
           <Link href="/meetings/new">

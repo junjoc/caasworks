@@ -268,7 +268,6 @@ export default function SubscriptionPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">과금 고객 관리</h1>
       </div>
 
       {/* Summary Cards */}

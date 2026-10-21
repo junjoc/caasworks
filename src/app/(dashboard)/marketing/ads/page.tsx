@@ -13,7 +13,7 @@ import { DateRangePicker, type DateRange } from '@/components/ui/date-range-pick
 import { formatCurrency, formatNumber, CHANNEL_SUB_SOURCES as SHARED_SUB_SOURCES } from '@/lib/utils'
 import { toast } from 'sonner'
 import { CompanyTagInput } from '@/components/ui/company-tag-input'
-import { PageHeader, Toolbar, Tabs, DsButton, Skeleton, Empty, Drawer } from '@/components/ds'
+import { KpiRow, Toolbar, Tabs, DsButton, Skeleton, Empty, Drawer } from '@/components/ds'
 import { classifyAdRow, splitNotes, INFLOW_GROUPS, INFLOW_ORDER, PAID_GROUPS, OTHER_GROUP, INFLOW_COLOR, subOrder, type InflowGroup } from '@/lib/inflow-taxonomy'
 
 const isPaid = (d: { channel: string; ad_type: string; campaign_name: string; notes?: string | null }) => PAID_GROUPS.includes(classifyAdRow(d.channel, d.ad_type, d.campaign_name, d.notes).group)
@@ -943,20 +943,13 @@ export default function AdsPage() {
 
   const SYNCS: { key: string; label: string }[] = [{ key: 'all', label: '전체 동기화' }, { key: 'google', label: '구글' }, { key: 'naver', label: '네이버' }, { key: 'ga4', label: 'GA4' }, { key: 'ga4-sources', label: '유입소스' }]
   const dot = { danger: 'var(--ds-bad)', warning: 'var(--ds-warn)', success: 'var(--ds-ok)', info: 'var(--ds-info)' } as const
-  const Kpi = ({ label, value, sub, bar }: { label: string; value: string; sub?: string; bar?: number }) => (
-    <div className="py-2.5 pr-4 md:pl-4 md:border-l border-ds-line2 first:border-l-0 first:pl-0 min-w-0">
-      <div className="text-[12px] text-ds-fg3">{label}</div>
-      <b className="text-[18px] font-semibold tabular-nums text-ds-fg">{value}</b>
-      {bar != null && <div className="h-1 rounded-full bg-ds-line2 mt-1 max-w-[160px]"><div className="h-1 rounded-full bg-ds-warn" style={{ width: `${Math.min(bar, 100)}%` }} /></div>}
-      {sub && <div className="text-[11.5px] text-ds-fg3 truncate mt-0.5">{sub}</div>}
-    </div>
-  )
 
   // 레이아웃 정의 v1 "집계" 유형: 제목줄 → 탭·동기화 → 숫자줄(5) → 표. 색은 상태에만
   return (
     <div>
-      <PageHeader title="유입 성과" subtitle="광고와 유입 전체 — 유입 분류 11 + 미분류"
-        actions={<>
+      {/* 화면 머리 규칙: 제목은 헤더에만 → 툴바(탭 | 펴기·기간·동기화·주 동작) → 숫자줄 → 표 */}
+      <Toolbar right={<>
+          <DsButton size="sm" variant="ghost" onClick={() => setOpenCh(openCh.size ? new Set() : new Set(adGroups.filter(g => g.rows.length).map(g => g.ch)))}>{openCh.size ? '전체 접기' : '전체 펴기'}</DsButton>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
           <div className="relative">
             <DsButton size="sm" loading={!!syncing} onClick={() => setSyncOpen(o => !o)} icon={<RefreshCw className="w-3.5 h-3.5" />}>{syncing ? '동기화 중' : '동기화'}</DsButton>
@@ -967,21 +960,18 @@ export default function AdsPage() {
             )}
           </div>
           <DsButton size="sm" variant="primary" onClick={openAdd} icon={<Plus className="w-3.5 h-3.5" />}>데이터 입력</DsButton>
-        </>} />
-
-      <Toolbar right={<DsButton size="sm" variant="ghost" onClick={() => setOpenCh(openCh.size ? new Set() : new Set(adGroups.filter(g => g.rows.length).map(g => g.ch)))}>{openCh.size ? '전체 접기' : '전체 펴기'}</DsButton>}>
+        
+        </>}>
         <Tabs value={tab} onChange={v => setTab(v)} options={TABS.map(t => ({ value: t, label: t }))} />
       </Toolbar>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 border-y border-ds-line mb-4">
-        <Kpi label="집행비" value={formatCurrency(budgetSummary.totalSpent)} bar={budgetSummary.burnRate}
-          sub={`예산 ${formatCurrency(budgetSummary.totalBudget)} · 소진 ${budgetSummary.burnRate.toFixed(1)}% · 기간 ${budgetSummary.daysPassed}/${budgetSummary.daysInMonth}일`} />
-        {/* 순서: 집행비 | 유입 | 클릭 | 문의 | 도입 (10/21 사용자 지정) */}
-        <Kpi label="유입" value={formatNumber(kpi.totalGaVisits)} sub={`GA 세션 · 문의 클릭 ${formatNumber(kpi.totalInquiryClicks)}`} />
-        <Kpi label="클릭" value={formatNumber(kpi.totalClicks)} sub={`광고 · 노출 ${formatNumber(kpi.totalImpressions)} · CTR ${kpi.ctr.toFixed(2)}% · CPC ${formatCurrency(kpi.cpc)}`} />
-        <Kpi label="문의" value={formatNumber(kpi.totalInquiries)} sub={`문의사 · 가입사 ${formatNumber(kpi.totalSignups)}`} />
-        <Kpi label="도입" value={formatNumber(kpi.totalAdoptions)} sub={kpi.cpa > 0 ? `도입사 · 결과당 ${formatCurrency(kpi.cpa)}` : '도입사'} />
-      </div>
+      <KpiRow items={[
+        { label: '집행비', value: formatCurrency(budgetSummary.totalSpent), bar: budgetSummary.burnRate, sub: `예산 ${formatCurrency(budgetSummary.totalBudget)} · 소진 ${budgetSummary.burnRate.toFixed(1)}% · 기간 ${budgetSummary.daysPassed}/${budgetSummary.daysInMonth}일` },
+        { label: '유입', value: formatNumber(kpi.totalGaVisits), sub: `GA 세션 · 문의 클릭 ${formatNumber(kpi.totalInquiryClicks)}` },
+        { label: '클릭', value: formatNumber(kpi.totalClicks), sub: `광고 · 노출 ${formatNumber(kpi.totalImpressions)} · CTR ${kpi.ctr.toFixed(2)}% · CPC ${formatCurrency(kpi.cpc)}` },
+        { label: '문의', value: formatNumber(kpi.totalInquiries), sub: `문의사 · 가입사 ${formatNumber(kpi.totalSignups)}` },
+        { label: '도입', value: formatNumber(kpi.totalAdoptions), sub: kpi.cpa > 0 ? `도입사 · 결과당 ${formatCurrency(kpi.cpa)}` : '도입사' },
+      ]} />
 
       {loading ? <Skeleton rows={10} /> : adGroups.length === 0 ? (
         <Empty text="이 기간에 기록이 없습니다" action={<DsButton size="sm" onClick={openAdd}>데이터 입력</DsButton>} />

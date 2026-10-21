@@ -25,6 +25,25 @@ export function PageHeader({ title, subtitle, kpis, actions }: { title: string; 
   )
 }
 
+/* ─── KpiRow: 숫자줄 (10/21 화면 머리 규칙) — 툴바 아래, 칸 수 = 항목 수(최대 5), 항목이 없으면 그리지 않음.
+   칸마다 라벨 12 / 값 18 / 보조 11.5. 요약을 "A · B · C" 글 한 줄로 쓰지 않는다 ─── */
+export function KpiRow({ items }: { items: ({ label: string; value: ReactNode; sub?: ReactNode; bar?: number; tone?: 'bad' } | null | false | undefined)[] }) {
+  const list = items.filter(Boolean) as { label: string; value: ReactNode; sub?: ReactNode; bar?: number; tone?: 'bad' }[]
+  if (!list.length) return null
+  return (
+    <div className="grid border-y border-ds-line mb-4" style={{ gridTemplateColumns: `repeat(${Math.min(list.length, 5)}, minmax(0, 1fr))` }}>
+      {list.map((k, i) => (
+        <div key={k.label} className={cn('py-2.5 pr-4 min-w-0', i > 0 && 'pl-4 border-l border-ds-line2')}>
+          <div className="text-[12px] text-ds-fg3">{k.label}</div>
+          <b className={cn('text-[18px] font-semibold tabular-nums', k.tone === 'bad' ? 'text-ds-bad' : 'text-ds-fg')}>{k.value}</b>
+          {k.bar != null && <div className="h-1 rounded-full bg-ds-line2 mt-1 max-w-[160px]"><div className="h-1 rounded-full bg-ds-warn" style={{ width: `${Math.min(k.bar, 100)}%` }} /></div>}
+          {k.sub && <div className="text-[11.5px] text-ds-fg3 truncate mt-0.5">{k.sub}</div>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /* ─── Toolbar: 탭 │ 검색 │ 필터, 한 줄. 아래 1px 선 ─── */
 export function Toolbar({ children, right }: { children?: ReactNode; right?: ReactNode }) {
   return (

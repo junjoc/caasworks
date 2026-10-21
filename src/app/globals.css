@@ -90,6 +90,10 @@
   .page-header {
     @apply flex items-center justify-between mb-5;
   }
+  /* 10/21 화면 머리 규칙: 제목은 헤더에만. 본문 제목이 빠진 머리 줄은 동작을 오른쪽에, 비면 숨김 */
+  .page-header > :last-child:not(:first-child), .page-header > :only-child { margin-left: auto; }
+  .page-header > div:empty { display: none; }
+  .page-header:empty { display: none; }
 
   .page-title {
     @apply text-heading-lg text-text-primary tracking-tight;

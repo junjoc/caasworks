@@ -182,7 +182,6 @@ export default function QuotationsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">견적서 관리</h1>
         <Link href="/quotations/new">
           <Button size="sm"><Plus className="w-4 h-4 mr-1" /> 견적서 작성</Button>
         </Link>

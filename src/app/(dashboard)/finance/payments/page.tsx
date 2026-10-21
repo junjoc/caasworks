@@ -84,7 +84,6 @@ export default function PaymentsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">납부 관리</h1>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

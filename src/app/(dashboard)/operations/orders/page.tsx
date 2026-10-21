@@ -249,7 +249,6 @@ export default function OrdersPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">협력사 발주</h1>
         <Button size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> 새 발주</Button>
       </div>
 

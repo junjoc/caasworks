@@ -443,7 +443,6 @@ export default function ContractsPage() {
     return (
       <div>
         <div className="page-header">
-          <h1 className="page-title">계약 관리</h1>
         </div>
         <div className="card p-12 text-center">
           <FileText className="w-12 h-12 text-text-placeholder mx-auto mb-4" />

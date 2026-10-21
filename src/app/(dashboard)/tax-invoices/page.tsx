@@ -6,7 +6,6 @@ export default function TaxInvoicesPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">세금계산서</h1>
       </div>
       <div className="card p-12 text-center">
         <Construction className="w-12 h-12 text-gray-300 mx-auto mb-4" />

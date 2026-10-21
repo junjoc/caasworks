@@ -108,7 +108,6 @@ export default function SlackSettingsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Slack 연동</h1>
         <p className="text-sm text-gray-500 mt-1">
           Slack에서 프로젝트 생성 알림을 받아 자동으로 프로젝트를 등록합니다.
         </p>

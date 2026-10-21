@@ -92,7 +92,6 @@ export default function TemplatesPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">견적서 템플릿</h1>
           <p className="page-subtitle">견적서 출력에 사용할 템플릿을 관리합니다.</p>
         </div>
         <Button size="sm" onClick={() => router.push('/settings/templates/new')}>
