@@ -54,7 +54,7 @@ exec(open('taxonomy_sec.py', encoding='utf-8').read())
 
 # 4) 왼쪽 목차
 def a(h, t, cls=''): return f'<a href="#{h}" class="{cls}">{t}</a>'
-MENU = [('마케팅', [('m-campaign', '캠페인 관리 — 표형 vs 카드형', ''), ('log-table', '광고 성과 → 결정 기록 (코드 적용)', 'ref'), (None, '콘텐츠 성과 (예정)', 'todo')]),
+MENU = [('마케팅', [('m-campaign', '캠페인 관리 — 표형 vs 카드형', ''), ('log-table', '유입 성과 → 결정 기록 (코드 적용)', 'ref'), (None, '콘텐츠 성과 (예정)', 'todo')]),
         ('세일즈', [('board', '보드뷰 → 화면 유형 · 보드', 'ref'), ('list', '리스트 → 화면 유형 · 목록', 'ref'), (None, '견적서 (예정)', 'todo')]),
         ('고객관리', [('detail', '고객사 상세 → 화면 유형 · 상세', 'ref'), (None, '매출 현황 · 과금 고객 (예정)', 'todo')]),
         ('재무관리', [(None, '청구 · 미납 · 납부 (예정)', 'todo')]),

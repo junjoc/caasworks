@@ -16,7 +16,7 @@ def chip(t, s): return f'<span class="st {t}">{esc(s)}</span>'
 def scol(stage): return TONE_COLOR[tone(stage)]
 
 # ───────── 공통 틀 ─────────
-MENU = [('대시보드', None), ('마케팅', ['캠페인 관리', '광고 성과', '콘텐츠 성과']), ('세일즈', ['보드뷰', '리스트', '견적서', '견적 모의계산', '단가표']), ('고객관리', ['매출 현황', '과금 고객', '전체 고객', '계약 관리']), ('재무관리', None), ('운영관리', None), ('분석', ['개요', '마케팅 분석', '유입 코호트', '채널별 생애 가치']), ('VoC/CS', None), ('업무', None), ('피드백', None), ('설정', None)]
+MENU = [('대시보드', None), ('마케팅', ['캠페인 관리', '유입 성과', '콘텐츠 성과']), ('세일즈', ['보드뷰', '리스트', '견적서', '견적 모의계산', '단가표']), ('고객관리', ['매출 현황', '과금 고객', '전체 고객', '계약 관리']), ('재무관리', None), ('운영관리', None), ('분석', ['개요', '마케팅 분석', '유입 코호트', '채널별 생애 가치']), ('VoC/CS', None), ('업무', None), ('피드백', None), ('설정', None)]
 def sidebar(active, open_groups):
     out = ['<aside class="sb"><div class="logo"><i></i><b>CaasWorks</b><span>CRM</span></div><nav>']
     for label, kids in MENU:
