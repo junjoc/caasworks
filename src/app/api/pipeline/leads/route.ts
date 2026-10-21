@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { isSignedIn, readLeads } from '@/lib/pipeline/read-leads'
 import { classifyLead } from '@/lib/inflow-taxonomy'
 
 // 세일즈 › 리스트 — 검색·필터·정렬을 서버에서 하고 50행씩 보낸다 (2026-10-21, 디자인 정의 › 세일즈).
-// 로그인한 사람 권한(쿠키)으로 읽는다. 문의자·연락처는 리스트에 보내지 않는다(드로어에서 따로 읽음).
+// 로그인 확인 후 서버 키로 읽는다. 문의자·연락처는 리스트에 보내지 않는다(드로어에서 따로 읽음).
 export const dynamic = 'force-dynamic'
 
 const PAGE = 50
@@ -17,17 +17,9 @@ const kst = (d = new Date()) => new Date(d.getTime() + 9 * 3600 * 1000).toISOStr
 export async function POST(request: Request) {
   try {
     const p = await request.json() as { tab?: string; q?: string; assignee?: string; inflow?: string; year?: string; followIds?: string[]; sort?: 'inquiry' | 'next'; asc?: boolean; page?: number }
-    const sb = createServerSupabaseClient()
-    const { data: { session } } = await sb.auth.getSession()
-    if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+    if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-    let leads: Row[] = []
-    for (let off = 0; ; off += 1000) {
-      const { data, error } = await sb.from('pipeline_leads').select(COLS).order('id').range(off, off + 999)
-      if (error) throw new Error(error.message)
-      leads = leads.concat((data || []) as unknown as Row[])
-      if (!data || data.length < 1000) break
-    }
+    const leads = await readLeads<Row>(COLS)
     const d = (l: Row) => l.inquiry_date || l.created_at.slice(0, 10)
     const inf = new Map(leads.map(l => [l.id, classifyLead(l.inquiry_channel, l.inquiry_source)]))
 

@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { classifyLead, INFLOW_COLOR } from '@/lib/inflow-taxonomy'
-import { ACTIVITY_TYPE_LABELS, confirmConvertedStageChange } from '@/lib/utils'
+import { ACTIVITY_TYPE_LABELS, confirmConvertedStageChange, cn } from '@/lib/utils'
 import { Drawer, DrawerSection, DsButton, DsSelect, StatusChip, Skeleton, stageTone, dsInput } from '@/components/ds'
 import { toast } from 'sonner'
 
@@ -104,8 +104,8 @@ export function LeadDrawer({ leadId, users, onClose, onChanged }: { leadId: stri
         </DrawerSection>
         <DrawerSection title="다음 액션 — 날짜를 넣으면 대시보드 '이번 주 액션'에 모입니다">
           <div className="flex gap-2">
-            <input className={dsInput + ' h-7 text-[12.5px]'} placeholder="예: 견적서 발송, 데모 일정 잡기" value={next.text} onChange={e => setNext({ ...next, text: e.target.value })} onKeyDown={e => { if (e.key === 'Enter' && nextDirty) saveNext() }} />
-            <input type="date" className={dsInput + ' h-7 text-[12.5px] w-[132px] flex-none'} value={next.date} onChange={e => setNext({ ...next, date: e.target.value })} />
+            <input className={cn(dsInput, 'h-7 text-[12.5px] flex-1 min-w-0')} placeholder="예: 견적서 발송, 데모 일정 잡기" value={next.text} onChange={e => setNext({ ...next, text: e.target.value })} onKeyDown={e => { if (e.key === 'Enter' && nextDirty) saveNext() }} />
+            <input type="date" className={cn(dsInput, 'h-7 text-[12.5px] !w-[132px] flex-none')} value={next.date} onChange={e => setNext({ ...next, date: e.target.value })} />
             <DsButton size="sm" variant="primary" disabled={!nextDirty} loading={saving} onClick={saveNext}>저장</DsButton>
           </div>
         </DrawerSection>
