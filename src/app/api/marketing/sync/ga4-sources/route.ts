@@ -40,8 +40,8 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
     return { channel: '블로그', campaign_name: '기타' }
   }
 
-  // 개발·내부 접속은 제외
-  if (has('localhost', '127.0.0.1') || src === '{{site_source_name}}' || src === '(data not available)') return null
+  // 개발·내부 접속·테스트는 제외 (마케팅팀 검토 #4: 테스트는 ?utm_source=test)
+  if (has('localhost', '127.0.0.1') || src === '{{site_source_name}}' || src === '(data not available)' || src === 'test' || med === 'test') return null
   // 생성형 AI — 검색보다 먼저 (chatgpt 가 organic 으로 들어오는 경우가 있음)
   if (has('chatgpt', 'openai', 'searchgpt', 'perplexity', 'claude.ai', 'anthropic', 'gemini', 'bard', 'copilot', 'bing-chat', 'you.com', 'phind', 'ai-search', 'liner.com', 'felo.ai', 'vertexaisearch', 'gpt.', 'wrtn', 'genspark')) {
     return { channel: '검색유입', campaign_name: '생성형AI' }
@@ -56,8 +56,17 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
     return { channel: '검색유입', campaign_name: '기타' }
   }
 
-  // 자사 채널
-  if (src === '(direct)' && (med === '(none)' || med === 'none')) return { channel: '자사채널', campaign_name: '홈페이지' }
+  // 오프라인·인쇄물 QR (검토 #10): event_{행사} / print_{종류} · offline
+  if (src.startsWith('event_') || (med === 'offline' && !src.startsWith('print_'))) return { channel: '직접 연락', campaign_name: '행사' }
+  if (src.startsWith('print_')) return { channel: '직접 연락', campaign_name: '인쇄물' }
+  // 보도자료 (검토 #12): press / pr 로 통일
+  if (src === 'press' || med === 'pr') return { channel: '언론·뉴스', campaign_name: '보도자료' }
+  // 이메일·뉴스레터·영업 메일
+  if (src === 'newsletter' || med === 'email' || has('stibee', 'maillink')) return { channel: '직접 연락', campaign_name: '이메일' }
+  if (med === 'document' || src === 'proposal') return { channel: '직접 연락', campaign_name: '기타' }
+
+  // 자사 채널 — 직접 방문(주소 입력·북마크·앱 링크)은 '직접'으로 따로 (검토 #11), 집계는 자사 채널
+  if (src === '(direct)' && (med === '(none)' || med === 'none')) return { channel: '자사채널', campaign_name: '직접' }
   if (has('caas.works', 'caasworks')) return { channel: '자사채널', campaign_name: '홈페이지' }
   if (has('ai-con.co.kr')) return { channel: '자사채널', campaign_name: '회사 홈페이지' } // (주)아이콘 회사 사이트
   if (has('contech.ai.kr')) return { channel: '자사채널', campaign_name: '건설포털' } // 회사 운영 건설포털
