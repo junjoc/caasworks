@@ -28,6 +28,9 @@ base_css = base_css.replace('#base .grp td{', '#base .grp td:first-child{') + '#
 # 10/21 결정 반영: 신규리드 빨강 · 이탈 회색
 base_html = base_html.replace('신규리드 <span class="st na">na</span>', '신규리드 <span class="st bad">bad</span>').replace('이탈 <span class="st bad">bad</span>', '이탈 <span class="st na">na</span> <span style="color:var(--fg-3)">(10/21 신규·이탈 맞바꿈)</span>')
 base_html = base_html.replace('가로선만(line-2), 세로선 없음.', '가로선 line-2 + <b>모든 열 사이 아주 연한 세로선 #F0F0F2</b> <span style="color:var(--fg-3)">(10/21 결정 — 처음엔 세로선 없음)</span>.')
+# 10/21 결정: 표 안 상태도 칩 (칸 전체 색 폐기)
+base_html = re.sub(r'<td><span class="stc" style="background:([^"]+)">([^<]+)</span></td>', r'<td style="text-align:center"><span class="st" style="background:\1;min-width:64px;text-align:center">\2</span></td>', base_html)
+base_html = base_html.replace('표에서는 <b>상태 칸 전체</b>(36px)를 색으로, 그 밖에서는 <b>22px 칩</b>.', '표 안팎 모두 <b>22px 칩</b>(최소 폭 64, 가운데). <span style="color:var(--fg-3)">(10/21 결정 — 처음엔 표 안은 칸 전체를 색으로 칠했음)</span>')
 base_titles = [(i, re.sub(r'^\d+\.\s*', '', re.search(r'<h2>([^<]*)</h2>', b).group(1)).split(' — ')[0]) for i, b in base_secs]
 
 # 3) 레이아웃 문서 손질
