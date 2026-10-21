@@ -57,6 +57,8 @@ export function RecordComposer({ lead, onDone, compact }: { lead: Record<string,
   const [text, setText] = useState('')
   const [next, setNext] = useState({ text: '', date: '' })
   const [complete, setComplete] = useState(true)
+  // 실제 일어난 날 (회의록을 나중에 올릴 때). 오늘이면 지금 시각, 지난 날이면 그날 낮 12시로
+  const [when, setWhen] = useState(kst())
   const [busy, setBusy] = useState(false)
   const hasNext = !!(lead.next_action || lead.next_action_date)
   const curNext = [lead.next_action, md(lead.next_action_date)].filter(Boolean).join(' ')
@@ -66,11 +68,12 @@ export function RecordComposer({ lead, onDone, compact }: { lead: Record<string,
   const submit = async () => {
     if (!user || !can || busy) return
     setBusy(true)
-    const r = await postUpdate({ action: 'record', lead_id: lead.id, activity_type: type, content: text, performed_by: user.id, next_action: next.text, next_action_date: next.date, complete_next: hasNext && complete })
+    const performed_at = when && when !== kst() ? `${when}T12:00:00+09:00` : undefined
+    const r = await postUpdate({ action: 'record', lead_id: lead.id, activity_type: type, content: text, performed_by: user.id, performed_at, next_action: next.text, next_action_date: next.date, complete_next: hasNext && complete })
     setBusy(false)
     if (r.error) { toast.error(`기록하지 못했습니다. ${r.error}`); return }
     toast.success(r.stage ? `기록했습니다 · 단계 → ${r.stage}` : '기록했습니다')
-    setText(''); setNext({ text: '', date: '' }); setComplete(true)
+    setText(''); setNext({ text: '', date: '' }); setComplete(true); setWhen(kst())
     onDone()
   }
 
@@ -84,6 +87,12 @@ export function RecordComposer({ lead, onDone, compact }: { lead: Record<string,
         <DsSelect value={MORE.includes(type) ? type : ''} onChange={e => e.target.value && setType(e.target.value)} className={cn('h-6 text-[12px] pl-2', MORE.includes(type) && 'border-ds-fg text-ds-fg')}>
           <option value="">그 외</option>{MORE.map(v => <option key={v} value={v}>{ACTIVITY_TYPE_LABELS[v]}</option>)}
         </DsSelect>
+        <span className="flex-1" />
+        <label className="inline-flex items-center gap-1 text-[12px] text-ds-fg3" title="실제로 일어난 날 — 회의록을 나중에 올릴 때 그날로">
+          언제
+          <input type="date" value={when} max={kst()} onChange={e => setWhen(e.target.value || kst())}
+            className={cn(dsInput, 'h-6 text-[12px] !w-[124px] px-1.5', when !== kst() && 'border-ds-warn text-ds-fg')} />
+        </label>
       </div>
       <textarea value={text} onChange={e => setText(e.target.value)} rows={compact ? 2 : 3}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() } }}
@@ -123,18 +132,21 @@ function dayTitle(d: string, today: string) {
   const base = `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일 (${WD[dt.getUTCDay()]})`
   return d === today ? `오늘 · ${base}` : d.slice(0, 4) === today.slice(0, 4) ? base : `${d.slice(0, 4)}년 ${base}`
 }
+const mmdd2 = (s: string) => kstDate(s).slice(5).replace('-', '.')
 const hm = (s: string) => new Date(new Date(s).getTime() + 9 * 3600 * 1000).toISOString().slice(11, 16)
 
 export function Timeline({ items, limit, editable, leadId, onChanged }: { items: TimelineItem[]; limit?: number; editable?: boolean; leadId: string; onChanged: () => void }) {
   const { user } = useAuth()
-  const [edit, setEdit] = useState<{ id: string; type: string; desc: string } | null>(null)
+  const [edit, setEdit] = useState<{ id: string; type: string; desc: string; date: string } | null>(null)
   const [openDays, setOpenDays] = useState<Set<string>>(new Set())
   const list = limit ? items.slice(0, limit) : items
   if (!list.length) return <p className="text-[12.5px] text-ds-fg3 py-2">아직 기록이 없습니다.</p>
 
   const save = async () => {
     if (!edit) return
-    const r = await postUpdate({ action: 'edit_activity', lead_id: leadId, activity_id: edit.id, activity_type: edit.type, title: ACTIVITY_TYPE_LABELS[edit.type] || edit.type, description: edit.desc || null })
+    const orig = items.find(i => i.id === edit.id)
+    const moved = orig && kstDate(orig.at) !== edit.date
+    const r = await postUpdate({ action: 'edit_activity', lead_id: leadId, activity_id: edit.id, activity_type: edit.type, title: ACTIVITY_TYPE_LABELS[edit.type] || edit.type, description: edit.desc || null, performed_at: moved ? `${edit.date}T12:00:00+09:00` : undefined })
     if (r.error) { toast.error('수정하지 못했습니다.'); return }
     setEdit(null); onChanged()
   }
@@ -152,7 +164,8 @@ export function Timeline({ items, limit, editable, leadId, onChanged }: { items:
     days[days.length - 1].items.push(it)
   }
   const dot = (k: string) => <span className={cn('absolute -left-[20.5px] top-[5px] w-[7px] h-[7px] rounded-full', k === 'act' ? 'bg-ds-accent' : k === 'next' ? 'bg-ds-warn' : 'bg-ds-line')} />
-  const meta = (it: TimelineItem) => <span className="text-ds-fg3 text-[11.5px] tabular-nums whitespace-nowrap">{hm(it.at)} · {it.by}</span>
+  // 나중에 기록한 활동은 시각 대신 이름만 (시각은 그날 12시로 넣은 값이라)
+  const meta = (it: TimelineItem) => <span className="text-ds-fg3 text-[11.5px] tabular-nums whitespace-nowrap">{it.rec && kstDate(it.rec) !== kstDate(it.at) ? '' : `${hm(it.at)} · `}{it.by}</span>
 
   const changeText = (it: TimelineItem) => it.kind === 'stage' ? <>단계 {it.old || '—'} → <b className="font-medium text-ds-fg">{it.new}</b></>
     : it.kind === 'assign' ? <>담당 {it.old || '없음'} → <b className="font-medium text-ds-fg">{it.new || '없음'}</b></>
@@ -181,18 +194,23 @@ export function Timeline({ items, limit, editable, leadId, onChanged }: { items:
                       <div className="flex items-center gap-2">
                         <span className="text-[11.5px] px-1.5 rounded bg-ds-accent-soft text-ds-accent whitespace-nowrap">{typeLabel(it.type)}</span>
                         {meta(it)}
+                        {it.rec && kstDate(it.rec) !== kstDate(it.at) && <span className="text-[11px] text-ds-fg3" title={`실제 기록 ${it.rec.slice(0, 16).replace('T', ' ')}`}>· {mmdd2(it.rec)} 기록</span>}
                         {canEdit && edit?.id !== it.id && (
                           <span className="ml-auto text-[11px] text-ds-fg3 opacity-0 group-hover:opacity-100 flex gap-2">
-                            <button onClick={() => setEdit({ id: it.id, type: it.type || 'NOTE', desc: [showTitle ? it.title : '', it.desc || ''].filter(Boolean).join('\n') })} className="hover:text-ds-fg">수정</button>
+                            <button onClick={() => setEdit({ id: it.id, type: it.type || 'NOTE', desc: [showTitle ? it.title : '', it.desc || ''].filter(Boolean).join('\n'), date: kstDate(it.at) })} className="hover:text-ds-fg">수정</button>
                             <button onClick={() => del(it.id)} className="hover:text-ds-bad">삭제</button>
                           </span>
                         )}
                       </div>
                       {edit?.id === it.id ? (
                         <div className="mt-1.5 grid gap-1.5">
-                          <DsSelect value={edit.type} onChange={e => setEdit({ ...edit, type: e.target.value })} className="h-7 text-[12px] w-[160px]">
+                          <div className="flex gap-1.5 items-center">
+                            <DsSelect value={edit.type} onChange={e => setEdit({ ...edit, type: e.target.value })} className="h-7 text-[12px] w-[160px]">
                             {Object.entries(ACTIVITY_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                           </DsSelect>
+                            <span className="text-[12px] text-ds-fg3 ml-1">언제</span>
+                            <input type="date" value={edit.date} max={today} onChange={e => setEdit({ ...edit, date: e.target.value || edit.date })} className={cn(dsInput, 'h-7 text-[12px] !w-[132px]')} />
+                          </div>
                           <textarea value={edit.desc} onChange={e => setEdit({ ...edit, desc: e.target.value })} rows={3} className="w-full px-2.5 py-1.5 rounded border border-ds-line text-[13px] focus:outline-none focus:ring-2 focus:ring-ds-accent" />
                           <div className="flex gap-1.5"><DsButton size="sm" variant="primary" onClick={save}>저장</DsButton><DsButton size="sm" variant="ghost" onClick={() => setEdit(null)}>취소</DsButton></div>
                         </div>

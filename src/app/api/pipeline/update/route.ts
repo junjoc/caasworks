@@ -339,6 +339,8 @@ export async function POST(request: NextRequest) {
           activity_type: payload.activity_type,
           title: payload.title,
           description: payload.description || null,
+          // 10/21: 실제 일어난 날로 옮길 수 있음 (기록한 시각 created_at 은 그대로 남음)
+          ...(payload.performed_at ? { performed_at: payload.performed_at } : {}),
         })
         .eq('id', payload.activity_id)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })

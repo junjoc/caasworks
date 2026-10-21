@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic'
 export type TimelineItem = {
   id: string; kind: 'act' | 'stage' | 'assign' | 'next' | 'field'; at: string; by: string; byId: string | null
   type?: string; title?: string | null; desc?: string | null; field?: string; old?: string | null; new?: string | null
+  rec?: string  // 활동을 실제로 기록한 시각 (performed_at 과 날이 다르면 "나중에 기록")
 }
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -20,7 +21,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const [l, h, a, u] = await Promise.all([
       sb.from('pipeline_leads').select('*').eq('id', id).single(),
       sb.from('pipeline_history').select('id, field_changed, old_value, new_value, changed_by, changed_at').eq('lead_id', id),
-      sb.from('activity_logs').select('id, activity_type, title, description, performed_by, performed_at').eq('lead_id', id),
+      sb.from('activity_logs').select('id, activity_type, title, description, performed_by, performed_at, created_at').eq('lead_id', id),
       sb.from('users').select('id, name, is_active').order('name'),
     ])
     if (l.error || !l.data) return NextResponse.json({ error: l.error?.message || 'not found' }, { status: 404 })
@@ -28,7 +29,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const uname = new Map((u.data || []).map(x => [x.id, x.name as string]))
     const kindOf = (f: string): TimelineItem['kind'] => (f === 'stage' ? 'stage' : f === 'assigned_to' ? 'assign' : f === 'next_action' ? 'next' : 'field')
     const timeline: TimelineItem[] = [
-      ...(a.data || []).map(x => ({ id: x.id, kind: 'act' as const, at: x.performed_at, by: uname.get(x.performed_by) || '시스템', byId: x.performed_by, type: x.activity_type, title: x.title, desc: x.description })),
+      ...(a.data || []).map(x => ({ id: x.id, kind: 'act' as const, at: x.performed_at, by: uname.get(x.performed_by) || '시스템', byId: x.performed_by, type: x.activity_type, title: x.title, desc: x.description, rec: x.created_at })),
       ...(h.data || []).map(x => ({ id: x.id, kind: kindOf(x.field_changed), at: x.changed_at, by: uname.get(x.changed_by) || '시스템', byId: x.changed_by, field: x.field_changed, old: x.old_value, new: x.new_value })),
     ].sort((x, y) => y.at.localeCompare(x.at))
 
