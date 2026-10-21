@@ -11,3 +11,10 @@
 
 시안 데이터(sample.json · agg.json · detail.json · board.json · camps.json)는 CRM 실데이터에서 회사명·단계·일자·금액만 뽑은 것이라 저장소에 넣지 않는다. 다시 만들 때는 같은 형태로 추출해 스크립트 안의 `S` 경로에 둔다.
 새 메뉴 시안은 gen_campaign.py 처럼 섹션을 만들어 assemble.py 의 `MENU` 목록과 '메뉴별 시안' 아래에 붙인다.
+
+
+## 10/21 저녁 재구성 — 마지막 단계 rebuild.py
+실행 순서: `assemble.py` → `reorganize.py` → **`rebuild.py`** (각각 `python3 -X utf8 -c "exec(compile(open('X.py',encoding='utf-8').read(),'X.py','exec'))"`).
+rebuild.py 가 섹션을 뽑아 **개요 → 1. 전역(화면 문법 · 색 · 글자 · 부품 · 데이터 기준) → 2. 메뉴별 화면(CRM 메뉴 순서) → 3. 기록** 으로 다시 엮고,
+지난 안(예전 화면 유형 6 시안 · 화면 뼈대 · 리드 상세 v1)은 뺀다. 견본(색·아이콘)은 작게, 화면 그림은 62%.
+새 섹션을 넣으려면 reorganize.py 의 S[...] 에 만들고 rebuild.py 의 ORDER 에 (id, 목록 이름) 을 추가한다.
