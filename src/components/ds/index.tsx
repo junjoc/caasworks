@@ -122,7 +122,7 @@ export function Drawer({ open, onClose, title, meta, footer, children, width = 4
           <div className="min-w-0"><div className="text-[15px] font-semibold text-ds-fg truncate">{title}</div>{meta && <div className="text-[12px] text-ds-fg2 mt-0.5">{meta}</div>}</div>
           <button onClick={onClose} className="w-7 h-7 inline-grid place-items-center rounded-md text-ds-fg2 hover:bg-ds-subtle" title="닫기"><X className="w-4 h-4" /></button>
         </div>
-        <div className="flex-1 overflow-auto">{children}</div>
+        <div className="flex-1 overflow-auto scroll-stable">{children}</div>
         {footer && <div className="px-4 py-3 border-t border-ds-line flex items-center justify-end gap-2">{footer}</div>}
       </aside>
     </div>

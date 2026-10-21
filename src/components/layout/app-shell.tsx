@@ -13,7 +13,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar user={user} onSignOut={signOut} />
       <div className="lg:ml-[var(--sidebar-width)] h-screen flex flex-col overflow-hidden">
         <Header user={user} />
-        <main className="flex-1 px-5 pt-4 pb-5 overflow-auto">{children}</main>
+        <main className="flex-1 px-5 pt-4 pb-5 overflow-auto scroll-stable">{children}</main>
       </div>
       <FeedbackFloatingButton />
     </div>

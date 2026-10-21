@@ -78,7 +78,9 @@
   .ds-table tr.ds-sum td { @apply font-semibold border-b-0 border-t-2 border-ds-line; color: var(--ds-fg); background: var(--ds-bg); }
   .ds-table td .ds-cell-status { @apply flex items-center justify-center -mx-3 h-9 leading-none text-white font-medium; min-width: 88px; }
   .ds-table.is-clickable tbody tr.ds-row { cursor: pointer; }
-  .ds-wrap { @apply overflow-auto border border-ds-line rounded-lg bg-ds-bg; }
+  /* 10/21: 세로 스크롤 막대가 생겨도 내용이 좌로 밀리지 않게 막대 자리를 항상 비워 둔다 */
+  .ds-wrap { @apply overflow-auto border border-ds-line rounded-lg bg-ds-bg; scrollbar-gutter: stable; }
+  .scroll-stable { scrollbar-gutter: stable; }
   .ds-edit { @apply border-b border-dashed border-ds-line cursor-text; }
   /* ─── Page Layout ─── */
   .page-header {
