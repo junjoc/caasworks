@@ -66,7 +66,7 @@
   .ds-table.is-fixed th:first-child, .ds-table.is-fixed td:first-child { width: auto; min-width: 0; }
   .ds-table tbody tr.ds-row:nth-child(even) td { background: var(--ds-subtle); }
   .ds-table tbody tr.ds-row:hover td { background: var(--ds-accent-soft); }
-  .ds-table tbody tr.ds-row.is-active td { background: var(--ds-accent-soft); box-shadow: inset 2px 0 0 var(--ds-accent); }
+  .ds-table tbody tr.ds-row.is-active td { background: var(--ds-accent-soft); }
   .ds-table .num { @apply text-right tabular-nums; }
   .ds-table .c { @apply text-center tabular-nums; }
   .ds-table .muted { color: var(--ds-fg3); }

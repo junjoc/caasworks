@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { fetchLifecycle, fmtWon, fmtPct, median, type LifecycleRow } from '@/lib/lifecycle'
-import { PageHeader, Toolbar, DsSelect, Check, Skeleton, Empty, StatusChip, Drawer } from '@/components/ds'
+import { PageHeader, Toolbar, DsSelect, Check, Skeleton, Empty, StatusChip, Drawer, DsButton } from '@/components/ds'
 
 export default function ChannelValuePage() {
   const [rows, setRows] = useState<LifecycleRow[]>([])
@@ -36,7 +36,7 @@ export default function ChannelValuePage() {
     <div>
       <PageHeader title="채널별 생애 가치"
         kpis={[{ label: '유입 회사', value: tot.n }, { label: '도입', value: `${tot.won} (${fmtPct(tot.won, tot.n)})` }, { label: '누적 매출', value: `${fmtWon(tot.rev)}원` }, { label: '광고비', value: tot.cost ? `${fmtWon(tot.cost)}원` : '—' }, { label: '매출/광고비', value: tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—' }]}
-        subtitle="첫 리드의 유입 채널 기준 · 매출은 유입 이후 공급가 누적 · 광고비는 광고 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 — · 행을 누르면 회사 목록" />
+        actions={<DsButton variant="ghost" size="sm" title="첫 리드의 유입 채널 기준 · 매출은 유입 이후 공급가 누적 · 광고비는 광고 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 — · 행을 누르면 회사 목록">ⓘ 기준</DsButton>} />
       <Toolbar right={<>
         <DsSelect value={year} onChange={e => { setYear(e.target.value); setOpen(null) }}><option value="all">전체 연도</option>{years.map(y => <option key={y} value={y}>{y}년 유입</option>)}</DsSelect>
         <Check label="유입경로까지" checked={sub} onChange={v => { setSub(v); setOpen(null) }} />
@@ -44,13 +44,14 @@ export default function ChannelValuePage() {
       </>} />
 
       {loading ? <Skeleton rows={8} /> : table.length === 0 ? <Empty text="조건에 맞는 유입이 없습니다" /> : (
-        <div className="ds-wrap max-h-[70vh]">
-          <table className="ds-table is-clickable">
+        <div className="ds-wrap max-h-[70vh] min-w-[880px]">
+          <table className="ds-table is-clickable is-fixed">
+            <colgroup>{[18, 8, 8, 9, 11, 13, 12, 11, 10].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
             <thead><tr><th>채널{sub ? ' › 유입경로' : ''}</th><th>회사</th><th>도입</th><th>도입률</th><th>소요일 중앙값</th><th>누적 매출</th><th>도입 회사당</th><th>광고비</th><th title="누적 매출 ÷ 광고비">매출/광고비</th></tr></thead>
             <tbody>
               {table.map(t => (
                 <tr key={t.key} className={`ds-row ${open === t.key ? 'is-active' : ''}`} onClick={() => setOpen(t.key)}>
-                  <td className="font-medium">{t.key}</td><td className="c">{t.n}</td><td className="c">{t.won}</td><td className="c">{fmtPct(t.won, t.n)}</td>
+                  <td className="font-medium" title={t.key}>{t.key}</td><td className="c">{t.n}</td><td className="c">{t.won}</td><td className="c">{fmtPct(t.won, t.n)}</td>
                   <td className="c">{t.days != null ? `${t.days}일` : '—'}</td><td className="num font-medium">{fmtWon(t.rev)}</td><td className="num">{fmtWon(t.perWon)}</td>
                   <td className="num">{t.cost ? fmtWon(t.cost) : '—'}</td><td className="c">{t.roas != null ? `${t.roas.toFixed(1)}배` : '—'}</td>
                 </tr>
