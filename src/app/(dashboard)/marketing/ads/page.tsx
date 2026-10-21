@@ -14,6 +14,10 @@ import { formatCurrency, formatNumber, CHANNEL_SUB_SOURCES as SHARED_SUB_SOURCES
 import { toast } from 'sonner'
 import { CompanyTagInput } from '@/components/ui/company-tag-input'
 import { PageHeader, Toolbar, Tabs, DsButton, Skeleton, Empty, Drawer } from '@/components/ds'
+import { classifyAdRow, splitNotes, INFLOW_GROUPS, INFLOW_ORDER, PAID_GROUPS, subOrder, type InflowGroup } from '@/lib/inflow-taxonomy'
+
+const isPaid = (d: { channel: string; ad_type: string; campaign_name: string; notes?: string | null }) => PAID_GROUPS.includes(classifyAdRow(d.channel, d.ad_type, d.campaign_name, d.notes).group)
+const tabMatch = (tab: TabType, d: { channel: string; ad_type: string; campaign_name: string; notes?: string | null }) => tab === '전체' || (tab === '유료') === isPaid(d)
 import {
   Plus, BarChart3, TrendingUp, TrendingDown, MousePointerClick, Target,
   DollarSign, Trash2, Pencil, ChevronUp, ChevronDown,
@@ -70,11 +74,11 @@ interface MarketingBudget {
   budget_amount: number
 }
 
-type TabType = '전체' | '네이버' | '구글' | '메타' | '외주 블로그' | '콘텐츠' | '기타'
+type TabType = '전체' | '유료' | '무료' | '네이버' | '구글' | '메타' | '외주 블로그' | '콘텐츠' | '기타'
 type SortField = 'date' | 'cost' | 'clicks' | 'signups'
 
-// 10/21: 콘텐츠·기타(유입 기록)는 콘텐츠 성과 메뉴에서 본다 — 광고 성과는 광고비가 있는 채널만
-const TABS: TabType[] = ['전체', '네이버', '구글', '메타', '외주 블로그']
+// 10/21: 광고와 유입 전체를 유입 분류 11 로 본다. 탭은 유료(광고·외주 블로그) / 무료(나머지)
+const TABS: TabType[] = ['전체', '유료', '무료']
 
 const CHANNEL_OPTIONS = [
   { value: '네이버', label: '네이버' },
@@ -441,7 +445,7 @@ export default function AdsPage() {
   const filtered = useMemo(() => {
     const items = tab === '전체'
       ? [...data]
-      : data.filter(d => channelToTab(d.channel) === tab)
+      : data.filter(d => tabMatch(tab, d))
     items.sort((a, b) => {
       const aVal = a[sortField] as number | string
       const bVal = b[sortField] as number | string
@@ -464,11 +468,11 @@ export default function AdsPage() {
     // 10/21: 예산 = 진행 중 캠페인 월 예산 합 × 기간 개월 수 (입력을 캠페인 관리 한 곳으로). 비어 있으면 월 예산 입력값
     const fromM = new Date(dateRange.from), toM = new Date(dateRange.to)
     const months = Math.max(1, (toM.getFullYear() - fromM.getFullYear()) * 12 + toM.getMonth() - fromM.getMonth() + 1)
-    const campBudget = campaigns.filter(c => c.status === '진행중' && (tab === '전체' || channelToTab(c.channel) === tab)).reduce((s, c) => s + (Number(c.budget) || 0), 0) * months
+    const campBudget = campaigns.filter(c => c.status === '진행중' && tab !== '무료').reduce((s, c) => s + (Number(c.budget) || 0), 0) * months
     const totalBudget = campBudget || budgets.reduce((s, b) => s + b.budget_amount, 0)
     const tabItems = tab === '전체'
       ? data
-      : data.filter(d => channelToTab(d.channel) === tab)
+      : data.filter(d => tabMatch(tab, d))
     const totalSpent = tabItems.reduce((s, d) => s + d.cost, 0)
     // Calculate days in range
     const fromD = new Date(dateRange.from)
@@ -485,7 +489,7 @@ export default function AdsPage() {
   // ─── Performance KPIs ───────────────────────────────────
 
   const kpi = useMemo(() => {
-    const items = tab === '전체' ? data : data.filter(d => channelToTab(d.channel) === tab)
+    const items = data.filter(d => tabMatch(tab, d))
     const totalCost = items.reduce((s, d) => s + d.cost, 0)
     const totalImpressions = items.reduce((s, d) => s + d.impressions, 0)
     const totalClicks = items.reduce((s, d) => s + d.clicks, 0)
@@ -505,7 +509,7 @@ export default function AdsPage() {
   // ─── Channel subtotals ─────────────────────────────────
 
   const channelSubtotals = useMemo(() => {
-    const items = tab === '전체' ? data : data.filter(d => channelToTab(d.channel) === tab)
+    const items = data.filter(d => tabMatch(tab, d))
     const groups: Record<string, { cost: number; impressions: number; clicks: number; ga_visits: number; inquiry_clicks: number; signups: number; inquiries: number; adoptions: number; count: number }> = {}
     items.forEach(d => {
       if (!groups[d.channel]) groups[d.channel] = { cost: 0, impressions: 0, clicks: 0, ga_visits: 0, inquiry_clicks: 0, signups: 0, inquiries: 0, adoptions: 0, count: 0 }
@@ -534,7 +538,7 @@ export default function AdsPage() {
   const insights = useMemo<Insight[]>(() => {
     if (data.length === 0) return []
     const result: Insight[] = []
-    const items = tab === '전체' ? data : data.filter(d => channelToTab(d.channel) === tab)
+    const items = data.filter(d => tabMatch(tab, d))
     if (items.length === 0) return []
 
     // 1. 예산 소진율 vs 기간 경과율 비교
@@ -876,23 +880,51 @@ export default function AdsPage() {
 
   // ─── 광고 표: 광고비·노출이 있는 행만, 채널 › 캠페인 › 광고그룹 기간 합계 (10/21) ───
   type AdTot = { cost: number; impressions: number; clicks: number; ga: number; inqClicks: number; inquiries: number; adoptions: number }
-  const isAdRow = (d: AdPerformance) => d.ad_type !== '콘텐츠' || d.cost > 0 || d.impressions > 0
-  const AD_CH_COLOR: Record<string, string> = { '네이버': 'var(--ds-ok)', '구글': 'var(--ds-info)', '메타': 'var(--ds-info)', '유튜브': 'var(--ds-bad)', '외주 블로그': 'var(--ds-warn)' }
+  const GROUP_COLOR = (g: InflowGroup) => (g === '광고' ? 'var(--ds-accent)' : g === '외주 블로그' ? 'var(--ds-warn)' : g === '직접 연락' ? 'var(--ds-ok)' : g === '미분류' ? 'var(--ds-na)' : 'var(--ds-info)')
   const add = (t: AdTot, d: AdPerformance) => { t.cost += d.cost; t.impressions += d.impressions; t.clicks += d.clicks; t.ga += d.ga_visits || 0; t.inqClicks += d.inquiry_clicks || 0; t.inquiries += d.inquiries; t.adoptions += d.adoptions }
   const zero = (): AdTot => ({ cost: 0, impressions: 0, clicks: 0, ga: 0, inqClicks: 0, inquiries: 0, adoptions: 0 })
+  type Row = AdTot & { key: string; group: InflowGroup; sub: string; label: string; detail: string; campaignId: string | null; type: string; raw: string; days: AdPerformance[] }
+  // 유입 분류 11: 광고는 캠페인 › 광고그룹, 나머지는 분류 › 세부. GA 유입은 비고의 실제 출처별로 나눈다(빙·다음, ChatGPT·Gemini …)
   const { adGroups, adTotal, rowByKey } = useMemo(() => {
-    const items = data.filter(d => isAdRow(d) && (tab === '전체' || channelToTab(d.channel) === tab))
-    const rows = new Map<string, AdTot & { key: string; ch: string; campaign: string; campaignId: string | null; adgroup: string; type: string; days: AdPerformance[] }>()
+    const items = data.filter(d => tabMatch(tab, d))
+    const rows = new Map<string, Row>()
+    const get = (key: string, init: () => Omit<Row, keyof AdTot | 'days'>) => { if (!rows.has(key)) rows.set(key, { ...init(), ...zero(), days: [] }); return rows.get(key)! }
     for (const d of items) {
-      const key = `${d.channel}|${d.campaign_name}|${d.adgroup_name || ''}`
-      if (!rows.has(key)) rows.set(key, { key, ch: d.channel, campaign: d.campaign_name, campaignId: d.campaign_id, adgroup: d.adgroup_name || '', type: d.ad_type, days: [], ...zero() })
-      const r = rows.get(key)!; add(r, d); r.days.push(d); if (d.campaign_id) r.campaignId = d.campaign_id
+      const f = classifyAdRow(d.channel, d.ad_type, d.campaign_name, d.notes)
+      if (f.group === '광고') {
+        const key = `광고|${d.channel}|${d.campaign_name}|${d.adgroup_name || ''}`
+        const r = get(key, () => ({ key, group: '광고', sub: f.sub, label: d.campaign_name, detail: d.adgroup_name || '', campaignId: d.campaign_id, type: d.ad_type, raw: f.raw }))
+        add(r, d); r.days.push(d); if (d.campaign_id) r.campaignId = d.campaign_id
+        continue
+      }
+      // 비고에 출처별 건수가 있으면 GA 유입을 출처별 세부로 나눈다
+      const parts = (d.campaign_name === '기타' || d.campaign_name === '생성형AI') ? splitNotes(d.notes).filter(p => p.f && p.f.group === f.group) : []
+      const partSum = parts.reduce((s, p) => s + p.n, 0)
+      const main = { ...d, ga_visits: Math.max(0, (d.ga_visits || 0) - partSum) }
+      for (const p of parts) {
+        const key = `${f.group}|${p.f!.sub}`
+        const r = get(key, () => ({ key, group: f.group, sub: p.f!.sub, label: p.f!.sub, detail: '', campaignId: null, type: d.ad_type, raw: f.raw }))
+        r.ga += p.n
+        if (!r.days.includes(d)) r.days.push(d)
+      }
+      if (!parts.length || main.ga_visits || d.cost || d.inquiry_clicks || d.inquiries || d.adoptions) {
+        const sub = parts.length ? '기타' : f.sub // 출처별로 나누고 남은 몫은 그 분류의 기타
+        const key = `${f.group}|${sub}`
+        const r = get(key, () => ({ key, group: f.group, sub, label: sub, detail: '', campaignId: null, type: d.ad_type, raw: f.raw }))
+        add(r, main); if (!r.days.includes(d)) r.days.push(d)
+      }
     }
-    const byCh = new Map<string, typeof rowList>()
-    const rowList = Array.from(rows.values())
-    for (const r of rowList) { r.days.sort((a, b) => b.date.localeCompare(a.date)); (byCh.get(r.ch) || byCh.set(r.ch, []).get(r.ch)!).push(r) }
-    const total = zero(); items.forEach(d => add(total, d))
-    const groups = Array.from(byCh.entries()).map(([ch, rs]) => { const tot = zero(); rs.forEach(r => r.days.forEach(d => add(tot, d))); return { ch, rows: rs.sort((a, b) => b.cost - a.cost), tot } }).sort((a, b) => b.tot.cost - a.tot.cost)
+    const list = Array.from(rows.values())
+    list.forEach(r => r.days.sort((a, b) => b.date.localeCompare(a.date)))
+    const total = zero(); list.forEach(r => { total.cost += r.cost; total.impressions += r.impressions; total.clicks += r.clicks; total.ga += r.ga; total.inqClicks += r.inqClicks; total.inquiries += r.inquiries; total.adoptions += r.adoptions })
+    // 11 분류는 비어 있어도 모두 보인다 (빠진 유입을 알아볼 수 있게). 미분류는 있을 때만
+    const order = INFLOW_ORDER.filter(g => g !== '미분류' || list.some(r => r.group === '미분류'))
+      .filter(g => tab === '전체' || (tab === '유료') === PAID_GROUPS.includes(g))
+    const groups = order.map(ch => {
+      const rs = list.filter(r => r.group === ch).sort((a, b) => ch === '광고' ? b.cost - a.cost : subOrder(ch, a.sub) - subOrder(ch, b.sub) || b.ga - a.ga)
+      const tot = zero(); rs.forEach(r => { tot.cost += r.cost; tot.impressions += r.impressions; tot.clicks += r.clicks; tot.ga += r.ga; tot.inqClicks += r.inqClicks; tot.inquiries += r.inquiries; tot.adoptions += r.adoptions })
+      return { ch, rows: rs, tot }
+    })
     return { adGroups: groups, adTotal: total, rowByKey: rows }
   }, [data, tab])
   const openRow = openKey ? rowByKey.get(openKey) || null : null
@@ -922,7 +954,7 @@ export default function AdsPage() {
   // 레이아웃 정의 v1 "집계" 유형: 제목줄 → 탭·동기화 → 숫자줄(5) → 표. 색은 상태에만
   return (
     <div>
-      <PageHeader title="광고 성과"
+      <PageHeader title="광고 성과" subtitle="광고와 유입 전체 — 유입 분류 11"
         actions={<>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
           <div className="relative">
@@ -950,48 +982,48 @@ export default function AdsPage() {
       </div>
 
       {loading ? <Skeleton rows={10} /> : adGroups.length === 0 ? (
-        <Empty text="이 기간에 광고비가 쓰인 기록이 없습니다" action={<DsButton size="sm" onClick={openAdd}>데이터 입력</DsButton>} />
+        <Empty text="이 기간에 기록이 없습니다" action={<DsButton size="sm" onClick={openAdd}>데이터 입력</DsButton>} />
       ) : (
         <div className="ds-wrap max-h-[calc(100vh-300px)]">
           <table className="ds-table is-clickable is-fixed">
             <colgroup>{[22, 15, 6, 10, 8, 6, 6, 7, 6, 6, 4, 4].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
-            <thead><tr><th>캠페인</th><th>광고그룹</th><th>유형</th><th>비용</th><th>노출</th><th>클릭</th><th>CTR</th><th>CPM</th><th>GA 유입</th><th>문의 클릭</th><th>문의</th><th>도입</th></tr></thead>
+            <thead><tr><th>분류 › 세부 · 캠페인</th><th>광고그룹</th><th>유형</th><th>비용</th><th>노출</th><th>클릭</th><th>CTR</th><th>CPM</th><th>GA 유입</th><th>문의 클릭</th><th>문의</th><th>도입</th></tr></thead>
             <tbody>
               {adGroups.map(g => {
-                const color = AD_CH_COLOR[g.ch] || 'var(--ds-na)'
+                const color = GROUP_COLOR(g.ch)
                 const isFolded = foldedCh.has(g.ch)
                 return (
                   <Fragment key={g.ch}>
                     <tr className="cursor-pointer select-none [&>td]:!h-[42px] [&>td]:!bg-ds-bg [&>td]:border-b [&>td]:border-ds-line [&>td]:text-[13.5px] [&>td]:font-semibold"
                       onClick={() => setFoldedCh(f => { const n = new Set(f); n.has(g.ch) ? n.delete(g.ch) : n.add(g.ch); return n })} title={isFolded ? '펼치기' : '접기'}>
                       <td colSpan={2} style={{ boxShadow: `inset 4px 0 0 ${color}`, paddingLeft: 12 }}>
-                        <span className="inline-flex items-center gap-1.5"><ChevronDown className={`w-4 h-4 text-ds-fg3 transition-transform ${isFolded ? '-rotate-90' : ''}`} />{g.ch}<span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{g.rows.length}개 광고그룹</span></span>
+                        <span className="inline-flex items-center gap-1.5"><ChevronDown className={`w-4 h-4 text-ds-fg3 transition-transform ${isFolded || !g.rows.length ? '-rotate-90' : ''}`} />{g.ch}<span className="text-ds-fg3 font-normal text-[11.5px] ml-1">{g.rows.length ? (g.ch === '광고' ? `${g.rows.length}개 광고그룹` : INFLOW_GROUPS.find(x => x.key === g.ch)?.subs.join(' · ')) : '이번 기간 기록 없음'}</span></span>
                       </td>
                       <td />
                       <AdNums t={g.tot} />
                     </tr>
                     {!isFolded && g.rows.map(r => (
                       <tr key={r.key} className={`ds-row ${openKey === r.key ? 'is-active' : ''}`} onClick={() => setOpenKey(r.key)}>
-                        <td className="font-medium" style={{ boxShadow: `inset 4px 0 0 ${color}`, paddingLeft: 16 }} title={r.campaign}>
-                          {r.campaign}{!r.campaignId && <Link2 className="w-3 h-3 inline ml-1 text-ds-warn" aria-label="캠페인 연결 안 됨" />}
+                        <td className="font-medium" style={{ boxShadow: `inset 4px 0 0 ${color}`, paddingLeft: 16 }} title={r.raw}>
+                          {r.group === '광고' && <span className="text-ds-fg3 font-normal mr-1.5">{r.sub}</span>}{r.label}{r.group === '광고' && !r.campaignId && <Link2 className="w-3 h-3 inline ml-1 text-ds-warn" aria-label="캠페인 연결 안 됨" />}
                         </td>
-                        <td className="muted" title={r.adgroup}>{r.adgroup || '—'}</td>
-                        <td className="c muted">{r.type}</td>
+                        <td className="muted" title={r.detail}>{r.detail || '—'}</td>
+                        <td className="c muted">{r.group === '광고' ? r.type : '유입'}</td>
                         <AdNums t={r} />
                       </tr>
                     ))}
                   </Fragment>
                 )
               })}
-              <tr className="ds-sum"><td colSpan={3}>광고 합계</td><AdNums t={adTotal} /></tr>
+              <tr className="ds-sum"><td colSpan={3}>{tab === '전체' ? '광고·유입 합계' : tab + ' 합계'}</td><AdNums t={adTotal} /></tr>
             </tbody>
           </table>
         </div>
       )}
 
       <Drawer open={!!openRow} onClose={() => setOpenKey(null)} width="60vw"
-        title={openRow ? `${openRow.campaign}${openRow.adgroup ? ' › ' + openRow.adgroup : ''}` : ''}
-        meta={openRow ? `${openRow.ch} · ${openRow.type} · ${openRow.days.length}일 · 비용 ${formatCurrency(openRow.cost)} · 클릭 ${formatNumber(openRow.clicks)} · 문의 ${openRow.inquiries}` : ''}>
+        title={openRow ? `${openRow.group} › ${openRow.label}${openRow.detail ? ' › ' + openRow.detail : ''}` : ''}
+        meta={openRow ? `${openRow.raw} · ${openRow.days.length}일 · 비용 ${formatCurrency(openRow.cost)} · GA 유입 ${formatNumber(openRow.ga)} · 문의 ${openRow.inquiries}` : ''}>
         {openRow && (
           <div className="p-4">
             <div className="ds-wrap">

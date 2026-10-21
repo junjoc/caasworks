@@ -110,3 +110,17 @@ export function classifyGa(channel: string, sub: string, notes?: string | null):
 }
 
 export const INFLOW_ORDER: InflowGroup[] = [...INFLOW_GROUPS.map(g => g.key), '미분류']
+export const PAID_GROUPS: InflowGroup[] = ['광고', '외주 블로그']
+export const subOrder = (group: InflowGroup, sub: string) => { const g = INFLOW_GROUPS.find(x => x.key === group); const i = g ? (g.subs as readonly string[]).indexOf(sub) : -1; return i < 0 ? 99 : i }
+
+/** 광고·유입 성과 행 하나를 분류. 유료 광고(네이버·구글·메타·유튜브 광고) → 광고 › 채널 */
+export function classifyAdRow(channel: string, adType: string | null, campaignName: string, notes?: string | null): Inflow {
+  if (['네이버', '구글', '메타', '유튜브'].includes(channel) && adType !== '콘텐츠') return { group: '광고', sub: channel === '유튜브' ? '구글' : channel, raw: `${channel} 광고` }
+  return classifyGa(channel, campaignName, notes)
+}
+
+/** 비고의 "bing(24), daum(3)" → 출처별 건수. 출처마다 분류해서 GA 유입을 나눌 때 쓴다 */
+export function splitNotes(notes: string | null | undefined): { src: string; n: number; f: Omit<Inflow, 'raw'> | null }[] {
+  if (!notes) return []
+  return Array.from(notes.matchAll(/([^\s,()]+)\((\d+)\)/g)).map(m => ({ src: m[1], n: Number(m[2]), f: bySource(m[1]) }))
+}
