@@ -94,9 +94,13 @@ export default function DashboardPage() {
     if (!user?.id) return
     const sb = createClient()
     ;(async () => {
-      const { data, error } = await sb.from('users').select('dashboard_config').eq('id', user.id).maybeSingle()
-      if (error && /column .* does not exist/i.test(error.message)) setDbColumnMissing(true)
-      const dbCfg = (data as any)?.dashboard_config as DashboardConfig | null
+      // useAuth 가 users 행 전체를 이미 읽었으므로 배치 설정은 그 안의 값을 쓴다 (왕복 1회 절약, 2026-10-21)
+      let dbCfg = (user as any).dashboard_config as DashboardConfig | null | undefined
+      if (dbCfg === undefined) {
+        const { data, error } = await sb.from('users').select('dashboard_config').eq('id', user.id).maybeSingle()
+        if (error && /column .* does not exist/i.test(error.message)) setDbColumnMissing(true)
+        dbCfg = (data as any)?.dashboard_config as DashboardConfig | null
+      }
       if (dbCfg && Array.isArray(dbCfg.widgets)) {
         setConfig({ ...dbCfg, widgets: normalizeLayout(dbCfg.widgets) })
         return

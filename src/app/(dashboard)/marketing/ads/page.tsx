@@ -381,29 +381,30 @@ export default function AdsPage() {
       cur.setMonth(cur.getMonth() + 1)
     }
 
-    // Batch fetch ads (may exceed 1000 rows)
-    let allAds: AdPerformance[] = []
-    let offset = 0
-    const batchSize = 1000
-    while (true) {
-      const { data: batch } = await supabase
-        .from('ad_performance')
-        .select('*')
-        .gte('date', dateRange.from)
-        .lte('date', dateRange.to)
-        .order('date', { ascending: false })
-        .range(offset, offset + batchSize - 1)
-      if (!batch || batch.length === 0) break
-      allAds = allAds.concat(batch)
-      if (batch.length < batchSize) break
-      offset += batchSize
+    // 광고 데이터(1,000행 단위)와 예산을 동시에 읽는다 (2026-10-21: 순차 → 병렬)
+    const fetchAds = async () => {
+      let allAds: AdPerformance[] = []
+      let offset = 0
+      const batchSize = 1000
+      while (true) {
+        const { data: batch } = await supabase
+          .from('ad_performance')
+          .select('*')
+          .gte('date', dateRange.from)
+          .lte('date', dateRange.to)
+          .order('date', { ascending: false })
+          .range(offset, offset + batchSize - 1)
+        if (!batch || batch.length === 0) break
+        allAds = allAds.concat(batch)
+        if (batch.length < batchSize) break
+        offset += batchSize
+      }
+      return allAds
     }
-
-    // Fetch budgets (병렬)
     const budgetPromises = budgetMonths.map(bm =>
       supabase.from('marketing_budgets').select('*').eq('year', bm.year).eq('month', bm.month)
     )
-    const budgetResults = await Promise.all(budgetPromises)
+    const [allAds, budgetResults] = await Promise.all([fetchAds(), Promise.all(budgetPromises)])
     const allBudgets: MarketingBudget[] = budgetResults.flatMap(r => r.data || [])
 
     const adsResult = { data: allAds, error: null as any }
