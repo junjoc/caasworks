@@ -120,7 +120,7 @@ table.ds{border-collapse:collapse;width:100%;min-width:100%;table-layout:auto}.d
 #base tr:hover td{ background: var(--bg-subtle) }
 #base td.num,#base th.num{ text-align: right; font-variant-numeric: tabular-nums }
 #base td .stc{ display: block; margin: 0 -12px; height: 36px; line-height: 36px; text-align: center; color: #fff; font-weight: 500 }
-#base .grp td{ border-left: 4px solid var(--grp) }
+#base .grp td:first-child{ border-left: 4px solid var(--grp) }
 #base .grp-h td{ color: var(--grp); font-weight: 600; height: 30px; border-bottom: 1px solid var(--line) }
 #base .sum td{ font-weight: 600; color: var(--fg); background: var(--bg) }
 #base .bar{ display: flex; height: 8px; border-radius: 4px; overflow: hidden; width: 160px }
@@ -144,7 +144,7 @@ table.ds{border-collapse:collapse;width:100%;min-width:100%;table-layout:auto}.d
 #base .old{ background: #f5f7fa; border-radius: 10px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.08) }
 #base .old .tile{ background: #dbeafe; color: #1e40af; border-radius: 8px; padding: 10px; font-weight: 700; font-size: 18px }
 #base .old .b{ background: #1890ff; color: #fff; border-radius: 8px; padding: 8px 14px; font-weight: 600; display: inline-block; margin-top: 8px }
-#base .rule{color:var(--fg-2);margin:0 0 14px;max-width:76ch}#base .rule b{color:var(--fg);font-weight:500}
+#base .rule{color:var(--fg-2);margin:0 0 14px;max-width:76ch}#base .rule b{color:var(--fg);font-weight:500}#base th+th,#base td+td{border-left:1px solid var(--line-2)}#base .grp td:first-child{border-left:4px solid var(--grp)!important}
 .ds th+th,.ds td+td{border-left:1px solid var(--line-2)}
 .vl.v2 th+th,.vl.v2 td+td{border-left:0}.vl.v2 .g,.vl.v3 .g{border-left:1px solid #d9d9de!important}.vl.v1 .g{border-left:1px solid var(--line-2)}
 .vl tr.off td{color:var(--fg-3)}.vl td{height:32px}

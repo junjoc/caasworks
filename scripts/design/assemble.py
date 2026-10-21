@@ -23,6 +23,8 @@ base_html = ''.join(f'<section id="b-{i}">' + re.sub(r'<h2>\d+\.\s*', '<h2>', bo
 # 클래스 충돌 정리: v1 의 .spec(작은 글씨) ↔ 레이아웃의 .spec(3칸 격자)
 base_html = base_html.replace('class="spec"', 'class="bspec"').replace("class='spec'", "class='bspec'")
 base_css = base_css.replace('#base .spec', '#base .bspec')
+# 표시 오류 수정: 그룹 색 줄은 첫 칸 왼쪽 4px 만 (원래 규칙). v1 CSS 가 모든 칸에 4px 를 그리고 있었음
+base_css = base_css.replace('#base .grp td{', '#base .grp td:first-child{') + '#base th+th,#base td+td{border-left:1px solid var(--line-2)}#base .grp td:first-child{border-left:4px solid var(--grp)!important}'
 # 10/21 결정 반영: 신규리드 빨강 · 이탈 회색
 base_html = base_html.replace('신규리드 <span class="st na">na</span>', '신규리드 <span class="st bad">bad</span>').replace('이탈 <span class="st bad">bad</span>', '이탈 <span class="st na">na</span> <span style="color:var(--fg-3)">(10/21 신규·이탈 맞바꿈)</span>')
 base_html = base_html.replace('가로선만(line-2), 세로선 없음.', '가로선 line-2 + <b>모든 열 사이 아주 연한 세로선 #F0F0F2</b> <span style="color:var(--fg-3)">(10/21 결정 — 처음엔 세로선 없음)</span>.')
