@@ -40,8 +40,10 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
     return { channel: '블로그', campaign_name: '기타' }
   }
 
+  // 개발·내부 접속은 제외
+  if (has('localhost', '127.0.0.1') || src === '{{site_source_name}}' || src === '(data not available)') return null
   // 생성형 AI — 검색보다 먼저 (chatgpt 가 organic 으로 들어오는 경우가 있음)
-  if (has('chatgpt', 'openai', 'searchgpt', 'perplexity', 'claude.ai', 'anthropic', 'gemini', 'bard', 'copilot', 'bing-chat', 'you.com', 'phind', 'ai-search')) {
+  if (has('chatgpt', 'openai', 'searchgpt', 'perplexity', 'claude.ai', 'anthropic', 'gemini', 'bard', 'copilot', 'bing-chat', 'you.com', 'phind', 'ai-search', 'liner.com', 'felo.ai', 'vertexaisearch', 'gpt.', 'wrtn', 'genspark')) {
     return { channel: '검색유입', campaign_name: '생성형AI' }
   }
 
@@ -63,7 +65,8 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   // 광고 대행사 중복체크 레퍼러 → 광고 › 네이버 › 캠페인 미확인
   if (has('miracleintip')) return { channel: '네이버', campaign_name: '캠페인 미확인', ad_type: '검색' }
   // 검색 결과 페이지에서 레퍼러로 넘어온 경우(organic 표시가 없을 때)도 검색
-  if (has('search.naver') || src === 'naver') return { channel: '검색유입', campaign_name: '네이버' }
+  if (has('search.naver', 'kin.naver', 'place.naver', 'link.naver') || ['naver', 'naver.com', 'm.naver.com'].includes(src)) return { channel: '검색유입', campaign_name: '네이버' }
+  if (has('search.yahoo', 'yahoo.com', 'nate.com', 'zum.com')) return { channel: '검색유입', campaign_name: '기타' }
   if (has('search.daum') || src === 'daum.net' || src === 'daum') return { channel: '검색유입', campaign_name: '다음' }
   if (src === 'google' || has('google.co', 'google.com')) return { channel: '검색유입', campaign_name: '구글' }
   if (has('bing.com')) return { channel: '검색유입', campaign_name: '빙' }
@@ -71,7 +74,7 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   if (has('page.link')) return { channel: '자사채널', campaign_name: '기타' }
 
   // 외주 블로그: 팀부스터 유입체크 링크. blog.naver.com 은 아래 POST 에서 글 주소로 자사·인플루언서·팀부스터를 나눈다
-  if (has('boosterlink')) return { channel: '외주 블로그', campaign_name: '팀부스터' }
+  if (has('boosterlink', 'teambooster')) return { channel: '외주 블로그', campaign_name: '팀부스터' }
   if (has('blog.naver') || src === 'naver_blog') return { channel: '외주 블로그', campaign_name: '팀부스터' }
 
   // 언론·뉴스 (네이버·다음 뉴스는 블로그·검색보다 먼저)
