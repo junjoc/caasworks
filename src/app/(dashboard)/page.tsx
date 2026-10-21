@@ -1,287 +1,179 @@
 'use client'
 
-// ─── 위젯 기반 대시보드 (자유 그리드 배치/리사이즈) ───
-// react-grid-layout 기반. 사용자가 편집 모드에서 드래그로 위치/크기 조절.
-// DB users.dashboard_config 또는 localStorage에 저장.
-// v1 (size:S/M/L) 형식 자동 변환.
-
-import { useEffect, useMemo, useState, useCallback } from 'react'
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-import GridLayoutRaw from 'react-grid-layout'
-import 'react-grid-layout/css/styles.css'
-import 'react-resizable/css/styles.css'
-// The @types/react-grid-layout package is outdated relative to the runtime;
-// use `any` to avoid prop-name mismatches (cols, rowHeight, etc.).
-const GridLayout = GridLayoutRaw as any
-
+// 대시보드 — 디자인 정의 › 메뉴별 화면 › 대시보드 (2026-10-21 확정)
+// 자유 드래그 없음: 프리셋(역할별) + 위젯 켜고 끄기. 툴바 → 숫자줄 → 12칸 격자 위젯.
+// 데이터는 /api/dashboard 한 번 (서버 1분 캐시). 예전 react-grid-layout 대시보드를 대체.
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
-import { Loading } from '@/components/ui/loading'
-import { Button } from '@/components/ui/button'
-import { WidgetCard } from '@/components/dashboard/widget-card'
-import { WidgetPicker } from '@/components/dashboard/widget-picker'
-import { findWidget } from '@/lib/dashboard/widget-registry'
-import { presetForRole, DASHBOARD_PRESETS } from '@/lib/dashboard/presets'
-import type { DashboardConfig, WidgetInstance } from '@/lib/dashboard/types'
-import { SIZE_TO_GRID, GRID_COLS, GRID_ROW_HEIGHT } from '@/lib/dashboard/types'
-import { toast } from 'sonner'
-import { Settings, Plus, RotateCcw } from 'lucide-react'
+import { presetForRole } from '@/lib/dashboard/presets'
+import { INFLOW_COLOR, type InflowGroup } from '@/lib/inflow-taxonomy'
+import { Toolbar, Tabs, KpiRow, DsButton, Skeleton, StatusChip, Avatar, Check, stageTone, toneVar } from '@/components/ds'
 
-const STORAGE_KEY = 'caasworks:dashboard_config:v2'
-
-function loadLocalConfig(userId: string): DashboardConfig | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem(`${STORAGE_KEY}:${userId}`)
-    if (!raw) return null
-    return JSON.parse(raw) as DashboardConfig
-  } catch { return null }
+type D = {
+  today: string; month: number
+  rev: [number, number][]
+  topCust: { n: number; list: [string, number][] }
+  unpaid: { sum: number; n: number; customers: number; over90: number; top: [string, number][] }
+  bill: { n: number; sum: number; issued: number }
+  ad: { cost: number; costPrev: number; ga: number }
+  sitesBilled: number
+  leads: { today: number; yday: number; month: number; prevMonth: number; yLeads: number; yWon: number; wonMonth: number; stages: Record<string, number>; preN: number; pre: [string, string, string, string][]; recent: [string, string, string, string][]; inflowMonth: [InflowGroup, number][]; overdueN: number; weekN: number; week: [string, string, string, string][] }
+  mine: Record<string, { open: number; list: [string, string, string][] }>
+  ms: number
 }
+type PresetKey = 'exec' | 'marketing' | 'sales' | 'support' | 'hardware'
+const PRESETS: { key: PresetKey; label: string }[] = [{ key: 'exec', label: '경영진' }, { key: 'marketing', label: '마케팅' }, { key: 'sales', label: '세일즈' }, { key: 'support', label: '경영지원' }, { key: 'hardware', label: '하드웨어' }]
+const STAGES = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '예정', '도입완료', '이탈']
 
-function saveLocalConfig(userId: string, cfg: DashboardConfig) {
-  if (typeof window === 'undefined') return
-  try { localStorage.setItem(`${STORAGE_KEY}:${userId}`, JSON.stringify(cfg)) } catch {}
+const man = (v: number) => (Math.abs(v) >= 1e8 ? `${(v / 1e8).toFixed(1).replace('.0', '')}억` : `${Math.round(v / 1e4).toLocaleString()}만`)
+const won = (v: number) => Math.round(v).toLocaleString()
+
+/* ─── 위젯 3종 ─── */
+function Widget({ span, title, sub, href, more, children }: { span: 4 | 8 | 12; title: string; sub?: string; href?: string; more?: string; children: ReactNode }) {
+  return (
+    <div className={`border border-ds-line rounded-lg p-3.5 min-h-[220px] min-w-0 ${span === 8 ? 'lg:col-span-8' : span === 12 ? 'lg:col-span-12' : 'lg:col-span-4'}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <h2 className="text-[14px] font-medium text-ds-fg">{title}</h2>
+        {sub && <span className="text-[12px] text-ds-fg3 truncate">{sub}</span>}
+        {href && <Link href={href} prefetch={false} className="ml-auto text-[11.5px] text-ds-accent hover:underline whitespace-nowrap">{more || '더 보기'} ›</Link>}
+      </div>
+      {children}
+    </div>
+  )
 }
-
-// Auto-layout helper: places widgets lacking x/y sequentially in a row.
-// Converts legacy {size, order} to grid {x, y, w, h}.
-function normalizeLayout(widgets: WidgetInstance[]): WidgetInstance[] {
-  let nextX = 0, nextY = 0
-  return widgets
-    .slice()
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    .map(w => {
-      // Already has grid coords
-      if (typeof w.x === 'number' && typeof w.y === 'number' && w.w && w.h) return w
-      // Convert from legacy size
-      const def = w.size ? SIZE_TO_GRID[w.size] : SIZE_TO_GRID['M']
-      const gridW = def.w
-      const gridH = def.h * 2  // legacy h=1/2 → new h=2/4
-      if (nextX + gridW > GRID_COLS) { nextX = 0; nextY += 2 }
-      const placed: WidgetInstance = { id: w.id, x: nextX, y: nextY, w: gridW, h: gridH }
-      nextX += gridW
-      return placed
-    })
+const Empty = ({ text }: { text: string }) => <div className="text-[12px] text-ds-fg3 py-6 leading-relaxed">{text}</div>
+function List({ rows }: { rows: ReactNode[][] }) {
+  if (!rows.length) return <Empty text="없음" />
+  return (
+    <table className="w-full text-[12.5px]"><tbody>
+      {rows.map((r, i) => <tr key={i} className="border-b border-ds-line2 last:border-0">{r.map((c, j) => <td key={j} className={`h-8 px-1.5 ${j === 0 ? 'font-medium text-ds-fg max-w-0 w-full truncate' : 'whitespace-nowrap text-right tabular-nums'}`}>{c}</td>)}</tr>)}
+    </tbody></table>
+  )
 }
-
-// Find next empty spot for a new widget
-function findNextSlot(widgets: WidgetInstance[], w: number, h: number): { x: number; y: number } {
-  const maxY = widgets.reduce((m, wi) => Math.max(m, (wi.y ?? 0) + (wi.h ?? 2)), 0)
-  return { x: 0, y: maxY }
+function RevTrend({ rev, month }: { rev: [number, number][]; month: number }) {
+  const mx = Math.max(1, ...rev.map(r => r[1]))
+  return (
+    <div className="flex items-end gap-1.5 h-[180px] pt-2">
+      {rev.map(([m, v]) => (
+        <div key={m} className="flex-1 h-full flex flex-col items-center justify-end gap-1" title={`${m}월 ${won(v)}원`}>
+          <div className="w-full max-w-[40px] rounded-t-sm" style={{ height: `${Math.max(2, v / mx * 100)}%`, background: m === month ? 'var(--ds-accent)' : 'var(--ds-info)', opacity: m > month ? 0.45 : 1 }} />
+          <span className="text-[10.5px] text-ds-fg3">{m}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+function Bars({ rows, label = 56 }: { rows: { k: string; v: number; color: string }[]; label?: number }) {
+  const mx = Math.max(1, ...rows.map(r => r.v))
+  return (
+    <div className="grid gap-1">
+      {rows.map(r => (
+        <div key={r.k} className="grid items-center gap-2 h-6 text-[12px]" style={{ gridTemplateColumns: `${label}px 1fr 36px` }}>
+          <span className="text-ds-fg2 truncate">{r.k}</span>
+          <span className="block h-2 rounded-full bg-ds-line2 overflow-hidden"><span className="block h-full rounded-full" style={{ width: `${r.v / mx * 100}%`, background: r.color }} /></span>
+          <b className="text-right font-medium text-ds-fg tabular-nums">{r.v || '—'}</b>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth()
-  const [config, setConfig] = useState<DashboardConfig | null>(null)
-  const [editing, setEditing] = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [dbColumnMissing, setDbColumnMissing] = useState(false)
-  const [containerWidth, setContainerWidth] = useState(1200)
+  const { user } = useAuth()
+  const [d, setD] = useState<D | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const [preset, setPreset] = useState<PresetKey | null>(null)
+  const [hidden, setHidden] = useState<Record<string, string[]>>({})
+  const [pick, setPick] = useState(false)
+  const saved = useRef(false)
 
-  // Track container width for responsive grid
+  useEffect(() => { fetch('/api/dashboard').then(r => r.json()).then(j => j.error ? setErr(j.error) : setD(j)).catch(e => setErr(String(e))) }, [])
+  // 내 설정(마지막 프리셋·숨긴 위젯). 없으면 역할 프리셋
   useEffect(() => {
-    const update = () => {
-      const el = document.getElementById('dashboard-grid-container')
-      if (el) setContainerWidth(el.clientWidth)
-    }
-    update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [config])
-
-  // Initial load
+    if (!user || preset) return
+    const cfg = (user as unknown as { dashboard_config?: { v?: number; preset?: PresetKey; hidden?: Record<string, string[]> } }).dashboard_config
+    if (cfg?.v === 3) { setPreset(cfg.preset || (presetForRole(user.role).roleKey as PresetKey)); setHidden(cfg.hidden || {}) }
+    else setPreset(presetForRole(user.role).roleKey as PresetKey)
+  }, [user, preset])
   useEffect(() => {
-    if (!user?.id) return
-    const sb = createClient()
-    ;(async () => {
-      // useAuth 가 users 행 전체를 이미 읽었으므로 배치 설정은 그 안의 값을 쓴다 (왕복 1회 절약, 2026-10-21)
-      let dbCfg = (user as any).dashboard_config as DashboardConfig | null | undefined
-      if (dbCfg === undefined) {
-        const { data, error } = await sb.from('users').select('dashboard_config').eq('id', user.id).maybeSingle()
-        if (error && /column .* does not exist/i.test(error.message)) setDbColumnMissing(true)
-        dbCfg = (data as any)?.dashboard_config as DashboardConfig | null
-      }
-      if (dbCfg && Array.isArray(dbCfg.widgets)) {
-        setConfig({ ...dbCfg, widgets: normalizeLayout(dbCfg.widgets) })
-        return
-      }
-      const local = loadLocalConfig(user.id)
-      if (local) { setConfig({ ...local, widgets: normalizeLayout(local.widgets) }); return }
-      const preset = presetForRole(user.role)
-      const widgets = normalizeLayout(preset.widgetIds.map(w => ({ ...w }) as WidgetInstance))
-      setConfig({ widgets, presetName: preset.roleKey })
-    })()
-  }, [user?.id, user?.role])
+    if (!user || !preset) return
+    if (!saved.current) { saved.current = true; return }
+    createClient().from('users').update({ dashboard_config: { v: 3, preset, hidden } }).eq('id', user.id).then(() => {})
+  }, [preset, hidden, user])
 
-  const persist = useCallback(async (cfg: DashboardConfig) => {
-    setConfig(cfg)
-    if (!user?.id) return
-    saveLocalConfig(user.id, cfg)
-    if (!dbColumnMissing) {
-      const sb = createClient()
-      const { error } = await sb.from('users').update({ dashboard_config: cfg }).eq('id', user.id)
-      if (error && /column .* does not exist/i.test(error.message)) setDbColumnMissing(true)
+  const p = preset || 'exec'
+  const mine = user && d ? d.mine[user.id] : undefined
+  const rate = d && d.leads.yLeads ? d.leads.yWon / d.leads.yLeads * 100 : 0
+
+  // 프리셋 = 숫자줄 + 위젯 목록 (디자인 정의 시안 그대로)
+  const view = useMemo(() => {
+    if (!d) return null
+    const r = Object.fromEntries(d.rev), m = d.month, prevM = m === 1 ? 12 : m - 1
+    const K = {
+      rev: { label: `${m}월 매출`, value: man(r[m] || 0), sub: `${prevM}월 ${man(r[prevM] || 0)}` },
+      unpaid: { label: '미납', value: man(d.unpaid.sum), sub: `${d.unpaid.n}건 · ${d.unpaid.customers}곳`, tone: 'bad' as const },
+      rate: { label: '도입률', value: `${rate.toFixed(1)}%`, sub: `올해 · ${d.leads.yWon}/${d.leads.yLeads}` },
+      leadsM: { label: '신규 리드', value: String(d.leads.month), sub: `이번 달 전체 · 전월 ${d.leads.prevMonth}` },
+      ad: { label: '광고비', value: man(d.ad.cost), sub: `이번 달 · 전월 ${man(d.ad.costPrev)}` },
     }
-  }, [user?.id, dbColumnMissing])
+    const W: Record<string, { span: 4 | 8; title: string; sub?: string; href?: string; more?: string; body: ReactNode }> = {
+      trend: { span: 8, title: '월별 매출', sub: `${new Date().getFullYear()} 공급가 · 이후 달은 계약 기준`, href: '/revenue', more: '매출 현황', body: <RevTrend rev={d.rev} month={m} /> },
+      unpaidTop: { span: 4, title: '미납 상위', sub: `${d.unpaid.n}건`, href: '/finance/unpaid', more: '미납 현황', body: <List rows={d.unpaid.top.map(([n, v]) => [n, won(v)])} /> },
+      topCust: { span: 4, title: `${m}월 매출 상위`, sub: `${d.topCust.n}곳 중`, href: '/revenue', more: '매출 현황', body: <List rows={d.topCust.list.map(([n, v]) => [n, won(v)])} /> },
+      funnel: { span: 4, title: '단계 분포', sub: '올해 유입', href: '/pipeline/board', more: '보드뷰', body: <Bars rows={STAGES.map(s => ({ k: s, v: d.leads.stages[s] || 0, color: toneVar[stageTone(s)] }))} /> },
+      inflow: { span: 4, title: '유입 분류', sub: '이번 달 리드', href: '/marketing/ads', more: '유입 성과', body: <Bars label={72} rows={d.leads.inflowMonth.map(([g, v]) => ({ k: g, v, color: INFLOW_COLOR[g] }))} /> },
+      inflowWide: { span: 8, title: '유입 분류', sub: '이번 달 리드 · 11 분류 + 미분류', href: '/marketing/ads', more: '유입 성과', body: <Bars label={72} rows={d.leads.inflowMonth.map(([g, v]) => ({ k: g, v, color: INFLOW_COLOR[g] }))} /> },
+      recent: { span: 4, title: '최근 리드', sub: `이번 달 ${d.leads.month}건 · 전체`, href: '/pipeline/list', more: '리스트', body: <List rows={d.leads.recent.map(([n, s, c, dt]) => [n, <StatusChip key="s" tone={stageTone(s)}>{s}</StatusChip>, <span key="c" className="text-ds-fg3">{c}</span>, dt])} /> },
+      mine: { span: 4, title: '내 담당 리드', sub: `${mine?.open || 0}건`, href: '/pipeline/list', more: '리스트', body: mine?.list.length ? <List rows={mine.list.map(([n, s, dt]) => [n, <StatusChip key="s" tone={stageTone(s)}>{s}</StatusChip>, dt])} /> : <Empty text="진행 중인 담당 리드가 없습니다" /> },
+      pre: { span: 4, title: '도입직전·예정', sub: `${d.leads.preN}건`, href: '/pipeline/board', more: '보드뷰', body: <List rows={d.leads.pre.map(([n, s, u]) => [n, <StatusChip key="s" tone={stageTone(s)}>{s}</StatusChip>, <Avatar key="a" name={u} />])} /> },
+      week: { span: 4, title: '이번 주 액션', sub: `${d.leads.weekN}건`, href: '/work/today', more: '오늘 할일', body: d.leads.week.length ? <List rows={d.leads.week.map(([n, a, dt, u]) => [n, <span key="a" className="text-ds-fg2">{a}</span>, dt, u])} /> : <Empty text="다음 액션 날짜가 입력된 리드가 없습니다 — 리드에 다음 액션일을 적으면 여기 모입니다" /> },
+      contracts: { span: 4, title: '계약 만료 임박', sub: '30일 안', href: '/contracts', more: '계약 관리', body: <Empty text="계약 기록이 아직 없습니다" /> },
+      ops: { span: 4, title: '오늘 할일', href: '/work/today', more: '오늘 할일', body: <Empty text="운영 할일 기록 없음" /> },
+      cams: { span: 4, title: '카메라 반출', href: '/operations/camera-shipments', more: '카메라 반출', body: <Empty text="반출 기록 0건 — 카메라 반출 메뉴에서 입력하면 표시됩니다" /> },
+      orders: { span: 4, title: '협력사 발주', href: '/operations/orders', more: '협력사 발주', body: <Empty text="발주 기록 없음" /> },
+    }
+    const V: Record<PresetKey, { kpis: (typeof K[keyof typeof K] | { label: string; value: string; sub?: string; tone?: 'bad' })[]; widgets: string[] }> = {
+      exec: { kpis: [K.rev, K.unpaid, K.rate, K.leadsM, K.ad], widgets: ['trend', 'funnel', 'topCust', 'unpaidTop', 'inflow'] },
+      marketing: { kpis: [K.leadsM, K.rev, K.ad, { label: '유입', value: d.ad.ga.toLocaleString(), sub: 'GA 세션' }, { label: '리드당 비용', value: d.leads.month ? man(d.ad.cost / d.leads.month) : '—', sub: '광고비 ÷ 신규 리드' }], widgets: ['trend', 'recent', 'inflowWide', 'funnel'] },
+      sales: { kpis: [K.rev, K.unpaid, { label: '오늘 신규 리드', value: String(d.leads.today), sub: `어제 ${d.leads.yday} · 이번 달 ${d.leads.month}` }, { label: '내 진행 리드', value: String(mine?.open || 0), sub: `${user?.name || ''} · 이탈·도입 제외` }, { label: '도입직전·예정', value: String(d.leads.preN), sub: '전체' }], widgets: ['trend', 'unpaidTop', 'mine', 'pre', 'week'] },
+      support: { kpis: [K.unpaid, { label: '90일+ 연체', value: man(d.unpaid.over90), sub: '납기 90일 지남', tone: 'bad' }, { label: `${m}월 청구`, value: man(d.bill.sum), sub: `${d.bill.n}건 · 발행 ${d.bill.issued}` }, K.rev, { label: '이번 달 비용', value: '—', sub: '매입·비용 기록 없음' }], widgets: ['unpaidTop', 'trend', 'contracts', 'topCust'] },
+      hardware: { kpis: [{ label: `${m}월 과금 현장`, value: String(d.sitesBilled), sub: `${m}월 매출 행 기준` }, { label: '카메라 반출', value: '—', sub: '반출 기록 0건' }, { label: '장비', value: '—', sub: '장비 기록 없음' }, { label: '협력사 발주', value: '—', sub: '발주 기록 없음' }], widgets: ['ops', 'cams', 'orders'] },
+    }
+    return { W, V }
+  }, [d, mine, rate, user])
 
-  // react-grid-layout layout change handler
-  const handleLayoutChange = useCallback((newLayout: readonly any[]) => {
-    if (!config || !editing) return
-    const updated = config.widgets.map(wi => {
-      const l = newLayout.find(n => n.i === wi.id)
-      if (!l) return wi
-      return { ...wi, x: l.x, y: l.y, w: l.w, h: l.h }
-    })
-    persist({ ...config, widgets: updated })
-  }, [config, editing, persist])
-
-  const handleRemove = (id: string) => {
-    if (!config) return
-    persist({ ...config, widgets: config.widgets.filter(w => w.id !== id) })
-  }
-
-  const handleAdd = (newIds: { id: string }[]) => {
-    if (!config) return
-    let nextY = config.widgets.reduce((m, wi) => Math.max(m, (wi.y ?? 0) + (wi.h ?? 2)), 0)
-    let nextX = 0
-    const additions: WidgetInstance[] = newIds.map(({ id }) => {
-      const w = 6, h = 2
-      if (nextX + w > GRID_COLS) { nextX = 0; nextY += 2 }
-      const item: WidgetInstance = { id, x: nextX, y: nextY, w, h }
-      nextX += w
-      return item
-    })
-    persist({ ...config, widgets: [...config.widgets, ...additions] })
-  }
-
-  const handleApplyPreset = (roleKey: string) => {
-    const preset = DASHBOARD_PRESETS.find(p => p.roleKey === roleKey)
-    if (!preset) return
-    if (!confirm(`"${preset.label}" 프리셋을 적용하시겠습니까?\n현재 배치가 덮어씌워집니다.`)) return
-    const widgets = normalizeLayout(preset.widgetIds.map(w => ({ ...w }) as WidgetInstance))
-    persist({ widgets, presetName: preset.roleKey })
-    toast.success(`${preset.label} 프리셋이 적용되었습니다.`)
-  }
-
-  const currentIds = useMemo(() => config?.widgets.map(w => w.id) || [], [config])
-
-  if (authLoading || !config) return <Loading />
-
-  // Build react-grid-layout input from widgets
-  const layout = config.widgets.map(wi => ({
-    i: wi.id,
-    x: wi.x ?? 0,
-    y: wi.y ?? 0,
-    w: wi.w ?? 6,
-    h: wi.h ?? 2,
-    minW: 2,
-    minH: 1,
-    maxW: 12,
-    maxH: 8,
-  }))
+  const v = view?.V[p]
+  const off = hidden[p] || []
+  const shown = v ? v.widgets.filter(w => !off.includes(w)) : []
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <p className="text-xs text-text-tertiary mt-0.5">
-            안녕하세요, {user?.name}님 · {editing ? '드래그로 이동, 모서리로 크기 조절' : '위젯 클릭 시 해당 기능으로 이동'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {editing ? (
-            <>
-              <Button size="sm" variant="secondary" onClick={() => setPickerOpen(true)}>
-                <Plus className="w-4 h-4 mr-1" /> 위젯 추가
-              </Button>
-              <Button size="sm" onClick={() => setEditing(false)}>완료</Button>
-            </>
-          ) : (
-            <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
-              <Settings className="w-4 h-4 mr-1" /> 편집
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {editing && (
-        <div className="card p-3 mb-4 bg-amber-50 border-amber-200">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="text-xs text-amber-800">
-              📝 편집 모드 — 위젯을 드래그하여 이동, 모서리를 끌어서 크기 조절
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-text-secondary">프리셋:</span>
-              {DASHBOARD_PRESETS.map(p => (
-                <button
-                  key={p.roleKey}
-                  onClick={() => handleApplyPreset(p.roleKey)}
-                  className="text-[11px] px-2 py-1 rounded bg-white border border-amber-300 hover:bg-amber-100"
-                >
-                  <RotateCcw className="w-3 h-3 inline mr-0.5" />
-                  {p.label}
-                </button>
+      <Toolbar right={<>
+        <DsButton variant="ghost" size="sm" title="역할 프리셋 + 위젯 켜고 끄기. 숫자는 1분마다 새로 계산됩니다. 매출은 공급가, 미납은 세금계산서 발행 후 미수납">ⓘ 기준</DsButton>
+        <div className="relative">
+          <DsButton size="sm" onClick={() => setPick(o => !o)}>위젯 선택</DsButton>
+          {pick && v && view && (
+            <div className="absolute right-0 top-9 z-30 w-56 p-2 bg-ds-bg border border-ds-line rounded-lg shadow-[0_8px_24px_rgba(0,0,0,.08)]" onMouseLeave={() => setPick(false)}>
+              {v.widgets.map(w => (
+                <div key={w} className="px-1.5 py-1"><Check label={view.W[w].title} checked={!off.includes(w)} onChange={on => setHidden(h => ({ ...h, [p]: on ? (h[p] || []).filter(x => x !== w) : [...(h[p] || []), w] }))} /></div>
               ))}
             </div>
-          </div>
-          {dbColumnMissing && (
-            <div className="text-[11px] text-amber-700 mt-2 border-t border-amber-200 pt-2">
-              ⚠ DB 저장 컬럼이 없어 브라우저에만 저장됩니다. migration 006 실행 후 자동 DB 저장.
-            </div>
           )}
         </div>
-      )}
+      </>}>
+        <Tabs value={p} onChange={k => setPreset(k as PresetKey)} options={PRESETS.map(x => ({ value: x.key, label: x.label }))} />
+      </Toolbar>
 
-      <div id="dashboard-grid-container" className="w-full">
-        {config.widgets.length === 0 ? (
-          <div className="card p-8 text-center">
-            <p className="text-sm text-text-tertiary mb-3">위젯이 없습니다.</p>
-            <Button onClick={() => { setEditing(true); setPickerOpen(true) }}>
-              <Plus className="w-4 h-4 mr-1" /> 위젯 추가
-            </Button>
+      {err ? <div className="text-[13px] text-ds-bad py-6">대시보드를 불러오지 못했습니다 — {err}</div> : !d || !v || !view ? <Skeleton rows={10} /> : (
+        <>
+          <KpiRow items={v.kpis} />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {shown.map(w => { const x = view.W[w]; return <Widget key={w} span={x.span} title={x.title} sub={x.sub} href={x.href} more={x.more}>{x.body}</Widget> })}
           </div>
-        ) : (
-          <GridLayout
-            className="layout"
-            layout={layout}
-            cols={GRID_COLS}
-            rowHeight={GRID_ROW_HEIGHT}
-            width={containerWidth}
-            onLayoutChange={handleLayoutChange}
-            isDraggable={editing}
-            isResizable={editing}
-            draggableHandle=".drag-handle"
-            margin={[12, 12]}
-            containerPadding={[0, 0]}
-            useCSSTransforms
-          >
-            {config.widgets.map(wi => {
-              const widget = findWidget(wi.id)
-              if (!widget) return null
-              const Comp = widget.component
-              return (
-                <div key={wi.id} className="group">
-                  <WidgetCard
-                    title={widget.title}
-                    href={editing ? undefined : widget.primaryHref}
-                    editable={editing}
-                    onRemove={() => handleRemove(wi.id)}
-                  >
-                    <Comp />
-                  </WidgetCard>
-                </div>
-              )
-            })}
-          </GridLayout>
-        )}
-      </div>
-
-      <WidgetPicker
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        currentIds={currentIds}
-        onAdd={handleAdd}
-      />
+        </>
+      )}
     </div>
   )
 }
