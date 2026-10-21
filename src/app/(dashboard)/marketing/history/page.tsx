@@ -288,7 +288,7 @@ export default function MarketingHistoryPage() {
             {/* 선택 연도 채널 상세 */}
             <div className="card p-4">
               <p className="text-sm font-medium mb-2">{year}년 광고유형·채널별 <span className="text-text-tertiary font-normal">(월 상세 시트 기준)</span></p>
-              {yearChannels.length === 0 ? <p className="text-xs text-text-tertiary">이 연도는 상세 시트 데이터가 없습니다{yearRows.some(r => r.source === 'crm') ? ' (CRM 구간은 광고 성과 화면에서 보세요)' : ''}.</p> : (
+              {yearChannels.length === 0 ? <p className="text-xs text-text-tertiary">이 연도는 상세 시트 데이터가 없습니다{yearRows.some(r => r.source === 'crm') ? ' (CRM 구간은 유입 성과 화면에서 보세요)' : ''}.</p> : (
                 <div className="table-container max-h-64 overflow-auto">
                   <table className="data-table">
                     <thead><tr><th>유형</th><th>채널</th><th className="text-right">비용</th><th className="text-right">노출</th><th className="text-right">클릭</th><th className="text-right">문의</th><th className="text-right">도입</th></tr></thead>

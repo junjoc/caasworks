@@ -12,7 +12,7 @@ interface HeaderProps {
 const pageTitles: Record<string, string> = {
   '/': '대시보드',
   // 마케팅
-  '/marketing/ads': '광고 성과',
+  '/marketing/ads': '유입 성과',
   '/marketing/analytics': '유입 분석',
   '/marketing/campaigns': '캠페인 관리',
   '/marketing/report': '마케팅 리포트',

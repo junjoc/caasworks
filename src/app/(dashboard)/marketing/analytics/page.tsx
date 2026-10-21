@@ -772,7 +772,7 @@ export default function AnalyticsPage() {
         <>
           {adData.length === 0 ? (
             <EmptyState icon={BarChart3} title="해당 연도 광고 데이터가 없습니다"
-              description="광고 성과 페이지에서 데이터를 입력하세요" />
+              description="유입 성과 페이지에서 데이터를 입력하세요" />
           ) : (
             <>
               {/* 월별 비용 + 성과 추이 */}
@@ -1041,7 +1041,7 @@ export default function AnalyticsPage() {
         <>
           {adData.length === 0 ? (
             <EmptyState icon={BarChart3} title="해당 연도 광고 데이터가 없습니다"
-              description="광고 성과 페이지에서 데이터를 입력하세요" />
+              description="유입 성과 페이지에서 데이터를 입력하세요" />
           ) : (
             <>
               {/* 채널별 비용 vs 성과 테이블 */}
@@ -1159,7 +1159,7 @@ export default function AnalyticsPage() {
         <>
           {campaignComparison.length === 0 ? (
             <EmptyState icon={BarChart3} title="해당 연도 캠페인 데이터가 없습니다"
-              description="광고 성과 페이지에서 데이터를 입력하세요" />
+              description="유입 성과 페이지에서 데이터를 입력하세요" />
           ) : (
             <>
               <div className="card p-5 mb-6">

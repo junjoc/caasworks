@@ -119,6 +119,18 @@ export function classifyGa(channel: string, sub: string, notes?: string | null):
 
 export const INFLOW_ORDER: InflowGroup[] = [...INFLOW_GROUPS.map(g => g.key), OTHER_GROUP]
 export const PAID_GROUPS: InflowGroup[] = ['광고', '외주 블로그']
+
+// 분류 색 — 디자인 정의 v1 12색을 성격별로 묶어 배치 (2026-10-21). 같은 색 계열 = 같은 성격
+//   돈 쓰는 곳: 광고 accent · 외주 블로그 warn  |  우리 것: 자사 채널 ok · 자사 블로그 ok
+//   찾아온 것: 검색 info · 생성형 AI info  |  남이 퍼뜨린 것: 소셜 bad · 언론·뉴스 fg-2 · 외부 글 fg-3 · 커뮤니티 na
+//   사람: 직접 연락 fg  |  미분류 line
+export const INFLOW_COLOR: Record<InflowGroup, string> = {
+  '광고': 'var(--ds-accent)', '외주 블로그': 'var(--ds-warn)',
+  '자사 채널': 'var(--ds-ok)', '자사 블로그': 'var(--ds-ok)',
+  '검색': 'var(--ds-info)', '생성형 AI': 'var(--ds-info)',
+  '소셜': 'var(--ds-bad)', '언론·뉴스': 'var(--ds-fg2)', '외부 글': 'var(--ds-fg3)', '커뮤니티': 'var(--ds-na)',
+  '직접 연락': 'var(--ds-fg)', '미분류': 'var(--ds-line)',
+}
 export const subOrder = (group: InflowGroup, sub: string) => { const g = INFLOW_GROUPS.find(x => x.key === group); const i = g ? (g.subs as readonly string[]).indexOf(sub) : -1; return i < 0 ? 99 : i }
 
 /** 광고·유입 성과 행 하나를 분류. 유료 광고(네이버·구글·메타·유튜브 광고) → 광고 › 채널 */

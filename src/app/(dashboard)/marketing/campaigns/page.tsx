@@ -710,7 +710,7 @@ export default function CampaignsPage() {
                     ) : perfData.length === 0 ? (
                       <div className="p-4 space-y-4">
                         <div className="text-center text-sm text-text-secondary mb-2">
-                          선택 기간에 연결된 광고 성과 데이터가 없습니다.
+                          선택 기간에 연결된 유입 성과 데이터가 없습니다.
                         </div>
                         <CampaignCostPanel campaign={campaign} />
                       </div>

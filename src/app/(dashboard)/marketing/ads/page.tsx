@@ -14,7 +14,7 @@ import { formatCurrency, formatNumber, CHANNEL_SUB_SOURCES as SHARED_SUB_SOURCES
 import { toast } from 'sonner'
 import { CompanyTagInput } from '@/components/ui/company-tag-input'
 import { PageHeader, Toolbar, Tabs, DsButton, Skeleton, Empty, Drawer } from '@/components/ds'
-import { classifyAdRow, splitNotes, INFLOW_GROUPS, INFLOW_ORDER, PAID_GROUPS, OTHER_GROUP, subOrder, type InflowGroup } from '@/lib/inflow-taxonomy'
+import { classifyAdRow, splitNotes, INFLOW_GROUPS, INFLOW_ORDER, PAID_GROUPS, OTHER_GROUP, INFLOW_COLOR, subOrder, type InflowGroup } from '@/lib/inflow-taxonomy'
 
 const isPaid = (d: { channel: string; ad_type: string; campaign_name: string; notes?: string | null }) => PAID_GROUPS.includes(classifyAdRow(d.channel, d.ad_type, d.campaign_name, d.notes).group)
 const tabMatch = (tab: TabType, d: { channel: string; ad_type: string; campaign_name: string; notes?: string | null }) => tab === '전체' || (tab === '유료') === isPaid(d)
@@ -880,7 +880,7 @@ export default function AdsPage() {
 
   // ─── 광고 표: 광고비·노출이 있는 행만, 채널 › 캠페인 › 광고그룹 기간 합계 (10/21) ───
   type AdTot = { cost: number; impressions: number; clicks: number; ga: number; inqClicks: number; inquiries: number; adoptions: number }
-  const GROUP_COLOR = (g: InflowGroup) => (g === '광고' ? 'var(--ds-accent)' : g === '외주 블로그' ? 'var(--ds-warn)' : g === '직접 연락' ? 'var(--ds-ok)' : g === OTHER_GROUP ? 'var(--ds-na)' : 'var(--ds-info)')
+  const GROUP_COLOR = (g: InflowGroup) => INFLOW_COLOR[g] || 'var(--ds-na)'
   const add = (t: AdTot, d: AdPerformance) => { t.cost += d.cost; t.impressions += d.impressions; t.clicks += d.clicks; t.ga += d.ga_visits || 0; t.inqClicks += d.inquiry_clicks || 0; t.inquiries += d.inquiries; t.adoptions += d.adoptions }
   const zero = (): AdTot => ({ cost: 0, impressions: 0, clicks: 0, ga: 0, inqClicks: 0, inquiries: 0, adoptions: 0 })
   type Row = AdTot & { key: string; group: InflowGroup; sub: string; label: string; detail: string; campaignId: string | null; type: string; raw: string; days: AdPerformance[] }
@@ -954,7 +954,7 @@ export default function AdsPage() {
   // 레이아웃 정의 v1 "집계" 유형: 제목줄 → 탭·동기화 → 숫자줄(5) → 표. 색은 상태에만
   return (
     <div>
-      <PageHeader title="광고 성과" subtitle="광고와 유입 전체 — 유입 분류 11"
+      <PageHeader title="유입 성과" subtitle="광고와 유입 전체 — 유입 분류 11 + 미분류"
         actions={<>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
           <div className="relative">

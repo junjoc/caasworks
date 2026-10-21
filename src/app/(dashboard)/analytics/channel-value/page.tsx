@@ -47,7 +47,7 @@ export default function ChannelValuePage() {
     <div>
       <PageHeader title="채널별 생애 가치"
         kpis={[{ label: '유입 회사', value: tot.n }, { label: '도입', value: `${tot.won} (${fmtPct(tot.won, tot.n)})` }, { label: '누적 매출', value: `${fmtWon(tot.rev)}원` }, { label: '광고비', value: tot.cost ? `${fmtWon(tot.cost)}원` : '—' }, { label: '매출/광고비', value: tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—' }]}
-        actions={<DsButton variant="ghost" size="sm" title="첫 리드의 유입 채널 기준 · 매출은 유입 이후 공급가 누적 · 광고비는 광고 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 — · 행을 누르면 회사 목록">ⓘ 기준</DsButton>} />
+        actions={<DsButton variant="ghost" size="sm" title="첫 리드의 유입 채널 기준 · 매출은 유입 이후 공급가 누적 · 광고비는 유입 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 — · 행을 누르면 회사 목록">ⓘ 기준</DsButton>} />
       <Toolbar right={<>
         <DsSelect value={mode} onChange={e => { setMode(e.target.value as '11' | 'raw'); setOpen(null) }}><option value="11">유입 분류 11</option><option value="raw">저장된 채널값</option></DsSelect>
         <DsSelect value={year} onChange={e => { setYear(e.target.value); setOpen(null) }}><option value="all">전체 연도</option>{years.map(y => <option key={y} value={y}>{y}년 유입</option>)}</DsSelect>

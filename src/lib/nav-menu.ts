@@ -23,7 +23,7 @@ export const NAV_MENU: NavSection[] = [
     label: '마케팅',
     children: [
       { label: '캠페인 관리', href: '/marketing/campaigns' },
-      { label: '광고 성과', href: '/marketing/ads' },
+      { label: '유입 성과', href: '/marketing/ads' },
       { label: '콘텐츠 성과', href: '/marketing/content' },
     ],
   },
