@@ -33,6 +33,7 @@ S['m-sales'] = open('sales_sec.html', encoding='utf-8').read()
 S['m-lead'] = open('lead_detail_sec.html', encoding='utf-8').read()
 S['m-lead2'] = open('lead_detail_v2_sec.html', encoding='utf-8').read()
 S['unify'] = open('unify_sec.html', encoding='utf-8').read()
+S['m-newlead'] = open('newlead_sec.html', encoding='utf-8').read()
 S['status'] = open('status_sec.html', encoding='utf-8').read()
 S['chip-alt'] = open('chipalt_sec.html', encoding='utf-8').read()
 S['m-list-v2'] = open('list_sec.html', encoding='utf-8').read()
@@ -59,7 +60,7 @@ ORDER = [
   ('p-layout', part('p-layout', '3. 화면 구성', '화면 머리 · 뼈대 · 화면 유형 6 — 10/21 부터 기준은 ★ 화면 문법 v2, 이 장의 예전 시안(PageHeader 부제 등)은 참고용')), 'pagehead', 'b-l',
   ('s-types', subh('s-types', '화면 유형 6', '실제 데이터 시안 · 치수 라벨은 체크박스로')), 'list', 'agg', 'detail', 'form', 'dash', 'board',
   'unify',
-  ('p-menu', part('p-menu', '4. 메뉴별 화면', '카테고리별 확정 시안과 적용 내용')), ('m-dash-h', subh('m-dash-h', '대시보드', '적용 10/21')), 'm-dashboard', ('m-marketing', subh('m-marketing', '마케팅')), 'm-campaign', 'm-inflow', 'm-content', ('m-sales-h', subh('m-sales-h', '세일즈', '적용 10/21 · 상세 v2')), 'm-sales', 'm-lead2', 'm-lead', ('m-cust-h', subh('m-cust-h', '고객관리', '고객 목록 적용 10/21')), 'm-list-v2',
+  ('p-menu', part('p-menu', '4. 메뉴별 화면', '카테고리별 확정 시안과 적용 내용')), ('m-dash-h', subh('m-dash-h', '대시보드', '적용 10/21')), 'm-dashboard', ('m-marketing', subh('m-marketing', '마케팅')), 'm-campaign', 'm-inflow', 'm-content', ('m-sales-h', subh('m-sales-h', '세일즈', '적용 10/21 · 상세 v2')), 'm-sales', 'm-lead2', 'm-newlead', 'm-lead', ('m-cust-h', subh('m-cust-h', '고객관리', '고객 목록 적용 10/21')), 'm-list-v2',
   ('p-data', part('p-data', '5. 데이터 기준', '화면이 따르는 분류·정의')), 'inflow', 'ga-setup',
   ('p-dont', part('p-dont', '6. 하지 않는 것', '지금 화면에서 걷어낼 것')), 'b-x',
   ('p-log', part('p-log', '7. 결정 기록', '무엇을 두고 무엇을 골랐는지, 왜. 기각된 안도 남김')), 'log-table', 'log-vline',
