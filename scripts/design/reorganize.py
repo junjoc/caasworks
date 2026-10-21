@@ -27,6 +27,7 @@ S['next'] = '''<section id="next"><h2>다음 작업</h2><ol class="rule" style="
 S['m-content'] = '''<section id="m-content"><h2>콘텐츠 성과 — 블로그 글 성과</h2><p class="rule"><b>툴바</b>: 탭 카스웍스·네이버 │ (카스웍스) 조회 없는 글도 · 기간 · ⓘ 기준 · GA4 동기화 · <b>콘텐츠 추가</b> / (네이버) ⓘ 기준 · <b>엑셀 업로드</b>. <b>숫자줄</b>: 카스웍스 = 조회된 글 · 조회수 · 세션 · 사용자, 네이버 = 조회수(상위 글 합) · 순방문자수 · 평균 사용시간 · 모바일 비율(최근 달). <b>표</b>: 공용 표, 합계 맨 위. 네이버는 월별 추이(차트 3 : 표 2) → 글별 월 조회수(URL 입력) → 유입 검색어(검색어 2 : 유입경로 1). 파란 안내 상자는 ⓘ 기준으로, 색 카드는 숫자줄로 바꿈 (10/21).</p></section>'''
 S['m-dashboard'] = open('dash_sec.html', encoding='utf-8').read()
 exec(open('ga_sec.py', encoding='utf-8').read())
+S['m-sales'] = open('sales_sec.html', encoding='utf-8').read()
 DEC = '''<div class="dec" id="decisions"><h3>지금 정해진 것 — 한눈에</h3><ol>
 <li><b>틀</b>: 사이드바 200 · 헤더 48(<b>화면 제목은 여기만</b>) · 본문 좌우 20 위 16 · 흰 바탕 · 카드 그림자 없음</li>
 <li><b>화면 머리</b>: 툴바 40(왼쪽 탭·필터 / 오른쪽 동작, 주 동작 맨 오른쪽) → 숫자줄 64(있을 때만, 최대 5칸) → 표. 부제 문장 대신 ⓘ 기준</li>
@@ -45,7 +46,7 @@ ORDER = [
   ('p-comp', part('p-comp', '2. 부품', '버튼 · 입력 · 상태 칩 · 표 · 숫자줄 · 피드백')), 'b-b', 'b-f', 'b-st', 'b-tb', 'kpirow', 'b-fb',
   ('p-layout', part('p-layout', '3. 화면 구성', '화면 머리 · 뼈대 · 화면 유형 6')), 'pagehead', 'b-l',
   ('s-types', subh('s-types', '화면 유형 6', '실제 데이터 시안 · 치수 라벨은 체크박스로')), 'list', 'agg', 'detail', 'form', 'dash', 'board',
-  ('p-menu', part('p-menu', '4. 메뉴별 화면', '카테고리별 확정 시안과 적용 내용')), ('m-dash-h', subh('m-dash-h', '대시보드', '시안 · 결정 대기')), 'm-dashboard', ('m-marketing', subh('m-marketing', '마케팅')), 'm-campaign', 'm-inflow', 'm-content',
+  ('p-menu', part('p-menu', '4. 메뉴별 화면', '카테고리별 확정 시안과 적용 내용')), ('m-dash-h', subh('m-dash-h', '대시보드', '시안 · 결정 대기')), 'm-dashboard', ('m-marketing', subh('m-marketing', '마케팅')), 'm-campaign', 'm-inflow', 'm-content', ('m-sales-h', subh('m-sales-h', '세일즈', '시안 · 결정 대기')), 'm-sales',
   ('p-data', part('p-data', '5. 데이터 기준', '화면이 따르는 분류·정의')), 'inflow', 'ga-setup',
   ('p-dont', part('p-dont', '6. 하지 않는 것', '지금 화면에서 걷어낼 것')), 'b-x',
   ('p-log', part('p-log', '7. 결정 기록', '무엇을 두고 무엇을 골랐는지, 왜. 기각된 안도 남김')), 'log-table', 'log-vline',
@@ -70,7 +71,7 @@ nav = ['<nav class="toc"><div class="h">카스웍스 CRM 디자인 정의</div>'
   a('list', '목록'), a('agg', '집계'), a('detail', '상세'), a('form', '입력'), a('dash', '대시보드'), a('board', '보드'),
   '<div class="g">4. 메뉴별 화면</div>', a('m-dashboard', '대시보드', 'i'), '<div class="g2">마케팅</div>', a('m-campaign', '캠페인 관리'), a('m-inflow', '유입 성과'), a('m-content', '콘텐츠 성과'),
   '<div class="g2">분석</div>', a('agg', '생애주기 3화면 → 집계', 'i ref'),
-  '<div class="g2">세일즈 · 고객 · 재무 · 운영</div>', '<span class="i todo">메뉴별 정리 때 추가</span>',
+  '<div class="g2">세일즈</div>', a('m-sales', '리스트 · 보드뷰 (시안)'), '<div class="g2">고객 · 재무 · 운영</div>', '<span class="i todo">메뉴별 정리 때 추가</span>',
   '<div class="g">5. 데이터 기준</div>', a('inflow', '유입 분류 11 + 미분류'), a('ga-setup', 'GA·UTM 설정 (마케팅팀)'),
   '<div class="g">6. 하지 않는 것</div>', a('b-x', '걷어낼 것'),
   '<div class="g">7. 결정 기록</div>', a('log-table', '결정 목록'), a('log-vline', '세로선 세 안 비교'),
