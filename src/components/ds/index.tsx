@@ -72,7 +72,8 @@ const toneBg: Record<Tone, string> = { ok: 'bg-ds-ok', info: 'bg-ds-info', warn:
 export const toneVar: Record<Tone, string> = { ok: 'var(--ds-ok)', info: 'var(--ds-info)', warn: 'var(--ds-warn)', bad: 'var(--ds-bad)', na: 'var(--ds-na)' }
 // 파이프라인 단계 → 색 (디자인 정의 §1)
 export const stageTone = (stage: string | null | undefined): Tone =>
-  stage === '도입완료' ? 'ok' : stage === '이탈' ? 'bad' : stage === '예정' ? 'warn' : !stage || stage === '신규리드' ? 'na' : 'info'
+  // 10/21: 신규리드 빨강(눈에 띄게) · 이탈 회색(묻히게)
+  stage === '도입완료' ? 'ok' : stage === '신규리드' ? 'bad' : stage === '예정' ? 'warn' : !stage || stage === '이탈' ? 'na' : 'info'
 export function StatusChip({ tone, children, cell }: { tone: Tone; children: ReactNode; cell?: boolean }) {
   return cell
     ? <span className={cn('ds-cell-status', toneBg[tone])}>{children}</span>
