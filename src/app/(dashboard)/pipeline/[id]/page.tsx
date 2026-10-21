@@ -1,1062 +1,315 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+// 세일즈 › 리드 상세 (2026-10-21 개편, 디자인 정의 › 세일즈 › 리드 상세 — 배치 A)
+// 이름줄 → 단계 진행줄(단계별 머문 일수) → 숫자줄 → 본문 2:1
+// 왼쪽: 탭(활동 · 변경 이력 · 유입 경로 · 견적·매출 · VoC), 활동 탭 = 기록 칸 + 타임라인(드로어와 같은 부품)
+// 오른쪽: 정보 패널 — 칸을 누르면 바로 수정, 바뀐 칸은 타임라인에 남음. 읽기는 /api/pipeline/lead/[id] 한 번.
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Select } from '@/components/ui/select'
-import { DropdownSelect } from '@/components/ui/dropdown-select'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { PageLoading } from '@/components/ui/loading'
 import { useAuth } from '@/hooks/useAuth'
-import {
-  STAGE_COLORS, PRIORITY_COLORS, INDUSTRY_OPTIONS, CHANNEL_OPTIONS, CHANNEL_SUB_SOURCES,
-  ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ICONS, ACTIVITY_TYPE_COLORS, ACTIVITY_TYPE_OPTIONS, ACTIVITY_TYPE_GROUPS,
-  ACTIVITY_STAGE_MAP,
-  VOC_CATEGORY_LABELS, VOC_PRIORITY_LABELS,
-  CONVERSION_PROB_OPTIONS, CONVERSION_PROB_COLORS,
-  SITE_CATEGORY_OPTIONS, SITE_CATEGORY_COLORS,
-  formatDate, formatDateTime, confirmConvertedStageChange, FOLLOWUP_BADGE_CLASS
-} from '@/lib/utils'
 import { useFollowupLeadIds } from '@/hooks/useFollowupLeadIds'
-import type { PipelineLead, PipelineHistory, User } from '@/types/database'
-import { toast } from 'sonner'
-import { ArrowLeft, Edit2, Save, X, Clock, AlertCircle, Plus, Send, MessageSquare, Link2, Building2, ExternalLink, Trash2, Pencil, Megaphone, FileText, BarChart3, Headphones, ChevronRight } from 'lucide-react'
+import { classifyLead, INFLOW_COLOR } from '@/lib/inflow-taxonomy'
+import { confirmConvertedStageChange, INDUSTRY_OPTIONS, CHANNEL_OPTIONS, VOC_CATEGORY_LABELS, VOC_PRIORITY_LABELS, cn } from '@/lib/utils'
+import { Toolbar, Tabs, KpiRow, DsButton, DsSelect, StatusChip, Skeleton, Empty, stageTone, toneVar, dsInput } from '@/components/ds'
+import { RecordComposer, Timeline, useLeadOverview, postUpdate } from '@/components/pipeline/lead-record'
+import { PROB, PRIO } from '@/components/pipeline/lead-drawer'
 import QuotationSection from '@/components/pipeline/QuotationSection'
-import { syncLeadToAdPerformance } from '@/lib/sync-lead-to-ads'
+import { toast } from 'sonner'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 
-const STAGES = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
-const PRIORITY_OPTIONS = [
-  { value: '긴급', label: '긴급' },
-  { value: '높음', label: '높음' },
-  { value: '중간', label: '중간' },
-  { value: '낮음', label: '낮음' },
-]
+const FLOW = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '도입완료']
+const OPEN = ['신규리드', '컨텍', '제안', '미팅', '도입직전', '예정']
+type Tab = 'act' | 'hist' | 'inflow' | 'quote' | 'voc'
+const kstToday = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
+const days = (a: string, b: string) => Math.max(0, Math.round((new Date(b.slice(0, 10)).getTime() - new Date(a.slice(0, 10)).getTime()) / 86400000))
+const md = (s?: string | null) => (s ? s.slice(5, 10).replace('-', '.') : '')
 
-interface ActivityLog {
-  id: string
-  activity_type: string
-  title: string | null
-  description: string | null
-  performed_by: string
-  performed_at: string
-  performer?: { id: string; name: string }
+/* ─── 칸 바로 수정: 누르면 입력, Enter·바깥 클릭 저장, Esc 취소 ─── */
+function Field({ label, value, display, kind = 'text', options, onSave, placeholder }: {
+  label: string; value: string | null | undefined; display?: ReactNode; kind?: 'text' | 'textarea' | 'select' | 'date'
+  options?: (string | { value: string; label: string })[]; onSave?: (v: string) => Promise<void> | void; placeholder?: string
+}) {
+  const [on, setOn] = useState(false)
+  const [v, setV] = useState(value || '')
+  useEffect(() => { if (!on) setV(value || '') }, [value, on])
+  const commit = async () => { setOn(false); if ((value || '') !== v.trim() && onSave) await onSave(v.trim()) }
+  const empty = <span className="text-ds-fg3">{placeholder || '—'}</span>
+  const ctl = 'h-7 text-[12.5px]'
+  let editor: ReactNode = null
+  if (on) {
+    if (kind === 'select') editor = (
+      <DsSelect autoFocus value={v} className={cn(ctl, 'w-full')} onBlur={() => setOn(false)}
+        onChange={async e => { setV(e.target.value); setOn(false); if (e.target.value !== (value || '') && onSave) await onSave(e.target.value) }}>
+        <option value="">—</option>{options?.map(o => typeof o === 'string' ? <option key={o}>{o}</option> : <option key={o.value} value={o.value}>{o.label}</option>)}
+      </DsSelect>)
+    else if (kind === 'textarea') editor = (
+      <textarea autoFocus value={v} rows={5} onChange={e => setV(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Escape') { setV(value || ''); setOn(false) } }}
+        className="w-full px-2 py-1.5 rounded border border-ds-line text-[12.5px] focus:outline-none focus:ring-2 focus:ring-ds-accent resize-y" />)
+    else editor = (
+      <input autoFocus type={kind === 'date' ? 'date' : 'text'} value={v} onChange={e => setV(e.target.value)} onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setV(value || ''); setOn(false) } }}
+        className={cn(dsInput, ctl)} />)
+  }
+  const shown = display ?? (value ? <span className={kind === 'textarea' ? 'whitespace-pre-wrap break-words' : 'break-words'}>{value}</span> : empty)
+  return (
+    <>
+      <span className="text-ds-fg3 pt-1">{label}</span>
+      {editor || (
+        <span onClick={() => onSave && setOn(true)} className={cn('min-h-[28px] py-1 px-1.5 -mx-1.5 rounded text-ds-fg', onSave && 'cursor-text hover:bg-ds-subtle')}>{shown}</span>
+      )}
+    </>
+  )
 }
-
-// Unified timeline item
-interface TimelineItem {
-  id: string
-  type: 'stage_change' | 'assignment' | 'activity'
-  timestamp: string
-  // stage change
-  field_changed?: string
-  old_value?: string
-  new_value?: string
-  changed_by_name?: string
-  // activity
-  activity_type?: string
-  title?: string
-  description?: string
-  performer_name?: string
-  performed_by?: string
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return <div className="border-t border-ds-line2 py-2.5"><div className="text-[11px] text-ds-fg3 mb-1.5">{title}</div><div className="grid grid-cols-[76px_1fr] gap-x-2.5 gap-y-0.5 items-start text-[12.5px]">{children}</div></div>
 }
 
 export default function LeadDetailPage() {
-  const params = useParams<{ id: string }>()
-  const id = params?.id as string
+  const id = useParams<{ id: string }>()?.id as string
   const router = useRouter()
-  const { user } = useAuth()
   const supabase = createClient()
-
-  const [lead, setLead] = useState<PipelineLead | null>(null)
-  const [timeline, setTimeline] = useState<TimelineItem[]>([])
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState<Partial<PipelineLead>>({})
+  const { user } = useAuth()
   const followupIds = useFollowupLeadIds()
-  const [saving, setSaving] = useState(false)
+  const { data, error, reload } = useLeadOverview(id)
+  const [tab, setTab] = useState<Tab>('act')
+  const [nav, setNav] = useState<string[]>([])
+  const [custQ, setCustQ] = useState('')
+  const [custHits, setCustHits] = useState<{ id: string; company_name: string; customer_code: string | null }[]>([])
+  const [voc, setVoc] = useState({ open: false, category: 'inquiry', channel: 'phone', priority: 'normal', title: '', description: '' })
 
-  // Customer matching
-  const [customers, setCustomers] = useState<any[]>([])
-  const [customerSearch, setCustomerSearch] = useState('')
-  const [linkedCustomer, setLinkedCustomer] = useState<any>(null)
-
-  // Activity form
-  const [showActivityForm, setShowActivityForm] = useState(false)
-  const [activityForm, setActivityForm] = useState({
-    activity_type: 'NOTE',
-    title: '',
-    description: '',
-  })
-  const [submittingActivity, setSubmittingActivity] = useState(false)
-
-  // Activity edit
-  const [editingActivityId, setEditingActivityId] = useState<string | null>(null)
-  const [editActivityForm, setEditActivityForm] = useState({
-    activity_type: '',
-    title: '',
-    description: '',
-  })
-  const [savingActivity, setSavingActivity] = useState(false)
-
-  // Next action inline edit
-  const [editingNextAction, setEditingNextAction] = useState(false)
-  const [nextActionForm, setNextActionForm] = useState({ next_action: '', next_action_date: '' })
-  const [savingNextAction, setSavingNextAction] = useState(false)
-
-  // VoC ticket creation
-  const [showVocForm, setShowVocForm] = useState(false)
-  const [vocForm, setVocForm] = useState({
-    category: 'inquiry',
-    channel: 'phone',
-    priority: 'normal',
-    title: '',
-    description: '',
-  })
-  const [submittingVoc, setSubmittingVoc] = useState(false)
-  const [vocTickets, setVocTickets] = useState<any[]>([])
-
-  // Drawer for side panels (견적서, 매출, VoC)
-  const [drawer, setDrawer] = useState<'quotation' | 'revenue' | 'voc' | null>(null)
-
+  // 이전·다음 = 리스트에서 보던 페이지 순서
+  useEffect(() => { try { setNav(JSON.parse(sessionStorage.getItem('leadNav') || '[]')) } catch { /* 없음 */ } }, [])
+  // 고객사 검색 — 입력할 때만 10개
   useEffect(() => {
-    fetchAll()
-  }, [id])
+    const q = custQ.trim()
+    if (!q) { setCustHits([]); return }
+    const t = setTimeout(async () => {
+      const { data } = await supabase.from('customers').select('id, company_name, customer_code').or(`company_name.ilike.%${q.replace(/[%,()]/g, '')}%,customer_code.ilike.%${q.replace(/[%,()]/g, '')}%`).limit(10)
+      setCustHits(data || [])
+    }, 250)
+    return () => clearTimeout(t)
+  }, [custQ]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function fetchAll() {
-    const [leadRes, historyRes, activitiesRes, usersRes, customersRes] = await Promise.all([
-      supabase
-        .from('pipeline_leads')
-        .select('*, assigned_user:users!pipeline_leads_assigned_to_fkey(id, name)')
-        .eq('id', id)
-        .single(),
-      supabase
-        .from('pipeline_history')
-        .select('*, changed_by_user:users!pipeline_history_changed_by_fkey(id, name)')
-        .eq('lead_id', id)
-        .order('changed_at', { ascending: false }),
-      supabase
-        .from('activity_logs')
-        .select('*, performer:users!activity_logs_performed_by_fkey(id, name)')
-        .eq('lead_id', id)
-        .order('performed_at', { ascending: false }),
-      supabase.from('users').select('*').eq('is_active', true),
-      supabase.from('customers').select('id, company_name, company_type, customer_code').order('company_name'),
-    ])
+  if (error) return <Empty text={`리드를 찾을 수 없습니다. (${error})`} action={<Link href="/pipeline/list"><DsButton size="sm">리스트로</DsButton></Link>} />
+  if (!data) return <div className="max-w-[1280px]"><Skeleton rows={14} /></div>
 
-    setLead(leadRes.data)
-    setUsers(usersRes.data || [])
-    setCustomers(customersRes.data || [])
+  const { lead, timeline, users, customer } = data
+  const today = kstToday()
+  const date = lead.inquiry_date || String(lead.created_at).slice(0, 10)
+  const f = classifyLead(lead.inquiry_channel, lead.inquiry_source)
+  const uname = (x: string | null) => users.find(u => u.id === x)?.name || '미배정'
+  const acts = timeline.filter(t => t.kind === 'act')
+  const hist = timeline.filter(t => t.kind !== 'act')
 
-    // Load linked customer if exists
-    if (leadRes.data?.customer_id) {
-      const linked = (customersRes.data || []).find((c: any) => c.id === leadRes.data.customer_id)
-      setLinkedCustomer(linked || null)
-    } else {
-      setLinkedCustomer(null)
-    }
+  // 단계에 들어온 날 (이력 오래된 순으로 덮어씀)
+  const entered: Record<string, string> = { 신규리드: date }
+  for (const h of [...timeline].reverse()) if (h.kind === 'stage' && h.new) entered[h.new] = h.at.slice(0, 10)
+  const ci = FLOW.indexOf(lead.stage)
+  const stayCur = days(entered[lead.stage] || date, today)
 
-    // Build unified timeline
-    const items: TimelineItem[] = []
-
-    // Add pipeline history items
-    ;(historyRes.data || []).forEach((h: any) => {
-      items.push({
-        id: h.id,
-        type: h.field_changed === 'stage' ? 'stage_change' : 'assignment',
-        timestamp: h.changed_at,
-        field_changed: h.field_changed,
-        old_value: h.old_value,
-        new_value: h.new_value,
-        changed_by_name: h.changed_by_user?.name || '시스템',
-      })
-    })
-
-    // Add activity log items
-    ;(activitiesRes.data || []).forEach((a: any) => {
-      items.push({
-        id: a.id,
-        type: 'activity',
-        timestamp: a.performed_at,
-        activity_type: a.activity_type,
-        title: a.title,
-        description: a.description,
-        performer_name: a.performer?.name || '시스템',
-        performed_by: a.performed_by,
-      })
-    })
-
-    // Sort by timestamp descending (newest first)
-    items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    setTimeline(items)
-
-    // Fetch related VoC tickets
-    if (leadRes.data?.customer_id) {
-      const { data: vocData } = await supabase
-        .from('voc_tickets')
-        .select('id, ticket_number, title, status, priority, category, created_at')
-        .eq('customer_id', leadRes.data.customer_id)
-        .order('created_at', { ascending: false })
-        .limit(5)
-      setVocTickets(vocData || [])
-    } else {
-      setVocTickets([])
-    }
-
-    setLoading(false)
+  const save = async (body: Record<string, unknown>, msg = '저장했습니다') => {
+    const r = await postUpdate({ lead_id: id, changed_by: user?.id, ...body })
+    if (r.error) { toast.error(r.error); return false }
+    toast.success(msg); await reload(); return true
+  }
+  const setField = (k: string) => async (v: string) => { await save({ action: 'update_lead', updates: { [k]: v || null } }) }
+  const setStage = async (s: string) => {
+    if (s === lead.stage) return
+    const c = confirmConvertedStageChange(lead.stage, s)
+    if (!c.proceed) return
+    await save({ action: 'change_stage', new_stage: s, old_stage: lead.stage, force: c.force }, `단계 → ${s}`)
+  }
+  const setAssignee = async (v: string) => { await save({ action: 'change_assigned', user_id: v || null, old_name: uname(lead.assigned_to), new_name: uname(v) }, '담당자를 바꿨습니다') }
+  const setNext = (k: 'next_action' | 'next_action_date') => async (v: string) => {
+    await save({ action: 'update_next_action', next_action: k === 'next_action' ? v : lead.next_action, next_action_date: k === 'next_action_date' ? v : lead.next_action_date })
+  }
+  const linkCustomer = async (cid: string | null) => {
+    if (await save({ action: 'link_customer', customer_id: cid }, cid ? '고객사를 연결했습니다' : '연결을 해제했습니다')) setCustQ('')
+  }
+  const submitVoc = async () => {
+    if (!voc.title.trim() || !lead.customer_id || !user) return
+    const ok = await save({ action: 'create_voc_ticket', customer_id: lead.customer_id, category: voc.category, channel: voc.channel, priority: voc.priority, title: voc.title, description: voc.description || null, reported_by: lead.contact_person || '', created_by: user.id, assigned_to: lead.assigned_to || null, category_label: VOC_CATEGORY_LABELS[voc.category] }, 'VoC 티켓을 만들었습니다')
+    if (ok) setVoc({ ...voc, open: false, title: '', description: '' })
   }
 
-  const startEdit = () => {
-    if (!lead) return
-    setEditForm({
-      customer_code: lead.customer_code,
-      company_name: lead.company_name,
-      contact_person: lead.contact_person,
-      contact_phone: lead.contact_phone,
-      contact_email: lead.contact_email,
-      contact_position: lead.contact_position,
-      industry: lead.industry,
-      core_need: lead.core_need,
-      inquiry_source: lead.inquiry_source,
-      inquiry_channel: lead.inquiry_channel,
-      inquiry_content: lead.inquiry_content,
-      inquiry_date: lead.inquiry_date,
-      priority: lead.priority,
-      next_action: lead.next_action,
-      next_action_date: lead.next_action_date,
-      notes: lead.notes,
-    })
-    setEditing(true)
-  }
-
-  const saveEdit = async () => {
-    setSaving(true)
-    const res = await callApi({ action: 'edit_lead', lead_id: id, form: editForm })
-    if (res.error) toast.error('수정에 실패했습니다.')
-    else { toast.success('수정되었습니다.'); setEditing(false); fetchAll() }
-    setSaving(false)
-  }
-
-  const callApi = async (body: Record<string, unknown>) => {
-    try {
-      const res = await fetch('/api/pipeline/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) {
-        const text = await res.text()
-        console.error('[callApi] HTTP error:', res.status, text)
-        return { error: `HTTP ${res.status}: ${text.substring(0, 100)}` }
-      }
-      return res.json()
-    } catch (err: any) {
-      console.error('[callApi] Network error:', err)
-      return { error: err.message || 'Network error' }
-    }
-  }
-
-  const changeStage = async (newStage: string) => {
-    if (!lead || !user) return
-    const { proceed, force } = confirmConvertedStageChange(lead.stage, newStage)
-    if (!proceed) return
-    const res = await callApi({
-      action: 'change_stage',
-      lead_id: id,
-      new_stage: newStage,
-      old_stage: lead.stage,
-      changed_by: user.id,
-      force,
-    })
-    if (res?.error) {
-      toast.error(`단계 변경 실패: ${res.error}`)
-      return
-    }
-
-    // 도입완료 시 광고성과에 도입 데이터 반영
-    if (newStage === '도입완료' && lead) {
-      await syncLeadToAdPerformance(supabase, {
-        inquiry_date: lead.inquiry_date || null,
-        inquiry_channel: lead.inquiry_channel || '',
-        inquiry_source: lead.inquiry_source || '',
-        company_name: lead.company_name,
-        stage: '도입완료',
-      })
-    }
-
-    toast.success(`단계가 "${newStage}"로 변경되었습니다.`)
-    fetchAll()
-  }
-
-  const changeAssigned = async (userId: string) => {
-    if (!lead || !user) return
-    const oldName = users.find(u => u.id === lead.assigned_to)?.name || '(없음)'
-    const newName = users.find(u => u.id === userId)?.name || '(없음)'
-    await callApi({
-      action: 'change_assigned',
-      lead_id: id,
-      user_id: userId,
-      old_name: oldName,
-      new_name: newName,
-      changed_by: user.id,
-    })
-    toast.success('담당자가 변경되었습니다.')
-    fetchAll()
-  }
-
-  const saveNextAction = async () => {
-    setSavingNextAction(true)
-    const res = await callApi({
-      action: 'update_next_action',
-      lead_id: id,
-      next_action: nextActionForm.next_action || null,
-      next_action_date: nextActionForm.next_action_date || null,
-    })
-    if (res.error) {
-      toast.error('다음 액션 저장에 실패했습니다.')
-    } else {
-      toast.success('다음 액션이 저장되었습니다.')
-      setEditingNextAction(false)
-      fetchAll()
-    }
-    setSavingNextAction(false)
-  }
-
-  const startEditNextAction = () => {
-    if (!lead) return
-    setNextActionForm({
-      next_action: lead.next_action || '',
-      next_action_date: lead.next_action_date || '',
-    })
-    setEditingNextAction(true)
-  }
-
-  const clearNextAction = async () => {
-    setSavingNextAction(true)
-    await callApi({
-      action: 'update_next_action',
-      lead_id: id,
-      next_action: null,
-      next_action_date: null,
-    })
-    toast.success('다음 액션이 초기화되었습니다.')
-    setEditingNextAction(false)
-    fetchAll()
-    setSavingNextAction(false)
-  }
-
-  const linkCustomer = async (customerId: string | null) => {
-    const res = await callApi({ action: 'link_customer', lead_id: id, customer_id: customerId })
-    if (res.error) {
-      toast.error('고객사 연결에 실패했습니다.')
-    } else {
-      toast.success(customerId ? '고객사가 연결되었습니다.' : '고객사 연결이 해제되었습니다.')
-      fetchAll()
-    }
-  }
-
-  const filteredCustomers = customers.filter(c =>
-    c.company_name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    (c.customer_code || '').includes(customerSearch)
-  ).slice(0, 10)
-
-  const submitActivity = async () => {
-    if (!user || !activityForm.title.trim()) {
-      toast.error('제목을 입력해주세요.')
-      return
-    }
-    setSubmittingActivity(true)
-
-    // 활동유형에 따른 자동 단계 변경 결정
-    const autoStage = ACTIVITY_STAGE_MAP[activityForm.activity_type]
-    const shouldAutoChange = autoStage && lead && lead.stage !== autoStage
-      && lead.stage !== '도입완료' && lead.stage !== '이탈' // 이미 종료된 건은 변경 안함
-
-    const res = await callApi({
-      action: 'add_activity',
-      lead_id: id,
-      activity_type: activityForm.activity_type,
-      title: activityForm.title,
-      description: activityForm.description || null,
-      performed_by: user.id,
-      auto_stage: shouldAutoChange ? autoStage : undefined,
-      current_stage: lead?.stage,
-    })
-
-    if (res.error) {
-      console.error('[submitActivity] Error:', res.error)
-      toast.error(`활동 기록 실패: ${typeof res.error === 'string' ? res.error : JSON.stringify(res.error)}`)
-    } else {
-      const msg = shouldAutoChange
-        ? `활동이 기록되었습니다. 단계가 "${autoStage}"로 자동 변경되었습니다.`
-        : '활동이 기록되었습니다.'
-      toast.success(msg)
-      setActivityForm({ activity_type: 'NOTE', title: '', description: '' })
-      setShowActivityForm(false)
-      fetchAll()
-    }
-    setSubmittingActivity(false)
-  }
-
-  // Activity edit/delete handlers
-  const startEditActivity = (item: TimelineItem) => {
-    setEditingActivityId(item.id)
-    setEditActivityForm({
-      activity_type: item.activity_type || 'NOTE',
-      title: item.title || '',
-      description: item.description || '',
-    })
-  }
-
-  const saveActivityEdit = async () => {
-    if (!editingActivityId || !editActivityForm.title.trim()) {
-      toast.error('제목을 입력해주세요.')
-      return
-    }
-    setSavingActivity(true)
-    const res = await callApi({
-      action: 'edit_activity',
-      lead_id: id,
-      activity_id: editingActivityId,
-      activity_type: editActivityForm.activity_type,
-      title: editActivityForm.title,
-      description: editActivityForm.description || null,
-    })
-
-    if (res.error) {
-      toast.error('활동 수정에 실패했습니다.')
-    } else {
-      toast.success('활동이 수정되었습니다.')
-      setEditingActivityId(null)
-      fetchAll()
-    }
-    setSavingActivity(false)
-  }
-
-  const deleteActivity = async (activityId: string) => {
-    const confirmed = window.confirm('이 활동 기록을 삭제하시겠습니까?')
-    if (!confirmed) return
-
-    const res = await callApi({
-      action: 'delete_activity',
-      lead_id: id,
-      activity_id: activityId,
-    })
-
-    if (res.error) {
-      toast.error('활동 삭제에 실패했습니다.')
-    } else {
-      toast.success('활동이 삭제되었습니다.')
-      fetchAll()
-    }
-  }
-
-  const submitVocTicket = async () => {
-    if (!user || !vocForm.title.trim()) {
-      toast.error('제목을 입력해주세요.')
-      return
-    }
-    if (!lead?.customer_id) {
-      toast.error('고객사를 먼저 연결해주세요.')
-      return
-    }
-    setSubmittingVoc(true)
-    const res = await callApi({
-      action: 'create_voc_ticket',
-      lead_id: id,
-      customer_id: lead.customer_id,
-      category: vocForm.category,
-      channel: vocForm.channel,
-      priority: vocForm.priority,
-      title: vocForm.title,
-      description: vocForm.description || null,
-      reported_by: lead.contact_person || '',
-      created_by: user.id,
-      assigned_to: lead.assigned_to || null,
-      category_label: VOC_CATEGORY_LABELS[vocForm.category],
-    })
-
-    if (res.error) {
-      toast.error('VoC 티켓 생성에 실패했습니다.')
-    } else {
-      toast.success('VoC 티켓이 생성되었습니다.')
-      setVocForm({ category: 'inquiry', channel: 'phone', priority: 'normal', title: '', description: '' })
-      setShowVocForm(false)
-      fetchAll()
-    }
-    setSubmittingVoc(false)
-  }
-
-  if (loading) return <PageLoading />
-  if (!lead) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-text-secondary">리드를 찾을 수 없습니다.</p>
-        <Link href="/pipeline/list"><Button variant="secondary" className="mt-4">목록으로</Button></Link>
-      </div>
-    )
-  }
-
-  const isOverdue = lead.next_action_date && new Date(lead.next_action_date) < new Date(new Date().toDateString())
+  const ni = nav.indexOf(id)
+  const prevId = ni > 0 ? nav[ni - 1] : null, nextId = ni >= 0 && ni < nav.length - 1 ? nav[ni + 1] : null
+  const lastAct = acts[0]?.at
+  const gap = lastAct ? days(lastAct, today) : null
+  const isOpen = OPEN.includes(lead.stage)
+  const overdue = lead.next_action_date && lead.next_action_date < today
+  const ft = (lead.first_touch || {}) as Record<string, string>
 
   return (
-    <div className="relative">
-      {/* ===== Header ===== */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <Link href="/pipeline/list" className="text-text-tertiary hover:text-text-secondary">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-lg font-bold text-text-primary">{lead.company_name}</h1>
-            {lead.customer_code && <p className="text-[10px] font-mono text-text-tertiary">{lead.customer_code}</p>}
-          </div>
-          <Badge className={STAGE_COLORS[lead.stage]}>{lead.stage}</Badge>
-          {followupIds.has(lead.id) && <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${FOLLOWUP_BADGE_CLASS}`} title="도입완료 후 추가 견적·미팅 진행 중">추가 진행</span>}
-          {lead.priority && lead.priority !== '중간' && <Badge className={`${PRIORITY_COLORS[lead.priority]} border`}>{lead.priority}</Badge>}
-          {(lead as any).conversion_probability && (lead as any).conversion_probability !== '중간' && (
-            <Badge className={`${CONVERSION_PROB_COLORS[(lead as any).conversion_probability] || ''} border`}>
-              도입 {(lead as any).conversion_probability}
-            </Badge>
-          )}
-          {(lead as any).site_category && (
-            <Badge className={`${SITE_CATEGORY_COLORS[(lead as any).site_category] || ''} border`}>
-              {(lead as any).site_category}
-            </Badge>
-          )}
+    <div className="max-w-[1280px]">
+      {/* 이름줄 */}
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
+        <div className="min-w-0">
+          <Link href="/pipeline/list" className="text-[12px] text-ds-fg3 hover:text-ds-fg">‹ 리스트</Link>
+          <h1 className="text-[18px] font-semibold text-ds-fg flex items-center gap-2 flex-wrap mt-0.5">
+            {lead.company_name}<StatusChip tone={stageTone(lead.stage)}>{lead.stage}</StatusChip>
+            {followupIds.has(lead.id) && <span className="text-[12px] font-normal text-ds-accent">추가 진행</span>}
+            {(lead.priority === '높음' || lead.priority === '긴급') && <span className="text-[12px] font-normal text-ds-bad">● 우선순위 {lead.priority}</span>}
+          </h1>
+          <p className="text-[12px] text-ds-fg2 mt-0.5">
+            {[lead.site_category, lead.industry].filter(Boolean).join(' · ')}{(lead.site_category || lead.industry) && ' · '}
+            <span className="inline-block w-[7px] h-[7px] rounded-full mr-1 align-[1px]" style={{ background: INFLOW_COLOR[f.group] }} />{f.group} › {f.sub} · 유입 {date} · 담당 {uname(lead.assigned_to)}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* 바로가기 버튼들 */}
-          <button onClick={() => setDrawer('quotation')} className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-text-secondary bg-surface-tertiary hover:bg-primary-50 hover:text-primary-600 rounded-lg transition-colors">
-            <FileText className="w-3.5 h-3.5" /> 견적서
-          </button>
-          <button onClick={() => setDrawer('voc')} className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-text-secondary bg-surface-tertiary hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors">
-            <Headphones className="w-3.5 h-3.5" /> VoC
-          </button>
-          {!editing && (
-            <Button variant="secondary" size="sm" onClick={startEdit}>
-              <Edit2 className="w-4 h-4 mr-1" /> 수정
-            </Button>
-          )}
+        <div className="flex items-center gap-1.5">
+          <DsButton variant="ghost" size="sm" icon={<ChevronLeft className="w-3.5 h-3.5" />} disabled={!prevId} onClick={() => prevId && router.push(`/pipeline/${prevId}`)} title="리스트의 이전 리드">이전</DsButton>
+          <DsButton variant="ghost" size="sm" disabled={!nextId} onClick={() => nextId && router.push(`/pipeline/${nextId}`)} title="리스트의 다음 리드">다음<ChevronRight className="w-3.5 h-3.5" /></DsButton>
+          <DsButton size="sm" onClick={() => setTab('quote')}>견적서</DsButton>
         </div>
       </div>
 
-      {/* ===== 3칸 레이아웃 ===== */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+      {/* 단계 진행줄 — 누르면 그 단계로 */}
+      <div className="flex gap-1 items-stretch mb-3">
+        {FLOW.map((s, i) => {
+          const st = ci >= 0 && i < ci ? 'done' : i === ci ? 'cur' : ''
+          let sub = ''
+          if (st && entered[s]) {
+            const end = st === 'cur' ? today : entered[FLOW.slice(i + 1).find(x => entered[x]) || ''] || null
+            sub = `${md(entered[s])}${end ? ` · ${st === 'cur' ? `${stayCur}일째` : `${days(entered[s], end)}일`}` : ''}`
+          }
+          return (
+            <button key={s} onClick={() => setStage(s)} title={`${s}(으)로 바꾸기`}
+              className={cn('flex-1 min-w-0 text-left rounded px-2.5 py-1.5 border-t-[3px] transition-colors', st === 'cur' ? 'bg-ds-accent-soft' : 'bg-ds-subtle hover:bg-ds-line2')}
+              style={{ borderTopColor: st ? toneVar[stageTone(s === '도입완료' ? s : '컨텍')] : 'var(--ds-line)' }}>
+              <div className={cn('text-[12.5px] truncate', st === 'cur' ? 'text-ds-accent font-semibold' : st ? 'text-ds-fg font-medium' : 'text-ds-fg3')}>{s}</div>
+              <div className="text-[11px] text-ds-fg3 truncate h-4">{sub}</div>
+            </button>
+          )
+        })}
+        <div className="flex flex-col gap-1 justify-center ml-1.5">
+          <DsButton size="sm" variant={lead.stage === '예정' ? 'primary' : 'secondary'} onClick={() => setStage('예정')}>예정{lead.stage === '예정' ? ` · ${stayCur}일째` : '으로'}</DsButton>
+          {lead.stage !== '이탈' ? <DsButton size="sm" variant="danger" onClick={() => setStage('이탈')}>이탈 처리</DsButton> : <span className="text-[12px] text-ds-fg3 text-center">이탈 · {stayCur}일째</span>}
+        </div>
+      </div>
 
-        {/* ── 좌측: 기본 정보 + 문의 (4칸) ── */}
-        <div className="xl:col-span-4 space-y-4 min-w-0">
-          {/* 단계 + 담당자 (컴팩트) */}
-          <div className="card p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex-1">
-                <label className="text-[11px] font-medium text-text-tertiary uppercase">단계</label>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {STAGES.map((stage) => (
-                    <button key={stage} onClick={() => changeStage(stage)} disabled={lead.stage === stage}
-                      className={`px-2 py-1 rounded text-[11px] transition-colors ${
-                        lead.stage === stage
-                          ? 'bg-primary-500 text-white font-semibold'
-                          : 'bg-surface-tertiary text-text-tertiary hover:bg-primary-50 hover:text-primary-600'
-                      }`}>{stage}</button>
-                  ))}
-                </div>
-              </div>
+      <KpiRow items={[
+        { label: '유입 후', value: `D+${days(date, today)}`, sub: `${date} 문의` },
+        { label: '지금 단계', value: `${lead.stage} ${stayCur}일째`, sub: entered[lead.stage] ? `${entered[lead.stage]}부터` : undefined },
+        { label: '활동', value: `${acts.length}건`, sub: lastAct ? `마지막 ${md(lastAct)} · ${gap}일 전` : '기록 없음', tone: isOpen && (gap == null || gap > 14) ? 'bad' : undefined },
+        { label: '다음 액션', value: lead.next_action || lead.next_action_date ? (lead.next_action || '날짜만') : '없음', sub: lead.next_action_date ? `${lead.next_action_date}${overdue ? ' · 지남' : ''}` : '기록 칸에서 정함', tone: (isOpen && !lead.next_action && !lead.next_action_date) || overdue ? 'bad' : undefined },
+        { label: '고객사', value: customer ? '연결됨' : '없음', sub: customer ? customer.company_name : '정보 › 회사에서 연결' },
+      ]} />
+
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] gap-5">
+        {/* 왼쪽: 활동 */}
+        <div className="min-w-0">
+          <Toolbar>
+            <Tabs value={tab} onChange={setTab} options={[
+              { value: 'act', label: '활동', count: acts.length }, { value: 'hist', label: '변경 이력', count: hist.length },
+              { value: 'inflow', label: '유입 경로' }, { value: 'quote', label: '견적·매출' }, { value: 'voc', label: 'VoC', count: data.voc.length || undefined },
+            ]} />
+          </Toolbar>
+          {tab === 'act' && <>
+            <RecordComposer lead={lead} onDone={reload} />
+            <div className="mt-4"><Timeline items={timeline} editable leadId={id} onChanged={reload} /></div>
+          </>}
+          {tab === 'hist' && <Timeline items={hist} leadId={id} onChanged={reload} />}
+          {tab === 'inflow' && (
+            <div className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 text-[12.5px]">
+              {([
+                ['유입일 · 시각', `${date}${lead.inquiry_hour != null ? ` · ${lead.inquiry_hour}시` : ''}`],
+                ['유입 분류', `${f.group} › ${f.sub}`], ['원래 값', [lead.inquiry_channel, lead.inquiry_source].filter(Boolean).join(' / ')],
+                ['첫 방문 레퍼러', ft.referrer], ['첫 방문 시각', ft.captured_at ? String(ft.captured_at).slice(0, 16).replace('T', ' ') : null],
+                ['문의 때 레퍼러', lead.referrer], ['랜딩 페이지', lead.landing_page],
+                ['UTM source / medium', [lead.utm_source, lead.utm_medium].filter(Boolean).join(' / ')], ['UTM campaign', lead.utm_campaign],
+                ['UTM content / term', [lead.utm_content, lead.utm_term].filter(Boolean).join(' / ')], ['방문 세션', lead.site_session_id],
+              ] as [string, string | null][]).map(([k, v]) => <Fragment key={k}><span className="text-ds-fg3">{k}</span><span className={cn('break-all', v ? 'text-ds-fg' : 'text-ds-fg3')}>{v || '—'}</span></Fragment>)}
+              <p className="col-span-2 mt-2 text-[12px] text-ds-fg3">홈페이지 문의 폼으로 들어온 리드만 레퍼러·UTM 이 있습니다. 분류 기준은 디자인 정의 §5.</p>
             </div>
-            <div className="flex items-center gap-3 pt-3 border-t border-border-light">
-              <div className="flex-1">
-                <label className="text-[11px] font-medium text-text-tertiary uppercase">담당자</label>
-                <Select value={lead.assigned_to || ''} onChange={(e) => changeAssigned(e.target.value)}
-                  options={users.map((u) => ({ value: u.id, label: u.name }))} placeholder="선택" className="mt-1" />
-              </div>
-              <div className="flex-1">
-                <label className="text-[11px] font-medium text-text-tertiary uppercase">우선순위</label>
-                <Select value={lead.priority || '중간'} onChange={async (e) => {
-                  await callApi({ action: 'update_lead', lead_id: id, updates: { priority: e.target.value } })
-                  toast.success('우선순위가 변경되었습니다.')
-                  fetchAll()
-                }}
-                  options={PRIORITY_OPTIONS} className="mt-1" />
-              </div>
-              <div className="flex-1">
-                <label className="text-[11px] font-medium text-text-tertiary uppercase">도입가능성</label>
-                <Select value={(lead as any).conversion_probability || '중간'} onChange={async (e) => {
-                  await callApi({ action: 'update_lead', lead_id: id, updates: { conversion_probability: e.target.value } })
-                  toast.success('도입가능성이 변경되었습니다.')
-                  fetchAll()
-                }}
-                  options={CONVERSION_PROB_OPTIONS} className="mt-1" />
-              </div>
-              <div className="flex-1">
-                <label className="text-[11px] font-medium text-text-tertiary uppercase">발주유형</label>
-                <Select value={(lead as any).site_category || ''} onChange={async (e) => {
-                  await callApi({ action: 'update_lead', lead_id: id, updates: { site_category: e.target.value || null } })
-                  toast.success('발주유형이 변경되었습니다.')
-                  fetchAll()
-                }}
-                  options={SITE_CATEGORY_OPTIONS} placeholder="선택" className="mt-1" />
-              </div>
-            </div>
-            {/* 다음 액션 + 액션일 */}
-            <div className={`pt-3 border-t border-border-light ${
-              isOverdue ? 'bg-red-50 -mx-4 px-4 -mb-4 pb-4 rounded-b-xl' : ''
-            }`}>
-              {editingNextAction ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <label className="text-[11px] font-medium text-text-tertiary uppercase">다음 액션</label>
-                      <Input
-                        placeholder="예: 견적서 발송, 데모 일정 조율"
-                        value={nextActionForm.next_action}
-                        onChange={(e) => setNextActionForm({ ...nextActionForm, next_action: e.target.value })}
-                        className="mt-1 text-sm"
-                      />
-                    </div>
-                    <div className="w-36">
-                      <label className="text-[11px] font-medium text-text-tertiary uppercase">액션일</label>
-                      <Input
-                        type="date"
-                        value={nextActionForm.next_action_date}
-                        onChange={(e) => setNextActionForm({ ...nextActionForm, next_action_date: e.target.value })}
-                        className="mt-1 text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button onClick={saveNextAction} loading={savingNextAction} size="sm">
-                      <Save className="w-3.5 h-3.5 mr-1" /> 저장
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={() => setEditingNextAction(false)}>
-                      <X className="w-3.5 h-3.5" />
-                    </Button>
-                    {(lead.next_action || lead.next_action_date) && (
-                      <button onClick={clearNextAction} className="text-xs text-red-500 hover:text-red-700 ml-auto">초기화</button>
-                    )}
-                  </div>
+          )}
+          {tab === 'quote' && <>
+            {user && <QuotationSection leadId={id} companyName={lead.company_name} userId={user.id} />}
+            <p className="mt-4 text-[12.5px] text-ds-fg2">
+              매출: {customer ? <Link href={`/customers/${customer.id}`} className="text-ds-accent hover:underline">{customer.company_name} 고객 상세 →</Link> : '고객사를 연결하면 고객 상세에서 매출을 봅니다.'}
+            </p>
+          </>}
+          {tab === 'voc' && (!lead.customer_id ? <Empty text="고객사를 연결하면 VoC 티켓을 볼 수 있습니다." /> : <>
+            {data.voc.length === 0 ? <p className="text-[12.5px] text-ds-fg3 mb-3">관련 VoC 티켓이 없습니다.</p> : (
+              <div className="ds-wrap mb-3"><table className="ds-table is-clickable">
+                <thead><tr><th>번호</th><th>제목</th><th>분류</th><th>상태</th><th>등록일</th></tr></thead>
+                <tbody>{data.voc.map((t: any) => (
+                  <tr key={t.id} className="ds-row" onClick={() => router.push(`/voc/${t.id}`)}>
+                    <td className="c">#{t.ticket_number}</td><td className="truncate max-w-[280px]">{t.title}</td><td className="c">{VOC_CATEGORY_LABELS[t.category] || t.category}</td>
+                    <td className="c">{t.status}</td><td className="c">{String(t.created_at).slice(0, 10)}</td>
+                  </tr>))}</tbody></table></div>
+            )}
+            {!voc.open ? <DsButton size="sm" onClick={() => setVoc({ ...voc, open: true })}>+ VoC 티켓</DsButton> : (
+              <div className="border border-ds-line rounded-md p-3 grid gap-2 text-[12.5px]">
+                <div className="flex gap-2 flex-wrap">
+                  <DsSelect value={voc.category} onChange={e => setVoc({ ...voc, category: e.target.value })} className="h-7 text-[12.5px]">{Object.entries(VOC_CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</DsSelect>
+                  <DsSelect value={voc.channel} onChange={e => setVoc({ ...voc, channel: e.target.value })} className="h-7 text-[12.5px]">{[['phone', '전화'], ['email', '이메일'], ['message', '메시지'], ['meeting', '미팅']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</DsSelect>
+                  <DsSelect value={voc.priority} onChange={e => setVoc({ ...voc, priority: e.target.value })} className="h-7 text-[12.5px]">{Object.entries(VOC_PRIORITY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</DsSelect>
                 </div>
+                <input className={cn(dsInput, 'h-7 text-[12.5px]')} placeholder="제목" value={voc.title} onChange={e => setVoc({ ...voc, title: e.target.value })} />
+                <textarea className="w-full px-2.5 py-1.5 rounded border border-ds-line text-[12.5px] focus:outline-none focus:ring-2 focus:ring-ds-accent" rows={3} placeholder="내용 (선택)" value={voc.description} onChange={e => setVoc({ ...voc, description: e.target.value })} />
+                <div className="flex gap-1.5"><DsButton size="sm" variant="primary" disabled={!voc.title.trim()} onClick={submitVoc}>만들기</DsButton><DsButton size="sm" variant="ghost" onClick={() => setVoc({ ...voc, open: false })}>취소</DsButton></div>
+              </div>
+            )}
+          </>)}
+        </div>
+
+        {/* 오른쪽: 정보 패널 */}
+        <aside className="min-w-0 xl:border-l xl:border-ds-line xl:pl-4">
+          <div className="flex items-baseline gap-2 mb-1"><h2 className="text-[14px] font-medium text-ds-fg">정보</h2><span className="text-[11.5px] text-ds-fg3">칸을 누르면 바로 수정 · 바뀐 칸은 타임라인에</span></div>
+          <Group title="진행">
+            <Field label="단계" value={lead.stage} display={<StatusChip tone={stageTone(lead.stage)}>{lead.stage}</StatusChip>} kind="select" options={[...FLOW, '예정', '이탈']} onSave={setStage} />
+            <Field label="담당" value={lead.assigned_to} display={uname(lead.assigned_to)} kind="select" options={users.map(u => ({ value: u.id, label: u.name }))} onSave={setAssignee} />
+            <Field label="우선순위" value={lead.priority} kind="select" options={PRIO} onSave={setField('priority')} />
+            <Field label="도입가능성" value={lead.conversion_probability} kind="select" options={PROB} onSave={setField('conversion_probability')} />
+            <Field label="다음 액션" value={lead.next_action} onSave={setNext('next_action')} placeholder="+ 정하기" />
+            <Field label="액션 날짜" value={lead.next_action_date} kind="date" display={lead.next_action_date ? <span className={overdue ? 'text-ds-bad' : ''}>{lead.next_action_date}{overdue ? ' · 지남' : ''}</span> : undefined} onSave={setNext('next_action_date')} />
+          </Group>
+          <Group title="회사">
+            <Field label="회사명" value={lead.company_name} onSave={async v => { if (v) await setField('company_name')(v) }} />
+            <Field label="코드" value={lead.customer_code} onSave={setField('customer_code')} />
+            <Field label="발주" value={lead.site_category} kind="select" options={['민간', '공공']} onSave={setField('site_category')} />
+            <Field label="사업분류" value={lead.industry} kind="select" options={INDUSTRY_OPTIONS} onSave={setField('industry')} />
+            <span className="text-ds-fg3 pt-1">고객사</span>
+            <div className="py-1 min-w-0">
+              {customer ? (
+                <span className="inline-flex items-center gap-1.5 max-w-full">
+                  <Link href={`/customers/${customer.id}`} className="text-ds-accent hover:underline truncate">{customer.company_name}</Link>
+                  <button onClick={() => window.confirm('고객사 연결을 해제할까요?') && linkCustomer(null)} className="text-ds-fg3 hover:text-ds-bad" title="연결 해제"><X className="w-3.5 h-3.5" /></button>
+                </span>
               ) : (
-                <div className="flex items-center gap-3 cursor-pointer group" onClick={startEditNextAction}>
-                  {isOverdue ? (
-                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                  ) : (
-                    <Clock className={`w-4 h-4 shrink-0 ${lead.next_action ? 'text-blue-500' : 'text-text-quaternary'}`} />
+                <div className="relative">
+                  <input className={cn(dsInput, 'h-7 text-[12.5px]')} placeholder="고객사 검색해서 연결" value={custQ} onChange={e => setCustQ(e.target.value)} />
+                  {custHits.length > 0 && (
+                    <div className="absolute z-20 left-0 right-0 top-8 bg-ds-bg border border-ds-line rounded-md shadow-[0_8px_24px_rgba(0,0,0,.08)] max-h-56 overflow-auto">
+                      {custHits.map(c => <button key={c.id} onClick={() => linkCustomer(c.id)} className="w-full text-left px-2.5 py-1.5 hover:bg-ds-subtle text-[12.5px]">{c.company_name}{c.customer_code && <span className="text-ds-fg3 ml-1.5">{c.customer_code}</span>}</button>)}
+                    </div>
                   )}
-                  {lead.next_action ? (
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${isOverdue ? 'text-red-700' : 'text-blue-700'}`}>
-                        {lead.next_action}
-                      </p>
-                      {lead.next_action_date && (
-                        <p className={`text-xs mt-0.5 ${isOverdue ? 'text-red-500 font-medium' : 'text-blue-500'}`}>
-                          {isOverdue ? '⚠ 기한초과 · ' : ''}{formatDate(lead.next_action_date)}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-text-quaternary group-hover:text-text-secondary transition-colors flex-1">
-                      + 다음 액션을 지정하세요
-                    </p>
-                  )}
-                  <Pencil className={`w-3.5 h-3.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${isOverdue ? 'text-red-400' : 'text-text-quaternary'}`} />
                 </div>
               )}
             </div>
-          </div>
-
-          {/* 기본 정보 */}
-          <div className="card p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-text-primary">기본 정보</h2>
-              {editing && (
-                <div className="flex gap-1.5">
-                  <Button onClick={saveEdit} loading={saving} size="sm"><Save className="w-3.5 h-3.5 mr-1" /> 저장</Button>
-                  <Button variant="secondary" size="sm" onClick={() => setEditing(false)}><X className="w-3.5 h-3.5" /></Button>
-                </div>
-              )}
-            </div>
-            {editing ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="회사명" value={editForm.company_name || ''} onChange={(e) => setEditForm({ ...editForm, company_name: e.target.value })} />
-                  <Input label="고객사 코드" value={editForm.customer_code || ''} onChange={(e) => setEditForm({ ...editForm, customer_code: e.target.value })} placeholder="예: 2604171030" className="font-mono" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Select label="사업분류" value={editForm.industry || ''} onChange={(e) => setEditForm({ ...editForm, industry: e.target.value })} options={INDUSTRY_OPTIONS.map(i => ({ value: i, label: i }))} placeholder="업종" />
-                  <Input label="핵심니즈" value={editForm.core_need || ''} onChange={(e) => setEditForm({ ...editForm, core_need: e.target.value })} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="문의자" value={editForm.contact_person || ''} onChange={(e) => setEditForm({ ...editForm, contact_person: e.target.value })} />
-                  <Input label="직급" value={editForm.contact_position || ''} onChange={(e) => setEditForm({ ...editForm, contact_position: e.target.value })} />
-                </div>
-                <Input label="연락처" value={editForm.contact_phone || ''} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} />
-                <Input label="이메일" value={editForm.contact_email || ''} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="유입일" type="date" value={editForm.inquiry_date || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_date: e.target.value })} />
-                  <Select label="유입채널" value={editForm.inquiry_channel || ''} onChange={(e) => {
-                    const subs = CHANNEL_SUB_SOURCES[e.target.value]
-                    setEditForm({ ...editForm, inquiry_channel: e.target.value, inquiry_source: subs ? subs[0] : '' })
-                  }} options={CHANNEL_OPTIONS.map(c => ({ value: c, label: c }))} placeholder="채널" />
-                </div>
-                {CHANNEL_SUB_SOURCES[editForm.inquiry_channel || ''] ? (
-                  <Select label="유입경로" value={editForm.inquiry_source || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_source: e.target.value })} options={CHANNEL_SUB_SOURCES[editForm.inquiry_channel || ''].map(s => ({ value: s, label: s }))} placeholder="경로 선택" />
-                ) : (
-                  <Input label="유입경로" value={editForm.inquiry_source || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_source: e.target.value })} placeholder="상세 경로" />
-                )}
-                <Textarea label="문의내용" value={editForm.inquiry_content || ''} onChange={(e) => setEditForm({ ...editForm, inquiry_content: e.target.value })} />
-                <Textarea label="메모" value={editForm.notes || ''} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
-              </div>
-            ) : (
-              <div className="space-y-2.5 text-sm">
-                {[
-                  ['코드', lead.customer_code ? { text: lead.customer_code, mono: true } : null],
-                  ['사업분류', lead.industry],
-                  ['문의자', lead.contact_person ? `${lead.contact_person}${lead.contact_position ? ' (' + lead.contact_position + ')' : ''}` : null],
-                  ['연락처', lead.contact_phone],
-                  ['이메일', lead.contact_email],
-                  ['핵심니즈', lead.core_need],
-                  ['유입채널', lead.inquiry_channel],
-                  ['유입경로', lead.inquiry_source],
-                  ['유입일', lead.inquiry_date ? formatDate(lead.inquiry_date) : null],
-                  ['등록일', formatDate(lead.created_at)],
-                ].map(([label, value]) => {
-                  const isMono = value && typeof value === 'object' && 'mono' in (value as any)
-                  const displayText = isMono ? (value as any).text : (value as string)
-                  return (
-                    <div key={String(label)} className="flex items-baseline">
-                      <dt className="w-16 shrink-0 text-xs text-text-tertiary">{String(label)}</dt>
-                      <dd className={`text-sm text-text-primary ${isMono ? 'font-mono text-xs' : ''}`}>{displayText || '-'}</dd>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* 문의내용 */}
-          {(lead.inquiry_content || lead.notes) && !editing && (
-            <div className="card p-4 overflow-hidden">
-              {lead.inquiry_content && (
-                <div className="mb-3">
-                  <h3 className="text-xs font-semibold text-text-tertiary uppercase mb-1.5">문의내용</h3>
-                  <p className="text-sm text-text-primary whitespace-pre-wrap break-all">{lead.inquiry_content}</p>
-                </div>
-              )}
-              {lead.notes && (
-                <div className={lead.inquiry_content ? 'pt-3 border-t border-border-light' : ''}>
-                  <h3 className="text-xs font-semibold text-text-tertiary uppercase mb-1.5">메모</h3>
-                  <p className="text-sm text-text-primary whitespace-pre-wrap break-all">{lead.notes}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 고객사 연결 */}
-          <div className="card p-4">
-            <h3 className="text-xs font-semibold text-text-tertiary uppercase mb-2 flex items-center gap-1.5">
-              <Link2 className="w-3.5 h-3.5" /> 고객사 연결
-            </h3>
-            {linkedCustomer ? (
-              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                <div>
-                  <p className="text-sm font-medium text-green-800">{linkedCustomer.company_name}</p>
-                  {linkedCustomer.customer_code && <p className="text-[10px] text-green-500 font-mono">ID: {linkedCustomer.customer_code}</p>}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Link href={`/customers/${linkedCustomer.id}`}>
-                    <button className="p-1 hover:bg-green-100 rounded"><ExternalLink className="w-3.5 h-3.5 text-green-600" /></button>
-                  </Link>
-                  <button onClick={() => linkCustomer(null)} className="p-1 hover:bg-red-100 rounded"><X className="w-3.5 h-3.5 text-red-400" /></button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Input placeholder="고객사 검색..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="text-sm" />
-                {customerSearch && (
-                  <div className="max-h-36 overflow-y-auto border rounded-lg divide-y">
-                    {filteredCustomers.length === 0 ? (
-                      <p className="text-xs text-text-tertiary p-2">검색 결과 없음</p>
-                    ) : (
-                      filteredCustomers.map(c => (
-                        <button key={c.id} onClick={() => { linkCustomer(c.id); setCustomerSearch('') }}
-                          className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors">
-                          <p className="text-sm font-medium text-text-primary">{c.company_name}</p>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── 중앙: 활동 타임라인 (5칸) ── */}
-        <div className="xl:col-span-5 space-y-4">
-          {/* 활동 타임라인 */}
-          <div className="card p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-text-primary">활동 타임라인</h2>
-              <Button size="sm" variant="secondary" onClick={() => setShowActivityForm(!showActivityForm)}>
-                <Plus className="w-3.5 h-3.5 mr-1" /> 활동 기록
-              </Button>
-            </div>
-
-            {/* 활동 추가 폼 */}
-            {showActivityForm && (
-              <div className="mb-4 p-3 bg-surface-tertiary rounded-lg border space-y-2.5">
-                <DropdownSelect label="활동 유형" value={activityForm.activity_type}
-                  onChange={(val) => {
-                    const label = ACTIVITY_TYPE_LABELS[val] || val
-                    setActivityForm({ ...activityForm, activity_type: val, title: label })
-                  }}
-                  groups={ACTIVITY_TYPE_GROUPS} />
-                <Input label="제목" value={activityForm.title}
-                  onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
-                  placeholder="예: 견적서 발송 완료" required />
-                <Textarea label="상세 내용" value={activityForm.description}
-                  onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
-                  placeholder="상세 내용 (선택)" />
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={submitActivity} loading={submittingActivity}>
-                    <Send className="w-3.5 h-3.5 mr-1" /> 기록
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => setShowActivityForm(false)}>취소</Button>
-                </div>
-              </div>
-            )}
-
-            {/* 타임라인 목록 */}
-            {timeline.length === 0 ? (
-              <p className="text-sm text-text-tertiary py-8 text-center">아직 활동 이력이 없습니다.</p>
-            ) : (
-              <div className="space-y-2">
-                {timeline.map((item) => {
-                  if (item.type === 'activity') {
-                    const icon = ACTIVITY_TYPE_ICONS[item.activity_type || 'NOTE'] || '💬'
-                    const color = ACTIVITY_TYPE_COLORS[item.activity_type || 'NOTE'] || ''
-                    const label = ACTIVITY_TYPE_LABELS[item.activity_type || 'NOTE'] || item.activity_type
-                    // 수정/삭제 권한: 본인 소유 또는 관리자
-                    const canEdit = !!user && (item.performed_by === user.id || user.role === 'admin')
-                    const isEditingItem = editingActivityId === item.id
-
-                    if (isEditingItem) {
-                      return (
-                        <div key={item.id} className="rounded-lg p-3 border bg-yellow-50 border-yellow-200 space-y-2.5">
-                          <DropdownSelect label="유형" value={editActivityForm.activity_type}
-                            onChange={(val) => setEditActivityForm({ ...editActivityForm, activity_type: val })}
-                            groups={ACTIVITY_TYPE_GROUPS} />
-                          <Input label="제목" value={editActivityForm.title}
-                            onChange={(e) => setEditActivityForm({ ...editActivityForm, title: e.target.value })} required />
-                          <Textarea label="내용" value={editActivityForm.description}
-                            onChange={(e) => setEditActivityForm({ ...editActivityForm, description: e.target.value })} />
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={saveActivityEdit} loading={savingActivity}><Save className="w-3 h-3 mr-1" /> 저장</Button>
-                            <Button variant="secondary" size="sm" onClick={() => setEditingActivityId(null)}>취소</Button>
-                          </div>
-                        </div>
-                      )
-                    }
-
-                    return (
-                      <div key={item.id} className={`rounded-lg px-3 py-2.5 border ${color} group`}>
-                        <div className="flex items-start gap-2">
-                          <span className="text-sm mt-0.5">{icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[11px] font-medium opacity-70">{label}</span>
-                              <span className="text-[11px] opacity-40">{item.performer_name}</span>
-                              <span className="text-[11px] opacity-30 ml-auto">{formatDate(item.timestamp, 'M/d HH:mm')}</span>
-                              {canEdit && (
-                                <div className="flex items-center gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={() => startEditActivity(item)} className="p-1 rounded hover:bg-black/5" title="수정"><Pencil className="w-3 h-3 text-text-tertiary" /></button>
-                                  <button onClick={() => deleteActivity(item.id)} className="p-1 rounded hover:bg-red-50" title="삭제"><Trash2 className="w-3 h-3 text-text-tertiary hover:text-red-500" /></button>
-                                </div>
-                              )}
-                            </div>
-                            <p className="text-sm font-medium mt-0.5">{item.title}</p>
-                            {item.description && <p className="text-xs mt-1 opacity-60 whitespace-pre-wrap">{item.description}</p>}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  return (
-                    <div key={item.id} className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-tertiary">
-                      <Clock className="w-3 h-3 text-text-placeholder shrink-0" />
-                      <span className="font-medium text-text-secondary">{item.changed_by_name}</span>
-                      <span>{item.field_changed === 'stage' ? '단계' : '담당자'}</span>
-                      <span className="text-red-400 line-through">{item.old_value}</span>
-                      <span>→</span>
-                      <span className="text-green-600 font-medium">{item.new_value}</span>
-                      <span className="ml-auto text-text-placeholder">{formatDate(item.timestamp, 'M/d HH:mm')}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* 빠른 메모 입력 */}
-          <div className="card p-4">
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Textarea
-                  placeholder="빠른 메모를 입력하세요..."
-                  value={activityForm.activity_type === 'NOTE' ? activityForm.title : ''}
-                  onChange={(e) => setActivityForm({ activity_type: 'NOTE', title: e.target.value, description: '' })}
-                  className="text-sm !min-h-[60px]"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 shrink-0">
-                <Button size="sm" className="h-full"
-                  onClick={() => { if (activityForm.title.trim()) submitActivity() }}>
-                  <Send className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── 우측: VoC + 바로가기 (3칸) ── */}
-        <div className="xl:col-span-3 space-y-4">
-          {/* VoC 연동 */}
-          <div className="card p-4">
-            <h3 className="text-xs font-semibold text-text-tertiary uppercase mb-2 flex items-center gap-1.5">
-              <Megaphone className="w-3.5 h-3.5" /> VoC
-            </h3>
-            {!lead.customer_id ? (
-              <p className="text-[11px] text-text-placeholder">고객사를 연결하면 VoC 티켓을 생성할 수 있습니다.</p>
-            ) : (
-              <div className="space-y-2">
-                {vocTickets.length > 0 && (
-                  <div className="space-y-1">
-                    {vocTickets.map(ticket => (
-                      <Link key={ticket.id} href={`/voc/${ticket.id}`} className="block">
-                        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-surface-tertiary transition-colors text-[11px]">
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            ticket.status === 'resolved' || ticket.status === 'closed' ? 'bg-green-400' :
-                            ticket.priority === 'urgent' ? 'bg-red-400' : 'bg-blue-400'
-                          }`} />
-                          <span className="truncate text-text-secondary">{ticket.title}</span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                {showVocForm ? (
-                  <div className="space-y-2 pt-2 border-t">
-                    <Select label="카테고리" value={vocForm.category}
-                      onChange={(e) => setVocForm({ ...vocForm, category: e.target.value })}
-                      options={Object.entries(VOC_CATEGORY_LABELS).map(([v, l]) => ({ value: v, label: l }))} />
-                    <div className="grid grid-cols-2 gap-2">
-                      <Select label="채널" value={vocForm.channel}
-                        onChange={(e) => setVocForm({ ...vocForm, channel: e.target.value })}
-                        options={[{ value: 'phone', label: '전화' }, { value: 'email', label: '이메일' }, { value: 'message', label: '메시지' }, { value: 'meeting', label: '미팅' }, { value: 'other', label: '기타' }]} />
-                      <Select label="우선순위" value={vocForm.priority}
-                        onChange={(e) => setVocForm({ ...vocForm, priority: e.target.value })}
-                        options={Object.entries(VOC_PRIORITY_LABELS).map(([v, l]) => ({ value: v, label: l }))} />
-                    </div>
-                    <Input label="제목" value={vocForm.title} onChange={(e) => setVocForm({ ...vocForm, title: e.target.value })} placeholder="이슈 제목" required />
-                    <Textarea label="설명" value={vocForm.description} onChange={(e) => setVocForm({ ...vocForm, description: e.target.value })} placeholder="상세 내용 (선택)" />
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={submitVocTicket} loading={submittingVoc}>생성</Button>
-                      <Button variant="secondary" size="sm" onClick={() => setShowVocForm(false)}>취소</Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button size="sm" variant="secondary" className="w-full text-xs" onClick={() => setShowVocForm(true)}>
-                    <Plus className="w-3 h-3 mr-1" /> VoC 티켓 생성
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 관련 항목 바로가기 */}
-          <div className="card p-4">
-            <h3 className="text-xs font-semibold text-text-tertiary uppercase mb-2">관련 항목</h3>
-            <div className="space-y-1">
-              <button onClick={() => setDrawer('quotation')}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:bg-primary-50 hover:text-primary-600 transition-colors">
-                <FileText className="w-4 h-4" /> <span className="flex-1 text-left">견적서</span> <ChevronRight className="w-3.5 h-3.5 text-text-placeholder" />
-              </button>
-              {linkedCustomer && (
-                <Link href={`/customers/${linkedCustomer.id}`}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:bg-green-50 hover:text-green-600 transition-colors">
-                  <Building2 className="w-4 h-4" /> <span className="flex-1 text-left">고객 상세</span> <ChevronRight className="w-3.5 h-3.5 text-text-placeholder" />
-                </Link>
-              )}
-              <button onClick={() => setDrawer('voc')}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:bg-orange-50 hover:text-orange-600 transition-colors">
-                <Headphones className="w-4 h-4" /> <span className="flex-1 text-left">VoC 티켓</span> <ChevronRight className="w-3.5 h-3.5 text-text-placeholder" />
-              </button>
-            </div>
-          </div>
-        </div>
+          </Group>
+          <Group title="문의자">
+            <Field label="이름" value={lead.contact_person} onSave={setField('contact_person')} />
+            <Field label="직급" value={lead.contact_position} onSave={setField('contact_position')} />
+            <Field label="연락처" value={lead.contact_phone} onSave={setField('contact_phone')} />
+            <Field label="이메일" value={lead.contact_email} onSave={setField('contact_email')} />
+          </Group>
+          <Group title="문의">
+            <Field label="유입일" value={lead.inquiry_date} kind="date" onSave={setField('inquiry_date')} />
+            <Field label="유입" value={null} display={<span><span className="inline-block w-[7px] h-[7px] rounded-full mr-1 align-[1px]" style={{ background: INFLOW_COLOR[f.group] }} />{f.group} <span className="text-ds-fg3">› {f.sub}</span></span>} />
+            <Field label="채널" value={lead.inquiry_channel} kind="select" options={CHANNEL_OPTIONS} onSave={setField('inquiry_channel')} />
+            <Field label="경로" value={lead.inquiry_source} onSave={setField('inquiry_source')} />
+            <Field label="관심 서비스" value={lead.interest_service} onSave={setField('interest_service')} />
+            <Field label="핵심 니즈" value={lead.core_need} onSave={setField('core_need')} />
+            <Field label="주제" value={null} display={(lead.topic_tags || []).length ? <span>{(lead.topic_tags as string[]).map(t => <span key={t} className="text-ds-accent mr-1.5">#{t}</span>)}</span> : undefined} />
+            <Field label="문의 내용" value={lead.inquiry_content} kind="textarea" onSave={setField('inquiry_content')} />
+            <Field label="메모" value={lead.notes} kind="textarea" onSave={setField('notes')} />
+          </Group>
+          <p className="text-[11.5px] text-ds-fg3 mt-2">등록 {String(lead.created_at).slice(0, 10)}{lead.lead_number ? ` · No.${lead.lead_number}` : ''}</p>
+        </aside>
       </div>
-
-      {/* ===== Slide-over Drawer ===== */}
-      {drawer && (
-        <>
-          {/* Backdrop */}
-          <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setDrawer(null)} />
-          {/* Drawer panel */}
-          <div className="fixed right-0 top-0 h-full w-[600px] max-w-[90vw] bg-white shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200">
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h2 className="text-base font-semibold text-text-primary flex items-center gap-2">
-                {drawer === 'quotation' && <><FileText className="w-5 h-5 text-primary-500" /> 견적서</>}
-                {drawer === 'voc' && <><Headphones className="w-5 h-5 text-orange-500" /> VoC 티켓</>}
-                {drawer === 'revenue' && <><BarChart3 className="w-5 h-5 text-green-500" /> 매출 현황</>}
-                <span className="text-sm font-normal text-text-tertiary">— {lead.company_name}</span>
-              </h2>
-              <button onClick={() => setDrawer(null)} className="p-2 hover:bg-surface-tertiary rounded-lg transition-colors">
-                <X className="w-5 h-5 text-text-secondary" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              {drawer === 'quotation' && user && (
-                <QuotationSection leadId={id} companyName={lead.company_name} userId={user.id} />
-              )}
-              {drawer === 'voc' && (
-                <div className="space-y-3">
-                  {vocTickets.length === 0 ? (
-                    <p className="text-sm text-text-tertiary text-center py-8">관련 VoC 티켓이 없습니다.</p>
-                  ) : (
-                    vocTickets.map(ticket => (
-                      <Link key={ticket.id} href={`/voc/${ticket.id}`} className="block">
-                        <div className="card p-4 hover:shadow-md transition-shadow">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`w-2 h-2 rounded-full ${
-                              ticket.status === 'resolved' || ticket.status === 'closed' ? 'bg-green-400' :
-                              ticket.priority === 'urgent' ? 'bg-red-400' : 'bg-blue-400'
-                            }`} />
-                            <span className="text-sm font-medium text-text-primary">{ticket.title}</span>
-                            <span className="ml-auto text-xs text-text-placeholder">#{ticket.ticket_number}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-text-tertiary">
-                            <span>{VOC_CATEGORY_LABELS[ticket.category] || ticket.category}</span>
-                            <span>·</span>
-                            <span>{formatDate(ticket.created_at, 'yyyy-MM-dd')}</span>
-                          </div>
-                        </div>
-                      </Link>
-                    ))
-                  )}
-                </div>
-              )}
-              {drawer === 'revenue' && (
-                <p className="text-sm text-text-tertiary text-center py-8">매출 현황 연동 준비 중...</p>
-              )}
-            </div>
-          </div>
-        </>
-      )}
     </div>
   )
 }

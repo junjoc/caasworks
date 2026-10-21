@@ -39,15 +39,16 @@ export async function updateSession(request: NextRequest) {
       }
     )
 
-    // Add 3 second timeout - don't block page load if Supabase is slow
-    const userResult = await Promise.race([
-      supabase.auth.getUser(),
-      new Promise<{ data: { user: null } }>((resolve) =>
-        setTimeout(() => resolve({ data: { user: null } }), 3000)
+    // 10/21 속도: getUser() 는 화면 이동마다 Supabase 인증 서버를 다녀와 0.2~0.3초씩 걸렸다.
+    // 여기서는 쿠키의 세션만 읽는다(만료 때만 갱신 요청). 데이터 보호는 API·RLS 몫, 미들웨어는 로그인 화면 이동만 담당.
+    const sessionResult = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<{ data: { session: null } }>((resolve) =>
+        setTimeout(() => resolve({ data: { session: null } }), 3000)
       ),
     ])
 
-    const user = userResult.data.user
+    const user = sessionResult.data.session?.user ?? null
 
     // Only redirect to login if we're sure there's no session cookie at all
     const hasSessionCookie = request.cookies.getAll().some(c => c.name.startsWith('sb-'))

@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { syncLeadToAdPerformance, revertLeadFromAdPerformance } from '@/lib/sync-lead-to-ads'
 import { autoTagLead } from '@/lib/topic-tags'
+import { ACTIVITY_TYPE_LABELS, ACTIVITY_STAGE_MAP } from '@/lib/utils'
+
+// 다음 액션 이력 값: "데모하기 · 10.22"
+const nextLabel = (t: string | null | undefined, d: string | null | undefined) =>
+  [t || '', d ? d.slice(5).replace('-', '.') : ''].filter(Boolean).join(' · ') || null
+// 기록으로 단계를 앞으로만 자동 이동 (도입완료·이탈·예정은 건드리지 않음, 도입완료는 사람이 직접)
+const FLOW = ['신규리드', '컨텍', '제안', '미팅', '도입직전']
 
 // 도입완료 잠금: 도입완료 리드는 이탈로만 바로 바꿀 수 있고, 그 외 단계는 force(사용자 확인) 필요.
 // 도입 후 추가 견적/미팅 같은 후속 활동이 단계를 되돌리지 않게 하기 위함.
@@ -44,12 +51,28 @@ export async function POST(request: NextRequest) {
         oldStage = prev?.stage
         if (isLockedTransition(oldStage, payload.updates.stage, payload.force)) return lockedResponse()
       }
+      // 10/21: 칸 바로 수정 — 바뀐 칸은 이력(타임라인)에 남긴다
+      const keys = Object.keys(payload.updates || {}).filter(k => k !== 'stage')
+      const { data: before } = payload.changed_by && keys.length
+        ? await supabase.from('pipeline_leads').select(keys.join(', ')).eq('id', lead_id).single()
+        : { data: null }
       const { data, error } = await supabase
         .from('pipeline_leads')
         .update(payload.updates)
         .eq('id', lead_id)
         .select()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (before) {
+        const b = before as unknown as Record<string, unknown>
+        const rows = keys.filter(k => String(b[k] ?? '') !== String(payload.updates[k] ?? '')).map(k => ({
+          lead_id, field_changed: k, old_value: b[k] == null ? null : String(b[k]).slice(0, 500),
+          new_value: payload.updates[k] == null ? null : String(payload.updates[k]).slice(0, 500), changed_by: payload.changed_by,
+        }))
+        if (rows.length) await supabase.from('pipeline_history').insert(rows)
+      }
+      if (payload.updates?.stage !== undefined && payload.changed_by && oldStage !== payload.updates.stage) {
+        await supabase.from('pipeline_history').insert({ lead_id, field_changed: 'stage', old_value: oldStage ?? null, new_value: payload.updates.stage, changed_by: payload.changed_by })
+      }
       // stage 가 도입완료를 진입/이탈할 때 광고 성과 양방향 동기화
       const newStage = payload.updates?.stage
       if (newStage !== undefined && newStage !== oldStage) {
@@ -142,6 +165,47 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Add activity log
+    // 기록 (10/21 통합): 드로어·상세 공용 기록 칸. 활동 + 다음 액션(정함·바꿈·완료) + 단계 앞으로 자동 이동을 한 번에, 모두 타임라인에 남김
+    if (action === 'record') {
+      const { activity_type, content, performed_by, next_action, next_action_date, complete_next } = payload
+      if (!performed_by) return NextResponse.json({ error: 'performed_by is required' }, { status: 400 })
+      const { data: cur } = await supabase.from('pipeline_leads').select('stage, next_action, next_action_date').eq('id', lead_id).single()
+      if (!cur) return NextResponse.json({ error: 'lead not found' }, { status: 404 })
+      const text = String(content || '').trim()
+      const now = new Date().toISOString()
+      if (text) {
+        const { error } = await supabase.from('activity_logs').insert({
+          lead_id, activity_type, title: ACTIVITY_TYPE_LABELS[activity_type] || activity_type, description: text, performed_by, performed_at: payload.performed_at || now,
+        })
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      const updates: Record<string, unknown> = {}
+      const hist: Record<string, unknown>[] = []
+      const target = text ? ACTIVITY_STAGE_MAP[activity_type] : undefined
+      if (target && FLOW.includes(cur.stage) && FLOW.indexOf(target) > FLOW.indexOf(cur.stage)) {
+        updates.stage = target
+        if (target === '도입직전') updates.converted_at = now
+        hist.push({ lead_id, field_changed: 'stage', old_value: cur.stage, new_value: target, changed_by: performed_by })
+      }
+      const oldNext = nextLabel(cur.next_action, cur.next_action_date)
+      const newNext = nextLabel(String(next_action || '').trim(), next_action_date)
+      if (newNext && newNext !== oldNext) {
+        updates.next_action = String(next_action || '').trim() || null
+        updates.next_action_date = next_action_date || null
+        hist.push({ lead_id, field_changed: 'next_action', old_value: oldNext, new_value: newNext, changed_by: performed_by })
+      } else if (!newNext && complete_next && oldNext) {
+        updates.next_action = null
+        updates.next_action_date = null
+        hist.push({ lead_id, field_changed: 'next_action', old_value: oldNext, new_value: '완료', changed_by: performed_by })
+      }
+      if (Object.keys(updates).length) {
+        const { error } = await supabase.from('pipeline_leads').update(updates).eq('id', lead_id)
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      if (hist.length) await supabase.from('pipeline_history').insert(hist)
+      return NextResponse.json({ success: true, stage: updates.stage })
+    }
+
     if (action === 'add_activity') {
       const { data, error } = await supabase.from('activity_logs')
         .insert({
@@ -237,6 +301,11 @@ export async function POST(request: NextRequest) {
 
     // 6. Update next action
     if (action === 'update_next_action') {
+      if (payload.changed_by) {
+        const { data: cur } = await supabase.from('pipeline_leads').select('next_action, next_action_date').eq('id', lead_id).single()
+        const o = nextLabel(cur?.next_action, cur?.next_action_date), n = nextLabel(payload.next_action, payload.next_action_date)
+        if (o !== n) await supabase.from('pipeline_history').insert({ lead_id, field_changed: 'next_action', old_value: o, new_value: n, changed_by: payload.changed_by })
+      }
       const { error } = await supabase.from('pipeline_leads')
         .update({
           next_action: payload.next_action || null,

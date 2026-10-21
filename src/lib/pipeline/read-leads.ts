@@ -10,10 +10,10 @@ export async function isSignedIn() {
 
 export async function readLeads<T>(cols: string): Promise<T[]> {
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-  const { count, error: ce } = await sb.from('pipeline_leads').select('id', { count: 'exact', head: true })
-  if (ce) throw new Error(ce.message)
-  const n = Math.max(1, Math.ceil((count || 0) / 1000))
-  const res = await Promise.all(Array.from({ length: n }, (_, i) => sb.from('pipeline_leads').select(cols).order('id').range(i * 1000, i * 1000 + 999)))
+  // 건수 조회 없이 3묶음(3,000행)을 한 번에 — 넘치면 이어서
+  const page = (i: number) => sb.from('pipeline_leads').select(cols).order('id').range(i * 1000, i * 1000 + 999)
+  const res = await Promise.all([0, 1, 2].map(page))
+  while (res[res.length - 1].data?.length === 1000) res.push(await page(res.length))
   const err = res.find(r => r.error)?.error
   if (err) throw new Error(err.message)
   return res.flatMap(r => (r.data || []) as unknown as T[])

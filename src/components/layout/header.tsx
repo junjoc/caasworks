@@ -118,7 +118,7 @@ export function Header({ user }: HeaderProps) {
     if (!pathname) return ''
     if (pageTitles[pathname]) return pageTitles[pathname]
     if (pathname.startsWith('/analytics/company/')) return '회사 생애주기'
-    if (pathname.startsWith('/pipeline/')) return '파이프라인'
+    if (pathname.startsWith('/pipeline/')) return '세일즈 · 리드 상세'
     if (pathname.startsWith('/customers/')) return '고객 상세'
     if (pathname.startsWith('/quotations/')) return '견적서'
     if (pathname.startsWith('/voc/')) return 'VoC/CS'

@@ -1,7 +1,7 @@
 'use client'
 
 // 세일즈 › 리스트 (2026-10-21 개편, 디자인 정의 › 세일즈)
-// 툴바(탭·검색·필터) → 숫자줄 → 9열 표(50행 서버 페이지) → 행 클릭 = 오른쪽 480 드로어.
+// 툴바(탭·검색·필터) → 숫자줄 → 9열 표(10/21: 유입일을 회사명 앞으로)(50행 서버 페이지) → 행 클릭 = 오른쪽 480 드로어.
 // 문의자·연락처·코드는 드로어로. 일괄 단계·담당·삭제는 그대로.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -81,11 +81,13 @@ export default function PipelineListPage() {
       if (id !== reqId.current) return
       if (!res.ok) throw new Error(j.error)
       setData(j)
+      // 상세 페이지의 이전·다음 = 지금 보던 페이지 순서
+      try { sessionStorage.setItem('leadNav', JSON.stringify(j.rows.map((r: Row) => r.id))) } catch { /* 저장 불가 */ }
     } catch (e) {
       if (id === reqId.current) toast.error(`리드를 불러오지 못했습니다. ${(e as Error).message || ''}`)
     }
     if (id === reqId.current) setLoading(false)
-  }, [tab, q, assignee, inflow, year, sort, asc, page, followupOnly, followupIds])
+  }, [tab, q, assignee, inflow, year, sort, asc, page, followupOnly, followupOnly && followupIds]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { fetchLeads() }, [fetchLeads])
 
   const rows = data?.rows || []
@@ -207,14 +209,14 @@ export default function PipelineListPage() {
       <div className="ds-wrap">
         <table className="ds-table is-fixed is-clickable">
           <colgroup>
-            <col style={{ width: 36 }} /><col style={{ width: '20%' }} /><col style={{ width: '8%' }} /><col style={{ width: '16%' }} /><col style={{ width: '8%' }} />
-            <col style={{ width: '7%' }} /><col style={{ width: '6%' }} /><col style={{ width: '11%' }} /><col style={{ width: '6%' }} /><col style={{ width: '18%' }} />
+            <col style={{ width: 36 }} /><col style={{ width: '7%' }} /><col style={{ width: '20%' }} /><col style={{ width: '8%' }} /><col style={{ width: '16%' }} /><col style={{ width: '8%' }} />
+            <col style={{ width: '6%' }} /><col style={{ width: '11%' }} /><col style={{ width: '6%' }} /><col style={{ width: '18%' }} />
           </colgroup>
           <thead>
             <tr>
               <th><input type="checkbox" checked={allOnPage} onChange={toggleAll} className="w-3.5 h-3.5 accent-[var(--ds-accent)] align-middle" title="이 페이지 전체 선택" /></th>
-              <th>회사명</th><th>단계</th><th>유입</th><th>담당</th>
               <th className="cursor-pointer select-none" onClick={() => toggleSort('inquiry')}>유입일<SortIcon f="inquiry" /></th>
+              <th>회사명</th><th>단계</th><th>유입</th><th>담당</th>
               <th>발주</th><th>사업분류</th><th>가능성</th>
               <th className="cursor-pointer select-none" onClick={() => toggleSort('next')}>다음 액션<SortIcon f="next" /></th>
             </tr>
@@ -223,6 +225,7 @@ export default function PipelineListPage() {
             {rows.map(l => (
               <tr key={l.id} className={cn('ds-row', openId === l.id && 'is-active')} onClick={() => setOpenId(l.id)}>
                 <td className="c" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(l.id)} onChange={() => toggleSelect(l.id)} className="w-3.5 h-3.5 accent-[var(--ds-accent)] align-middle" /></td>
+                <td className="c">{md(l.date)}</td>
                 <td className="truncate" title={l.company_name}>
                   {(l.priority === '높음' || l.priority === '긴급') && <span className="inline-block w-1.5 h-1.5 rounded-full bg-ds-bad mr-1.5 align-[2px]" title={`우선순위 ${l.priority}`} />}
                   <span className="font-medium">{l.company_name}</span>
@@ -230,7 +233,6 @@ export default function PipelineListPage() {
                 <td className="c"><StatusChip tone={stageTone(l.stage)}>{l.stage}</StatusChip></td>
                 <td className="truncate" title={`${l.group} › ${l.sub}`}><span className="inline-block w-[7px] h-[7px] rounded-full mr-1.5 align-[1px]" style={{ background: INFLOW_COLOR[l.group] }} />{l.group} <span className="text-ds-fg3">› {l.sub}</span></td>
                 <td className="c truncate">{l.assigned_to ? <Avatar name={uname(l.assigned_to)} /> : <span className="text-ds-fg3">—</span>}</td>
-                <td className="c">{md(l.date)}</td>
                 <td className="c">{l.site_category || <span className="text-ds-fg3">—</span>}</td>
                 <td className="truncate" title={l.industry || ''}>{l.industry || <span className="text-ds-fg3">—</span>}</td>
                 <td className="c">{l.conversion_probability || <span className="text-ds-fg3">—</span>}</td>
