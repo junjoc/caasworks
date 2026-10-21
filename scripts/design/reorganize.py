@@ -21,7 +21,7 @@ S['m-inflow'] = '''<section id="m-inflow"><h2>유입 성과 — 광고와 유입
 
 S['next'] = '''<section id="next"><h2>다음 작업</h2><ol class="rule" style="max-width:none">
 <li>✔ <b>유실장 검토 반영 (10/21)</b> — 미납 진한 빨강 · 유입 분류 점 회색 · 드로어 480/60vw · Pretendard 이름 수정(그동안 기본 글꼴로 보였음) · 12px 최소(84곳) · 기준 한 줄 · 1,280 폭 7화면 가로 스크롤 없음 확인 · 화면 유형 "추이" 추가 → 분석 화면 배치 교체는 2차에서</li>
-<li><b>화면 문법 v2 2차 — 배치 교체</b>: ① 목록 14화면(고객 목록 시안 결정 대기) ② 상세(고객사 · 계약 · 현장 · 견적서) ③ 집계·추이 ④ 대시보드 옛 위젯·설정</li>
+<li><b>화면 문법 v2 2차 — 배치 교체</b>: ① 목록 14화면(✔ 고객 목록 10/21, 다음 과금 고객 · 계약 관리 · VoC …) ② 상세(고객사 · 계약 · 현장 · 견적서) ③ 집계·추이 ④ 대시보드 옛 위젯·설정</li>
 <li><b>헤더 이름 = 메뉴 이름</b> (예: 사이드바 "전체 고객" ↔ 헤더 "고객 목록")</li>
 <li><b>서버 깨우기</b> — GitHub 웹에서 .github/workflows/warm.yml 추가 (scripts/github/warm.yml)</li>
 <li><b>유입 분류 다음 단계</b> — 리드 입력을 "유입 경로 + 문의 수단" 두 칸으로, 설정 › 유입 분류(미분류 지정), 코호트 채널 표도 11 분류로</li>
@@ -59,7 +59,7 @@ ORDER = [
   ('p-layout', part('p-layout', '3. 화면 구성', '화면 머리 · 뼈대 · 화면 유형 6 — 10/21 부터 기준은 ★ 화면 문법 v2, 이 장의 예전 시안(PageHeader 부제 등)은 참고용')), 'pagehead', 'b-l',
   ('s-types', subh('s-types', '화면 유형 6', '실제 데이터 시안 · 치수 라벨은 체크박스로')), 'list', 'agg', 'detail', 'form', 'dash', 'board',
   'unify',
-  ('p-menu', part('p-menu', '4. 메뉴별 화면', '카테고리별 확정 시안과 적용 내용')), ('m-dash-h', subh('m-dash-h', '대시보드', '적용 10/21')), 'm-dashboard', ('m-marketing', subh('m-marketing', '마케팅')), 'm-campaign', 'm-inflow', 'm-content', ('m-sales-h', subh('m-sales-h', '세일즈', '적용 10/21 · 상세 v2')), 'm-sales', 'm-lead2', 'm-lead', ('m-cust-h', subh('m-cust-h', '고객관리', '목록 v2 시안')), 'm-list-v2',
+  ('p-menu', part('p-menu', '4. 메뉴별 화면', '카테고리별 확정 시안과 적용 내용')), ('m-dash-h', subh('m-dash-h', '대시보드', '적용 10/21')), 'm-dashboard', ('m-marketing', subh('m-marketing', '마케팅')), 'm-campaign', 'm-inflow', 'm-content', ('m-sales-h', subh('m-sales-h', '세일즈', '적용 10/21 · 상세 v2')), 'm-sales', 'm-lead2', 'm-lead', ('m-cust-h', subh('m-cust-h', '고객관리', '고객 목록 적용 10/21')), 'm-list-v2',
   ('p-data', part('p-data', '5. 데이터 기준', '화면이 따르는 분류·정의')), 'inflow', 'ga-setup',
   ('p-dont', part('p-dont', '6. 하지 않는 것', '지금 화면에서 걷어낼 것')), 'b-x',
   ('p-log', part('p-log', '7. 결정 기록', '무엇을 두고 무엇을 골랐는지, 왜. 기각된 안도 남김')), 'log-table', 'log-vline',
@@ -84,7 +84,7 @@ nav = ['<nav class="toc"><div class="h">카스웍스 CRM 디자인 정의</div>'
   a('list', '목록'), a('agg', '집계'), a('detail', '상세'), a('form', '입력'), a('dash', '대시보드'), a('board', '보드'),
   '<div class="g">4. 메뉴별 화면</div>', a('m-dashboard', '대시보드', 'i'), '<div class="g2">마케팅</div>', a('m-campaign', '캠페인 관리'), a('m-inflow', '유입 성과'), a('m-content', '콘텐츠 성과'),
   '<div class="g2">분석</div>', a('agg', '생애주기 3화면 → 집계', 'i ref'),
-  '<div class="g2">세일즈</div>', a('m-sales', '리스트 · 보드뷰'), a('m-lead2', '리드 상세 · 드로어 v2'), a('m-lead', '리드 상세 v1 (지난 안)'), '<div class="g2">고객 · 재무 · 운영</div>', a('m-list-v2', '고객 목록 — 목록 유형 v2 (시안)'), '<span class="i todo">메뉴별 정리 때 추가</span>',
+  '<div class="g2">세일즈</div>', a('m-sales', '리스트 · 보드뷰'), a('m-lead2', '리드 상세 · 드로어 v2'), a('m-lead', '리드 상세 v1 (지난 안)'), '<div class="g2">고객 · 재무 · 운영</div>', a('m-list-v2', '고객 목록 — 목록 유형 v2'), '<span class="i todo">메뉴별 정리 때 추가</span>',
   '<div class="g">5. 데이터 기준</div>', a('inflow', '유입 분류 11 + 미분류'), a('ga-setup', 'GA·UTM 설정 (마케팅팀)'),
   '<div class="g">6. 하지 않는 것</div>', a('b-x', '걷어낼 것'),
   '<div class="g">7. 결정 기록</div>', a('log-table', '결정 목록'), a('log-vline', '세로선 세 안 비교'),
