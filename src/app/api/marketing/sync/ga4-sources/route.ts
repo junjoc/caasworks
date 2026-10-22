@@ -72,7 +72,7 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   if (src === 'press' || med === 'pr') return { channel: '언론·뉴스', campaign_name: '보도자료' }
   // 이메일·뉴스레터·영업 메일
   // 고객사 메일·그룹웨어(mail.… · gw.…)도 이메일 (10/22 국장)
-  if (src === 'newsletter' || med === 'email' || has('stibee', 'maillink', 'sales_mail', 'groupware') || /(^|\.)mail\./.test(src) || src.startsWith('mail.') || src.startsWith('gw.')) return { channel: '직접 연락', campaign_name: '이메일' }
+  if (src === 'newsletter' || med === 'email' || has('stibee', 'maillink', 'sales_mail', 'groupware', 'mail.') || src.startsWith('gw.') /* GA 채널 그룹과 같게 'mail.' 부분 일치 — autowaymail.hmc.co.kr 등 */) return { channel: '직접 연락', campaign_name: '이메일' }
   if (med === 'document' || src === 'proposal') return { channel: '직접 연락', campaign_name: '기타' }
 
   // 자사 채널 — 직접 방문(주소 입력·북마크) = 자사 채널 › 홈페이지 (10/22 국장 확정, 검토 #11 '직접' 세부는 철회)
