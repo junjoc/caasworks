@@ -40,7 +40,7 @@ SVC = [  # 서비스, 내용(메모), 과금, 진행/종료, 올해 매출(12월
     ('NVR 구축', 'NVR · 모니터', '02.06–', 1, 2_368_000), ('플랫폼', '', '02.06–', 1, 1_100_000)]
 
 def head(tab):
-    tabs = ''.join(f'<span class="{"on" if t == tab else ""}">{t}</span>' for t in ['매출', '현장·서비스 21', '청구 6', '기록', '문서', '정보'])
+    tabs = ''.join(f'<span class="{"on" if t == tab else ""}">{t}</span>' for t in ['매출', '현장 1', '청구 6', '기록', '문서', '정보'])
     return (f'<div class="h2top"><span class="muted">‹ 고객 목록</span><span class="sp"></span><span class="btn sm quiet">‹ 이전</span><span class="btn sm quiet">다음 ›</span><span class="btn sm">견적서</span><span class="btn sm quiet">⋯</span></div>'
             f'<div class="h2name"><h1>계룡건설산업</h1>{chip("ok", "활성")}<span class="muted">· 종합건설사 · 코드 2511121131 · 처음 문의 25.11.12 · 과금 시작 26.04.30 (+175일)</span></div>'
             '<div class="cd-dup"><b>같은 회사로 보이는 고객 2곳</b><span>계룡건설 — 리드 미팅 · 남양주 왕숙 A-6BL (08.13, 이 고객 현장 공무팀장 소개)</span><span>계룡건설산업(주) — 기록 없음</span><span class="sp"></span><span class="lk">묶어서 보기</span><span class="btn sm">합치기</span></div>'
@@ -78,7 +78,12 @@ def inv_table(full=False):
 
 def card(title, body, act='수정'):
     return f'<div class="card2x"><div class="ch"><b>{title}</b><span class="muted">{act}</span></div>{body}</div>'
-RCOL = ('<div class="rcol">'
+ISSUES = ('<div class="card2x cd-iss"><div class="ch"><b>주요 이슈 4</b><span class="muted">현장 탭 →</span></div><ol>'
+    f'<li class="due"><b>연체 2건 {won(OVER)}</b><span>6월분 52일 · 7월분 22일 지남 · 청구 서○○ 차장</span></li>'
+    '<li class="warn"><b>8월분 납기 10.31</b><span>9일 남음</span></li>'
+    '<li><b>소개 리드 · 남양주 왕숙 A-6BL</b><span>미팅 단계 · 08.13 이 현장 공무팀장 소개 · 다른 고객(계룡건설)에 붙어 있음</span></li>'
+    '<li><b>공사 종료 27.12.18</b><span>422일 남음 · 철수·연장 계획 미정</span></li></ol></div>')
+RCOL = ('<div class="rcol">' + ISSUES
     + card('담당자', '<div class="kv3"><span>현장</span><b>황○○ 팀장 · 공무</b><span>청구</span><b>서○○ 차장</b><span>연락처</span><b class="muted">카드에서 바로 전화 · 메일</b></div>')
     + card('처음 들어온 경로', '<div class="kv3"><span>문의</span><b>25.11.12 · <span class="lk">리드 ↗</span></b><span>유입</span><b><i class="dot" style="background:var(--fg-3)"></i>검색 › 구글</b><span>도입</span><b>26.04 · 문의 후 170일</b><span>담당</span><b>최한별</b></div><p class="q muted" style="margin-top:6px">같은 연락처의 예전 문의(2023~25 이전 기록)도 여기 함께</p>', '')
     + card('현장', f'<p class="q"><b>{SITE}</b><br><span class="muted">LH · 공공 · 25.02.25 – 27.12.18 · 서비스 12 진행 · 9 종료</span></p>', '')
@@ -93,22 +98,28 @@ FA = frame(A, dims=[('left:206px;top:60px', '머리: 이름 20 + 상태 + 메타
                     ('left:206px;top:152px', '속성 줄 5: 상태 · 영업 담당 · 과금 · 올해 매출 · 미납(진한 빨강)'),
                     ('left:206px;top:236px', '첫 탭 = 매출. 본문 2 : 1 — 월별 막대 + 청구·입금 / 카드 3장')], h=900)
 
-# B. 현장·서비스 탭 + 서비스 추가 드로어
+# B. 현장 탭 — 현장 히스토리 · 주요 이슈 · 서비스(읽기). 서비스 줄 편집은 매출 현황 한 곳에서 (10/22 사용자: "서비스 추가 드로어는 왜 저기에?")
+HIST = [('26.08.31~', '연체 시작', '6월분 5,449,400 납기 지남 → 7월분도 09.30 지남', 'due'),
+        ('26.08.13', '소개 리드', '이 현장 공무팀장이 남양주 왕숙 A-6BL 8공구 소개 · 미팅 예정', 'lead'),
+        ('26.05.31', '서비스 종료', '편집비용(월 50회) · 장비설치 · NVR 모니터 과금 끝', 'na'),
+        ('26.05.08', '첫 입금', '04월분 72,259,000 (2~4월 사용분 + 설치·편집)', 'ok'),
+        ('26.04.30', '과금 시작', '월간 선납 · 매월 말 계산서 · 다다음 달 말 납기', 'info'),
+        ('날짜 없음', '장비 교체', 'AI CCTV 엣지 교체 2건 (엣지 1대 불량 → 교체) — 매출 현황 메모에서', 'warn'),
+        ('26.02.23', '이동형 철수', '이동형 AI CCTV · 타임랩스 · 회선 1대씩 종료', 'na'),
+        ('26.02.06', '설치 · 사용 시작', '고정형 AI CCTV 13 · 타임랩스 13 · Wearable Cam 10 · NVR · 이동형 1', 'info'),
+        ('25.11.12', '문의', '홈페이지 문의 · 검색 › 구글 · 담당 최한별', 'lead'),
+        ('25.02.25', '현장 착공', '공사 기간 25.02.25 – 27.12.18 · LH · 공공', 'na')]
+hist = ''.join(f'<li class="{c}"><span class="d">{d}</span><b>{k}</b><span class="t">{esc(x)}</span></li>' for d, k, x, c in HIST)
 svc_rows = ''.join(f'<tr><td><b>{esc(n)}</b></td><td class="muted">{esc(m) or "—"}</td><td class="c">{p}</td><td class="c">{chip("ok" if on else "na", "진행" if on else "종료")}</td><td class="num">{won(v)}</td></tr>' for n, m, p, on, v in SVC)
-B = f'''<div class="pg2">{head('현장·서비스 21')}
-<div class="cd-h"><b>현장 1곳 · 서비스 21줄</b><span class="muted">서비스 종류별로 묶음 · 줄을 누르면 그 서비스 상세(대수·단가·과금 기간)</span><span class="sp"></span><span class="btn sm">+ 현장</span><span class="btn sm primary">+ 서비스</span></div>
-<div class="cd-site"><b>{SITE}</b><span class="muted">LH · 공공 · 25.02.25 – 27.12.18 · 월간 선납</span><span class="sp"></span><span class="muted">올해 {won(sum(s[4] for s in SVC))}</span></div>
+B = f'''<div class="pg2">{head('현장 1')}
+<div class="cd-site"><b>{SITE}</b><span class="muted">LH · 공공 · 25.02.25 – 27.12.18 (422일 남음) · 월간 선납</span><span class="sp"></span><span class="seg"><span class="on">고양장항 S-1BL</span><span>+ 현장</span></span></div>
+<div class="body2" style="margin-top:12px"><div>
+<div class="cd-h"><b>현장 히스토리</b><span class="muted">설치·교체·철수 · 청구 · 리드가 날짜순 (운영 데이터가 쌓이면 반출·장비·VoC·영상 기록도)</span></div><ol class="cd-hist">{hist}</ol>
+<div class="cd-h" style="margin-top:14px"><b>서비스 21줄 → 8종</b><span class="muted">진행 12 · 종료 9 · 올해 {won(sum(s[4] for s in SVC))}</span><span class="sp"></span><span class="lk">매출 현황에서 편집 →</span></div>
 <table class="ds fixed"><colgroup><col style="width:18%"><col style="width:40%"><col style="width:14%"><col style="width:10%"><col style="width:18%"></colgroup>
-<thead><tr><th>서비스</th><th>내용</th><th>과금 기간</th><th>상태</th><th>올해 매출</th></tr></thead><tbody>{svc_rows}</tbody></table></div>'''
-DRW = f'''<div class="drawer w480"><div class="dh"><div><b>서비스 추가</b><div class="meta">계룡건설산업 · {SITE}</div></div><span class="x">✕</span></div>
-<div class="db cd-form"><label>현장</label><div class="inp">{SITE} ▾ <span class="muted">· + 새 현장</span></div>
-<label>서비스</label><div class="pls2"><span class="pl on">AI CCTV</span><span class="pl">타임랩스</span><span class="pl">Wearable Cam</span><span class="pl">LTE/인터넷 회선</span><span class="pl">NVR 구축</span><span class="pl">플랫폼</span><span class="pl">장비설치</span><span class="pl">편집비용</span></div>
-<label>대수 × 단가</label><div class="row"><div class="inp">13 대</div><div class="inp">40,000 원</div><div class="calc">= 월 520,000</div></div>
-<label>과금</label><div class="row"><div class="inp">월간 선납 ▾</div><div class="inp">2026-11-01</div><div class="inp muted">끝 (비우면 계속)</div></div>
-<label>메모</label><div class="inp ta muted">예: 고정형 · 엣지 교체 시 같은 줄에</div>
-<p class="muted s2">저장하면 이 달부터 월별 매출이 잡히고, 매출 탭·고객 목록 올해 매출에 바로 반영</p></div>
-<div class="df"><span class="btn sm quiet">취소</span><span class="sp"></span><span class="btn sm primary">추가</span></div></div>'''
-FB = frame(B, dims=[('left:206px;top:236px', '현장 → 서비스 줄 (21줄을 종류별 8줄로 묶어 보임)'), ('right:16px;top:60px', '추가·수정 = 480 드로어 (모달 없음)')], h=780, drawer=DRW)
+<thead><tr><th>서비스</th><th>내용</th><th>과금 기간</th><th>상태</th><th>올해 매출</th></tr></thead><tbody>{svc_rows}</tbody></table></div>
+<div class="rcol">{ISSUES.replace('현장 탭 →', '+ 이슈')}{card('현장 사람', '<div class="kv3"><span>공무</span><b>황○○ 팀장</b><span>소장</span><b class="muted">—</b><span>설치</span><b class="muted">협력사 —</b></div>')}</div></div></div>'''
+FB = frame(B, dims=[('left:206px;top:236px', '현장 = 히스토리(날짜순) + 서비스(읽기 · 편집은 매출 현황) / 오른쪽 주요 이슈'), ('left:206px;top:560px', '서비스 줄 추가·월 금액 입력은 매출 현황 한 곳 — 두 곳에서 고치지 않게')], h=900)
 
 # C. 기록 탭 — 이 고객 + 연결 리드 + 청구 변경을 한 흐름으로
 TL = [('10월 20일', [('수정', '고객 정보 수정 — 청구 담당 서○○ 차장', '전성환', 'me')]),
@@ -141,19 +152,22 @@ CSS = '''<style>
 .cd-site{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-bottom:0;border-radius:8px 8px 0 0;background:var(--bg-subtle);font-size:12.5px}.cd-site b{font-weight:600}.cd-site .sp{flex:1}
 .cd-form{display:grid;gap:6px;font-size:12.5px}.cd-form label{color:var(--fg-3);font-size:12px;margin-top:6px}.cd-form .inp{border:1px solid var(--line);border-radius:6px;height:30px;line-height:30px;padding:0 10px}.cd-form .inp.ta{height:56px}.cd-form .row{display:flex;gap:6px;align-items:center}.cd-form .row .inp{flex:1}.cd-form .calc{font-weight:600;white-space:nowrap}.cd-form .pl.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}.cd-form .s2{font-size:11.5px;margin-top:8px}
 .tag.lk{color:var(--accent)}
+.cd-iss ol{list-style:none;margin:0;padding:0;display:grid;gap:7px}.cd-iss li{padding-left:9px;border-left:3px solid var(--line);display:grid;gap:1px}.cd-iss li b{font-size:12.5px;font-weight:600}.cd-iss li span{font-size:11.5px;color:var(--fg-2)}.cd-iss li.due{border-color:var(--due,#b4233a)}.cd-iss li.due b{color:var(--due,#b4233a)}.cd-iss li.warn{border-color:var(--warn)}
+.cd-hist{list-style:none;margin:0 0 4px;padding:0 0 0 14px;border-left:1px solid var(--line);font-size:12.5px}.cd-hist li{position:relative;display:grid;grid-template-columns:76px 86px 1fr;gap:8px;padding:5px 0}.cd-hist li::before{content:"";position:absolute;left:-18px;top:11px;width:7px;height:7px;border-radius:50%;background:var(--line)}.cd-hist .d{color:var(--fg-3);font-variant-numeric:tabular-nums}.cd-hist b{font-weight:600}.cd-hist .t{color:var(--fg-2);min-width:0}
+.cd-hist li.due::before{background:var(--due,#b4233a)}.cd-hist li.due b{color:var(--due,#b4233a)}.cd-hist li.warn::before{background:var(--warn)}.cd-hist li.ok::before{background:var(--ok)}.cd-hist li.info::before{background:var(--info)}.cd-hist li.lead::before{background:var(--accent)}
 </style>'''
 SEC = f'''<section id="m-cust-detail">{CSS}<h2>고객관리 — 고객 상세 v2 (시안 2026-10-22 · 그림은 계룡건설산업 실데이터, 담당자 이름 가림)</h2>
 <p class="rule">리드 상세 v2 와 같은 틀(머리 → 속성 줄 → 2 : 1). 지금 상세는 2,035줄 한 화면에 탭 7개(정보·청구·단가·프로젝트·반출·납부·문서)와 모달 — 고객 목록 v2 와 같은 부품으로 바꾼다.</p>
 <table class="dg"><colgroup><col style="width:22%"><col style="width:39%"><col style="width:39%"></colgroup><thead><tr><th>지금 (고객 상세)</th><th>보이는 모습 (계룡건설산업)</th><th>v2</th></tr></thead><tbody>
 <tr><td><b>첫 화면이 정보</b></td><td>회사 정보 칸이 먼저, 매출·미납은 탭을 옮겨야 보임</td><td>첫 탭 = 매출. 위 속성 줄에 올해 매출·미납(연체 2건)이 늘 보임</td></tr>
-<tr><td><b>프로젝트 21줄</b></td><td>현장 1곳의 서비스가 21줄로 나열 (종료 9줄 섞임)</td><td>현장 → 서비스 종류별로 묶음, 진행/종료 칩. 추가·수정은 480 드로어</td></tr>
+<tr><td><b>프로젝트 21줄</b></td><td>현장 1곳의 서비스가 21줄로 나열 (종료 9줄 섞임) · 설치·교체·철수 이력은 메모에 흩어짐</td><td>현장 탭 = 현장 히스토리 + 주요 이슈 + 서비스 8종(읽기). 서비스 줄·월 금액 편집은 매출 현황 한 곳</td></tr>
 <tr><td><b>같은 회사 3곳</b></td><td>계룡건설 · 계룡건설산업 · 계룡건설산업(주)가 따로 — 남양주 현장 소개 리드는 다른 고객에</td><td>"같은 회사로 보이는 고객" 한 줄 → 묶어서 보기 · 합치기</td></tr>
 <tr><td><b>기록이 흩어짐</b></td><td>고객 메모·리드 활동·입금이 각각 다른 화면</td><td>기록 탭 하나에 날짜순, 출처 태그로 거르기 (2023~25 이전 기록 포함)</td></tr></tbody></table>
 <h3 class="ph3">A. 매출 탭 (첫 화면)</h3><div class="fwrap">{FA}</div>
-<h3 class="ph3">B. 현장·서비스 탭 + 서비스 추가 드로어</h3><div class="fwrap">{FB}</div>
+<h3 class="ph3">B. 현장 탭 — 히스토리 · 주요 이슈 · 서비스(읽기)</h3><div class="fwrap">{FB}</div>
 <h3 class="ph3">C. 기록 탭 — 고객 + 리드 + 청구 한 흐름</h3><div class="fwrap">{FC}</div>
-<div class="cmp"><div><h4>정해 주실 것</h4><ul><li>첫 탭 = 매출 (추천) / 정보</li><li>속성 줄 5 = 상태 · 영업 담당 · 과금 · 올해 매출 · 미납</li><li>기록 탭에 연결 리드 활동 · 청구 입금 · 이전 기록까지 합치기</li><li>현장·서비스 추가·수정 = 480 드로어 (모달 없음)</li><li>"같은 회사로 보이는 고객" 표시 + 합치기 (계룡처럼 3곳으로 나뉜 고객 정리)</li></ul></div>
-<div><h4>나머지 탭</h4><ul><li>청구 6: 청구·입금 전체 + 납기 규칙 (미납 줄에서 "독촉 기록")</li><li>문서: 계약서·견적서·세금계산서 파일</li><li>정보: 회사·청구 정보 카드 (값 있는 칸만, 카드별 수정) — 지금 정보 탭 내용</li><li>단가·반출은 현장·서비스 줄 상세로 옮김</li></ul></div></div></section>'''
+<div class="cmp"><div><h4>정해 주실 것</h4><ul><li>첫 탭 = 매출 (추천) / 정보</li><li>속성 줄 5 = 상태 · 영업 담당 · 과금 · 올해 매출 · 미납</li><li>기록 탭에 연결 리드 활동 · 청구 입금 · 이전 기록까지 합치기</li><li>현장 탭 = 히스토리 · 주요 이슈 · 서비스(읽기), 서비스 줄 편집은 매출 현황에서만 (고객 상세에서 고치지 않음)</li><li>주요 이슈 = 자동(연체 · 납기 임박 · 공사 종료 임박 · 소개 리드) + 손으로 추가</li><li>"같은 회사로 보이는 고객" 표시 + 합치기 (계룡처럼 3곳으로 나뉜 고객 정리)</li></ul></div>
+<div><h4>나머지 탭</h4><ul><li>청구 6: 청구·입금 전체 + 납기 규칙 (미납 줄에서 "독촉 기록")</li><li>문서: 계약서·견적서·세금계산서 파일</li><li>정보: 회사·청구 정보 카드 (값 있는 칸만, 카드별 수정) — 지금 정보 탭 내용</li><li>단가 · 반출 · 장비 · VoC 는 현장 히스토리 항목으로 (운영 데이터가 쌓이는 대로)</li></ul></div></div></section>'''
 
 s = open(P, encoding='utf-8').read()
 if '<section id="m-cust-detail"' in s:
