@@ -191,6 +191,48 @@ L5 = f'''{toolbar([('2026', 'on'), ('2027', '')], '<span class="muted s12">시�
 F5 = frame('매출 현황', '매출 현황', L5, dims=[('left:206px;top:60px', '툴바: 연도(2026 · 2027) │ 시트 동기화 · 지금 동기화 · 검색 · 열 고르기 · 카메라 입출고 펼치기'),
                                             ('left:206px;top:150px', '시트와 같은 열 · 순서 · NO. · 위 카드/계산서/합계 줄 (앞 2열 고정, 가로 스크롤)')], h=760)
 
+# ───────── 6. 견적 → 확정 → 서비스 줄 (실례: 태영건설 경산대임 B-1BL — 매출 시트 "견적 완료" 92,890,000 → 매출 현황 16줄) ─────────
+QL = [('26.09.29', '일성건설', '경산대임 A-3BL 아파트 3공구', 'A-3BL (7개동, 19개월) · 설치+바디캠+편집', 91_615_000, '확정', '', 'v1'),
+      ('26.09.16', '대방건설', '의정부우정 A-3BL 3공구', '아파트 건설공사 3공구', 95_860_000, '보냄', '10월말~11월', 'v1'),
+      ('26.09.10', '효성중공업', '경산대임 A-2BL 2공구', 'A-2BL (5개동, 7개월) · 연동+바디캠+편집', 41_065_000, '확정', '', 'v1'),
+      ('26.09.07', '태영건설', '경산대임 B-1BL 공공주택', 'B-1BL (8개동, 18개월) · 설치+바디캠+편집', 92_890_000, '확정', '', 'v1'),
+      ('26.09.03', 'KR산업', '경산대임 A1BL 1공구', 'A1BL (4개동, 7개월) · 연동+바디캠+편집', 29_655_000, '확정', '', 'v1'),
+      ('26.08.31', '계룡건설', '남양주 왕숙 A-6BL 8공구', '아파트 건설공사 8공구', 98_760_000, '보냄', '11월', 'v1'),
+      ('26.07.30', '금강주택', '인천가정2 B-2BL 4공구', '연동 견적 · 타사 서비스 사용 중', 940_000, '보냄', '', 'v1 · 월'),
+      ('26.06.30', '원하건설', '용인 원삼 커뮤니티센터', '복합문화공간', 130_000_000, '보냄', '9월 중순 소통', 'v1')]
+QST = {'확정': 'ok', '보냄': 'info'}
+qrows = ''.join(f'<tr class="{"act" if c == "태영건설" else ""}"><td class="c">{d}</td><td>{esc(c)}</td><td><b>{esc(pj)}</b></td><td class="muted">{esc(nm)}</td><td class="num">{won(a)}{" <span class=muted>/월</span>" if a < 1_000_000 else ""}</td><td class="c">{v}</td><td class="c">{chip(QST[s], s)}</td><td class="c muted">{ex or "—"}</td></tr>' for d, c, pj, nm, a, s, ex, v in QL)
+Q1 = f'''{toolbar([('보냄 · 회신 대기 4', ''), ('확정 (= 계약) 4', ''), ('전체 20', 'on')], '<span class="inp s">고객사 · 프로젝트 · 견적명</span><span class="sel">담당 전체</span><span class="btn sm">견적 모의계산</span><span class="btn sm primary">+ 견적서</span>')}
+{tbl([8, 11, 19, 25, 11, 6, 9, 11], ['날짜', '고객사', '프로젝트', '견적명', '금액', '버전', '상태', '도입 예상'], qrows)}'''
+FQ1 = frame('견적서', '', Q1, dims=[('left:206px;top:60px', '세일즈 › 견적서: 모든 프로젝트의 견적 · 탭 = 보냄 / 확정(= 계약) / 전체'), ('left:206px;top:116px', '견적마다 프로젝트가 붙음 → 프로젝트 상세 "견적·계약" 탭에도 같은 줄')], h=560)
+# 견적서 상세 — 태영 B-1BL
+QI = [('AI CCTV (다후아 EX) 구매', '8대', 850_000, '1회', 6_800_000), ('LTE/인터넷 회선 (CCTV 통신)', '8대', 55_000, '18개월', 7_920_000), ('타임랩스 연동', '8대', 120_000, '18개월', 17_280_000),
+      ('Wearable Cam (포팩트 ST20) 구매', '5대', 650_000, '1회', 3_250_000), ('LTE/인터넷 회선 (바디캠 통신)', '5대', 55_000, '18개월', 4_950_000), ('Cam 연동', '5대', 120_000, '18개월', 10_800_000),
+      ('편집비용', '18개월', 1_738_333, '18개월', 31_290_000), ('장비 설치 / 철거', '각 1회', 4_400_000, '2회', 8_800_000), ('플랫폼', '1식', 100_000, '18개월', 1_800_000)]
+qi = ''.join(f'<tr><td>{esc(n)}</td><td class="c">{q}</td><td class="num">{won(u)}</td><td class="c">{per}</td><td class="num">{won(a)}</td></tr>' for n, q, u, per, a in QI)
+Q2 = f'''<div class="pg2 wide"><div class="h2top"><span class="muted">‹ 견적서</span><span class="sp"></span><span class="btn sm">PDF</span><span class="btn sm">새 버전</span><span class="btn sm primary">확정 → 서비스 줄</span></div>
+<div class="h2name"><h1>경산대임 B-1BL 공공주택 건설사업</h1>{chip("ok", "확정")}<span class="muted">· 태영건설 · 프로젝트 <span class="lk">경산대임 B-1BL ↗</span> · 8개동 18개월 · 설치+바디캠+편집 · 담당 —</span></div>
+<div class="seg" style="margin:0 0 10px"><span class="on">v1 · 09.07 · 92,890,000 · 확정</span><span>+ 새 버전 (고치면 v2 — v1 과 나란히 비교)</span></div>
+<table class="ds fixed"><colgroup><col style="width:42%"><col style="width:12%"><col style="width:16%"><col style="width:12%"><col style="width:18%"></colgroup>
+<thead><tr><th>항목</th><th>수량</th><th>단가</th><th>기간</th><th>금액 (공급가)</th></tr></thead><tbody><tr class="sum top"><td>합계</td><td></td><td></td><td class="c">18개월</td><td class="num"><b>92,890,000</b></td></tr>{qi}</tbody></table>
+<p class="q muted" style="margin-top:8px">매달: 플랫폼 · 통신 · 타임랩스 연동 · Cam 연동 = 월 2,375,000 × 18개월 · 한 번: 구매 · 설치·철거 · 편집 31,290,000 (18개월 나눔) — 매출 시트 "견적 완료" + "현장별 전체 매출" 2943~2958행으로 맞춤</p></div>'''
+FQ2 = frame('견적서 상세', '', Q2, dims=[('left:206px;top:60px', '버전 줄: v1 · v2 … 확정 버전에 표시. 고치면 새 버전, 이전과 차이 비교'), ('right:16px;top:60px', '[확정 → 서비스 줄]: 확정(= 계약) 하면서 매출 현황 줄 제안')], h=640)
+# 확정 → 서비스 줄 제안 (드로어)
+SL = [('플랫폼', '', '월간 후불', '10월 중순~말 투입', 100_000, '매달'), ('AI CCTV', '구매 · 8줄(대당 1줄)', '월간 후불', '설치 10.14', 850_000, '1회 × 8'),
+      ('LTE/인터넷 회선', '통신*8대', '월간 후불', '', 440_000, '매달'), ('타임랩스', '연동*8대', '월간 후불', '', 960_000, '매달'),
+      ('Wearable Cam', '구매*5대', '월간 후불', '발송 10.07', 3_250_000, '1회'), ('LTE/인터넷 회선', '통신*5대', '월간 후불', '', 275_000, '매달'),
+      ('Cam 연동', '연동*5대', '월간 후불', '', 600_000, '매달'), ('편집비용', '총액 31,290,000원 / 18개월', '월간 후불', '', 1_738_333, '매달 18개월'),
+      ('장비설치', '설치/철거 각 4,400,000원', '월간 후불', '', 4_400_000, '설치 1회 (철거는 끝날 때)')]
+sl = ''.join(f'<tr><td class="c"><input type="checkbox" checked></td><td><b>{s}</b></td><td class="muted">{esc(m)}</td><td class="c">{b}</td><td class="c">10월</td><td class="num">{won(a)}</td><td class="c muted">{k}</td></tr>' for s, m, b, note, a, k in SL)
+Q3 = f'''<div class="pg2 wide" style="opacity:.35;pointer-events:none">{Q2.split('<table')[0]}</div>
+<div class="drawer w720"><div class="dh"><div><b>확정 → 서비스 줄</b><div class="meta">견적 v1 92,890,000 → 매출 현황 16줄 (항목 9 → 서비스 줄 16: 구매는 대당 1줄)</div></div><span class="x">✕</span></div>
+<div class="db"><table class="ds fixed"><colgroup><col style="width:5%"><col style="width:17%"><col style="width:30%"><col style="width:12%"><col style="width:9%"><col style="width:13%"><col style="width:14%"></colgroup>
+<thead><tr><th></th><th>이용 서비스</th><th>비고 (시트 그대로)</th><th>과금 방식</th><th>시작</th><th>금액</th><th>나눔</th></tr></thead><tbody>{sl}</tbody></table>
+<div class="cd-note" style="margin-top:10px"><b>지금(시트가 원본)</b>: [시트에 붙여넣을 줄 복사] — "현장별 전체 매출" 열 순서(시작일 · 종료일 · 회사명 · 프로젝트명 · 구분 · 서비스 · 과금 시작 · 비고 · 과금 방식 · 월별)로 16줄을 복사 → 시트에 붙여넣으면 다음 날 08시 동기화로 CRM 에도</div>
+<div class="cd-note"><b>CRM 원본으로 바꾼 뒤</b>: [서비스 줄 만들기] — 바로 매출 현황에 16줄 · 구매·설치 항목은 "반출 요청"도 함께 (AI CCTV 8 · Wearable 5)</div></div>
+<div class="df"><span class="btn sm quiet">취소</span><span class="sp"></span><span class="btn sm">반출 요청도 만들기</span><span class="btn sm primary">시트에 붙여넣을 줄 복사</span></div></div>'''
+FQ3 = frame('견적서 상세', '', Q3, dims=[('right:16px;top:60px', '확정 드로어 720: 견적 항목 → 서비스 줄(시트 열 그대로) · 과금 시작 = 설치·발송일(카메라 입출고)')], h=700)
+
 CSS = '''<style>
 .pg2.wide{max-width:1180px}
 #m-cust-detail .ds.fixed td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -203,7 +245,8 @@ CSS = '''<style>
 .cd-iss ol{list-style:none;margin:0;padding:0;display:grid;gap:7px}.cd-iss li{padding-left:9px;border-left:3px solid var(--line);display:grid;gap:1px}.cd-iss li b{font-size:12.5px;font-weight:600}.cd-iss li span{font-size:11.5px;color:var(--fg-2)}.cd-iss li.due{border-color:var(--due,#b4233a)}.cd-iss li.due b{color:var(--due,#b4233a)}.cd-iss li.warn{border-color:var(--warn)}
 .cd-hist{list-style:none;margin:0 0 4px;padding:0 0 0 14px;border-left:1px solid var(--line);font-size:12.5px}.cd-hist li{position:relative;display:grid;grid-template-columns:76px 110px 1fr;gap:8px;padding:5px 0}.cd-hist li::before{content:"";position:absolute;left:-18px;top:11px;width:7px;height:7px;border-radius:50%;background:var(--line)}.cd-hist .d{color:var(--fg-3);font-variant-numeric:tabular-nums}.cd-hist b{font-weight:600}.cd-hist .t{color:var(--fg-2);min-width:0}.cd-hist .src{font-style:normal;font-size:11px;color:var(--fg-3);border:1px solid var(--line);border-radius:3px;padding:0 4px;margin-left:4px}
 .cd-hist li.due::before{background:var(--due,#b4233a)}.cd-hist li.warn::before{background:var(--warn)}.cd-hist li.ok::before{background:var(--ok)}.cd-hist li.info::before{background:var(--info)}.cd-hist li.lead::before{background:var(--accent)}
-.sheet5{overflow-x:auto}.s5t{font-size:11.5px;white-space:nowrap}.s5t thead th{background:#c0392b;color:#fff;border-color:#a93226}.s5t td{padding:3px 6px}.s5t .memo{max-width:180px;overflow:hidden;text-overflow:ellipsis}.s5t .tot{font-weight:600}.s5t tr.s5 td{background:var(--bg-subtle);font-weight:600}.s5t td.r{text-align:right}.s5t .eq,.s5t .eqh{color:var(--fg-2);border-left:2px solid var(--line)}.s5t .fz,.s5t .fz2{position:sticky;left:0;background:var(--bg);z-index:1}.s5t .fz2{left:44px}.s5t thead .fz,.s5t thead .fz2{background:#c0392b}
+.sheet5{overflow-x:auto}.s5t{font-size:11.5px;white-space:nowrap}.s5t thead th{background:var(--bg-subtle);color:var(--fg-2)}.s5t td{padding:3px 6px}.s5t .memo{max-width:180px;overflow:hidden;text-overflow:ellipsis}.s5t .tot{font-weight:600}.s5t tr.s5 td{background:var(--bg-subtle);font-weight:600}.s5t td.r{text-align:right}.s5t .eq,.s5t .eqh{color:var(--fg-2);border-left:2px solid var(--line)}.s5t .fz,.s5t .fz2{position:sticky;left:0;background:var(--bg);z-index:1}.s5t .fz2{left:44px}.s5t thead .fz,.s5t thead .fz2{background:var(--bg-subtle)}
+.drawer.w720{width:720px}
 .cd-model{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0 14px}.cd-model div{border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12.5px;display:grid;gap:4px}.cd-model b{font-size:13px}.cd-model span{color:var(--fg-2);font-size:12px}.cd-model div.key{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 5%,var(--bg))}
 </style>'''
 MODEL = '''<div class="cd-model"><div><b>고객사</b><span>돈 내는 곳 = 고객 LIST · 고객사 ID · 사업자번호. 발주처가 내면 발주처. 청구 방식(프로젝트별 / 본사 묶음) · 고객 쪽 사람(소통 · 청구)</span></div>
@@ -224,7 +267,12 @@ SEC = f'''<section id="m-cust-detail">{CSS}<h2>고객관리 v4 — 고객사 →
 <h3 class="ph3">3-b. 프로젝트 상세 — 남양주 왕숙 A-6BL 8공구 (견적 단계 · 견적·계약 탭)</h3><div class="fwrap">{F2b}</div>
 <h3 class="ph3">4. 고객사 목록</h3><div class="fwrap">{F3}</div>
 <h3 class="ph3">5. 고객사 상세 — 효성중공업(주)</h3><div class="fwrap">{F4}</div>
-<div class="cmp"><div><h4>정해 주실 것</h4><ul><li>메뉴: 고객관리 = <b>매출 현황 · 프로젝트 · 고객사</b> (과금 고객 · 계약 관리 메뉴는 없앰)</li><li>매출 현황 = 시트와 같은 모양 (묶음 보기 없이)</li><li>프로젝트 단계: 문의 → 견적 → 계약 → 설치 → 과금 중 → 종료 (용역 · PoC 는 설치 없음)</li><li>프로젝트마다 고객사 · 청구처 · 발주처를 따로, "소개"는 칸이 아니라 유입 분류에서 고름 (직접 연락 › 추천 → 추천한 프로젝트·사람을 선택으로 연결)</li><li>견적서 버전 · 확정 = 계약 → 서비스 줄 제안</li><li>고객사 ID 규칙 (자동 생성은 검토 중)</li></ul></div>
+<h3 class="ph3">6. 견적 → 확정(= 계약) → 서비스 줄 — 실례: 태영건설 경산대임 B-1BL</h3>
+<p class="rule">견적서는 세일즈 › 견적서(별도 메뉴)에서 만들고 프로젝트에 붙는다. 계약 메뉴는 따로 없음 — 견적을 확정하거나 계약서를 붙이면 계약. 회사 단위 계약(연간 단가 등)만 고객사 상세에. 아래 숫자는 매출 시트 "견적 완료" 92,890,000 과 "현장별 전체 매출" 16줄이 실제로 맞는 건.</p>
+<h3 class="ph3">6-1. 견적서 목록 (세일즈 › 견적서)</h3><div class="fwrap">{FQ1}</div>
+<h3 class="ph3">6-2. 견적서 상세 — 버전 · 항목</h3><div class="fwrap">{FQ2}</div>
+<h3 class="ph3">6-3. [확정 → 서비스 줄] 드로어</h3><div class="fwrap">{FQ3}</div>
+<div class="cmp"><div><h4>정해 주실 것</h4><ul><li>✔ 메뉴: 고객관리 = 매출 현황 · 프로젝트 · 고객사 · 견적서는 세일즈 › 견적서 그대로 · 계약 메뉴 없음 (10/22)</li><li>✔ 매출 현황 = 시트와 같은 모양, 색은 CRM 기본 (10/22)</li><li>✔ 프로젝트 단계 (나중에 보고 수정) · ✔ 고객사 · 청구처 · 발주처 + 유입에서 추천 고름 (10/22)</li><li>견적서 버전 · 확정 = 계약 → 서비스 줄 (6번 그림 — 지금은 "시트에 붙여넣을 줄 복사")</li><li>✔ 고객사 ID 규칙 — 자동 생성은 검토 중</li></ul></div>
 <div><h4>순서</h4><ul><li>1 프로젝트 테이블 + 기존 9,710줄 연결 (이름이 애매한 것은 목록으로 확인) · 고객사 ID 없는 18곳 정리</li><li>2 프로젝트 목록 · 상세 → 고객사 목록 · 상세 → 매출 현황 묶음</li><li>3 견적서를 프로젝트에 (버전 · 확정)</li><li>4 매출 시트 "카메라 입출고"를 동기화에 더해 프로젝트 장비 · 히스토리로 (설치·회수 → 과금 시작·끝 제안)</li></ul></div></div></section>'''
 
 s = open(P, encoding='utf-8').read()
