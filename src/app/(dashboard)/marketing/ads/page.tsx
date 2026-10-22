@@ -13,7 +13,7 @@ import { DateRangePicker, type DateRange } from '@/components/ui/date-range-pick
 import { formatCurrency, formatNumber, CHANNEL_SUB_SOURCES as SHARED_SUB_SOURCES } from '@/lib/utils'
 import { toast } from 'sonner'
 import { CompanyTagInput } from '@/components/ui/company-tag-input'
-import { KpiRow, Toolbar, Tabs, DsButton, Skeleton, Empty, Drawer } from '@/components/ds'
+import { KpiRow, Toolbar, Tabs, DsButton, Skeleton, Empty, Drawer, BasisNote } from '@/components/ds'
 import { classifyAdRow, splitNotes, INFLOW_GROUPS, INFLOW_ORDER, PAID_GROUPS, OTHER_GROUP, INFLOW_COLOR, subOrder, type InflowGroup } from '@/lib/inflow-taxonomy'
 
 const isPaid = (d: { channel: string; ad_type: string; campaign_name: string; notes?: string | null }) => PAID_GROUPS.includes(classifyAdRow(d.channel, d.ad_type, d.campaign_name, d.notes).group)
@@ -1018,6 +1018,7 @@ export default function AdsPage() {
           </table>
         </div>
       )}
+      <BasisNote text="문의 = 유입일이 그 날인 리드 수(화면을 열 때 리드에서 다시 맞춤) + 광고 매체가 회사명 없이 보고한 전환 수(예: 2026년 3월 네이버 6건) · 도입은 팀이 적는 값" />
 
       <Drawer open={!!openRow} onClose={() => setOpenKey(null)} width="60vw"
         title={openRow ? `${openRow.group} › ${openRow.label}${openRow.detail ? ' › ' + openRow.detail : ''}` : ''}
