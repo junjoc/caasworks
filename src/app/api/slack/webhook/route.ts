@@ -270,11 +270,11 @@ export async function POST(request: NextRequest) {
         const ago30 = new Date(now.getTime() + kstOffset - 30 * 86400000).toISOString().substring(0, 10)
         const phoneDigits = (inquiry.phone || '').replace(/\D/g, '')
         const email = (inquiry.email || '').trim().toLowerCase()
-        let prev: { id: string; customer_code: string | null; stage: string; inquiry_date: string | null; created_at: string; assigned_to: string | null; next_action: string | null } | null = null
+        let prev: { id: string; customer_code: string | null; stage: string; inquiry_date: string | null; created_at: string; assigned_to: string | null; next_action: string | null; inquiry_content?: string | null } | null = null
         if (phoneDigits.length >= 8 || email.includes('@')) {
           const ors = [phoneDigits.length >= 8 && `contact_phone.ilike.%${phoneDigits.slice(-4)}%`, email.includes('@') && `contact_email.ilike.${email}`].filter(Boolean).join(',')
           const { data: cands } = await supabase.from('pipeline_leads')
-            .select('id, customer_code, stage, inquiry_date, created_at, assigned_to, next_action, contact_phone, contact_email')
+            .select('id, customer_code, stage, inquiry_date, created_at, assigned_to, next_action, contact_phone, contact_email, inquiry_content')
             .or(ors).order('created_at', { ascending: false }).limit(30)
           prev = (cands || []).find(l =>
             (phoneDigits.length >= 8 && String(l.contact_phone || '').replace(/\D/g, '').endsWith(phoneDigits.slice(-8))) ||
@@ -284,6 +284,13 @@ export async function POST(request: NextRequest) {
         const attach = !!prev && (prevDate === today || (!['이탈', '도입완료'].includes(prev.stage) && prevDate >= ago30))
         const reContent = [inquiry.company_name && `회사: ${inquiry.company_name}`, inquiry.name && `문의자: ${inquiry.name}`, inquiry.extra_content, inquiry.referrer && `레퍼러: ${inquiry.referrer}`].filter(Boolean).join('\n')
 
+        // 10/22: 같은 내용이 30분 안에 다시 오면 Slack 재전송(응답이 3초를 넘으면 Slack 이 같은 메시지를 다시 보냄)이나 두 번 누름 — 건너뜀
+        // (셀트리온 10/21: 22:57 등록 → 22:58 같은 내용이 "재문의"로 붙었던 것)
+        const body1 = (s: string | null | undefined) => String(s || '').replace(/레퍼러[^\n]*|실제 레퍼러[^\n]*/g, '').replace(/\s+/g, '')
+        if (prev && Date.now() - new Date(prev.created_at).getTime() < 30 * 60 * 1000 && inquiry.extra_content && body1(prev.inquiry_content).includes(body1(inquiry.extra_content))) {
+          console.log('Slack webhook: same inquiry resent within 30min, skipping', prev.id)
+          return NextResponse.json({ ok: true, action: 'duplicate_resend_skipped', lead_id: prev.id })
+        }
         if (prev && attach) {
           await supabase.from('pipeline_history').insert({
             lead_id: prev.id, field_changed: 'reinquiry', changed_by: null,

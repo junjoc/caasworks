@@ -15,7 +15,7 @@ import { confirmConvertedStageChange, INDUSTRY_OPTIONS, CHANNEL_OPTIONS, VOC_CAT
 import { since, due, ago, mmdd, kstToday, kstDate, dayDiff } from '@/lib/elapsed'
 import { Toolbar, Tabs, DsButton, DsSelect, StatusChip, Skeleton, Empty, stageTone, dsInput } from '@/components/ds'
 import { StageBar, PropertyBar, Card, Rows, Popover, type Prop } from '@/components/ds/detail'
-import { RecordComposer, Timeline, useLeadOverview, postUpdate } from '@/components/pipeline/lead-record'
+import { RecordComposer, Timeline, RelatedInquiries, useLeadOverview, postUpdate } from '@/components/pipeline/lead-record'
 import { PROB, PRIO } from '@/components/pipeline/lead-drawer'
 import QuotationSection from '@/components/pipeline/QuotationSection'
 import { toast } from 'sonner'
@@ -295,6 +295,7 @@ export default function LeadDetailPage() {
               { label: '메모', value: lead.notes ? <span className="whitespace-pre-wrap">{lead.notes}</span> : null },
             ]} />}
           </EditCard>
+          <RelatedInquiries items={data.related} />
           <p className="text-[12px] text-ds-fg3 px-1">등록 {kstDate(String(lead.created_at))}</p>
         </aside>
       </div>

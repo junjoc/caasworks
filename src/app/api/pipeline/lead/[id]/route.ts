@@ -33,6 +33,17 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       ...(h.data || []).map(x => ({ id: x.id, kind: kindOf(x.field_changed), at: x.changed_at, by: uname.get(x.changed_by) || (x.field_changed === 'reinquiry' ? '홈페이지' : '시스템'), byId: x.changed_by, field: x.field_changed, old: x.old_value, new: x.new_value })),
     ].sort((x, y) => y.at.localeCompare(x.at))
 
+    // 10/22: 같은 연락처·이메일의 다른 문의 (예전 문의 확인)
+    const digits = String(lead.contact_phone || '').replace(/\D/g, '')
+    const email = String(lead.contact_email || '').trim().toLowerCase()
+    let related: Record<string, unknown>[] = []
+    if (digits.length >= 8 || email.includes('@')) {
+      const ors = [digits.length >= 8 && `contact_phone.ilike.%${digits.slice(-4)}%`, email.includes('@') && `contact_email.ilike.${email}`].filter(Boolean).join(',')
+      const { data: rel } = await sb.from('pipeline_leads').select('id, customer_code, company_name, site_name, contact_team, stage, inquiry_date, created_at, assigned_to, contact_phone, contact_email, inquiry_content').or(ors).neq('id', id).order('created_at', { ascending: false }).limit(30)
+      related = (rel || []).filter(r => (digits.length >= 8 && String(r.contact_phone || '').replace(/\D/g, '').endsWith(digits.slice(-8))) || (email.includes('@') && String(r.contact_email || '').toLowerCase() === email))
+        .slice(0, 10).map(r => ({ id: r.id, code: r.customer_code, company: r.company_name, where: r.site_name || (r.contact_team ? `본사 ${r.contact_team}` : null), stage: r.stage, date: r.inquiry_date || String(r.created_at).slice(0, 10), assignee: uname.get(r.assigned_to) || null, content: String(r.inquiry_content || '').slice(0, 140) }))
+    }
+
     const [cust, voc] = lead.customer_id
       ? await Promise.all([
           sb.from('customers').select('id, company_name, customer_code').eq('id', lead.customer_id).single(),
@@ -43,7 +54,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return NextResponse.json({
       lead, timeline,
       users: (u.data || []).filter(x => x.is_active).map(x => ({ id: x.id, name: x.name })),
-      customer: cust.data, voc: voc.data || [],
+      customer: cust.data, voc: voc.data || [], related,
     })
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 })

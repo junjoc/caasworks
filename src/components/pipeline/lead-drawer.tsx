@@ -10,7 +10,7 @@ import { confirmConvertedStageChange } from '@/lib/utils'
 import { since, due, mmdd, kstToday, kstDate } from '@/lib/elapsed'
 import { Drawer, DsButton, StatusChip, Skeleton, stageTone } from '@/components/ds'
 import { StageBar, PropPills, type Prop } from '@/components/ds/detail'
-import { RecordComposer, Timeline, useLeadOverview, postUpdate } from '@/components/pipeline/lead-record'
+import { RecordComposer, Timeline, RelatedInquiries, useLeadOverview, postUpdate } from '@/components/pipeline/lead-record'
 import { toast } from 'sonner'
 
 export const STAGE_OPTIONS = ['신규리드', '컨텍', '예정', '제안', '미팅', '도입직전', '도입완료', '이탈']
@@ -74,6 +74,7 @@ export function LeadDrawer({ leadId, users, onClose, onChanged }: { leadId: stri
           {content && <p className="mt-1.5 text-ds-fg2 whitespace-pre-wrap break-words line-clamp-4 leading-relaxed">{content}</p>}
           {(lead.topic_tags || []).length > 0 && <div className="mt-1">{(lead.topic_tags as string[]).map(t => <span key={t} className="text-ds-accent text-[12px] mr-1.5">#{t}</span>)}</div>}
         </div>
+        <RelatedInquiries items={data?.related} compact />
         <RecordComposer lead={lead} onDone={refresh} compact />
         <Timeline items={tl} limit={10} leadId={lead.id} onChanged={refresh} />
         {tl.length > 10 && <Link href={`/pipeline/${lead.id}`} className="text-[12px] text-ds-accent hover:underline">전체 {tl.length}줄 → 상세 페이지</Link>}

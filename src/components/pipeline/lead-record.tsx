@@ -12,7 +12,8 @@ import { kstToday, kstDate } from '@/lib/elapsed'
 import { fetchJson, getCached, setCached } from '@/lib/swr-cache'
 
 export type { TimelineItem }
-export type LeadOverview = { lead: Record<string, any>; timeline: TimelineItem[]; users: { id: string; name: string }[]; customer: { id: string; company_name: string; customer_code: string | null } | null; voc: any[] }
+export type Related = { id: string; code: string | null; company: string; where: string | null; stage: string; date: string; assignee: string | null; content: string }
+export type LeadOverview = { lead: Record<string, any>; timeline: TimelineItem[]; users: { id: string; name: string }[]; customer: { id: string; company_name: string; customer_code: string | null } | null; voc: any[]; related?: Related[] }
 
 // 리드 한 건 읽기 — 요청 1번
 export function useLeadOverview(id: string | null) {
@@ -252,6 +253,32 @@ export function Timeline({ items, limit, editable, leadId, onChanged }: { items:
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/* ─── 같은 연락처·이메일의 다른 문의 (10/22 — 예전 문의 확인) ─── */
+export function RelatedInquiries({ items, compact }: { items?: Related[]; compact?: boolean }) {
+  const [open, setOpen] = useState<string | null>(null)
+  if (!items || !items.length) return null
+  return (
+    <div className={cn('rounded-lg border border-ds-line', compact ? 'px-3 py-2' : 'px-3 py-2.5')}>
+      <div className="text-[12px] font-semibold text-ds-fg mb-1">같은 연락처의 다른 문의 <span className="font-normal text-ds-fg3">{items.length}건</span></div>
+      <div className="grid gap-0.5">
+        {items.map(r => (
+          <div key={r.id} className="text-[12px]">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-ds-fg3 tabular-nums w-[64px] flex-none">{r.date.slice(2).replace(/-/g, '.')}</span>
+              <button onClick={() => setOpen(o => (o === r.id ? null : r.id))} className="flex-1 min-w-0 text-left truncate hover:text-ds-accent" title="문의 내용 보기">
+                {r.company}{r.where && <span className="text-ds-fg3"> · {r.where}</span>}
+              </button>
+              <span className="text-ds-fg3 whitespace-nowrap">{r.stage}{r.assignee ? ` · ${r.assignee}` : ''}</span>
+              <a href={`/pipeline/${r.id}`} className="text-ds-accent whitespace-nowrap hover:underline">열기</a>
+            </div>
+            {open === r.id && <p className="mt-0.5 mb-1 pl-[72px] text-ds-fg2 whitespace-pre-wrap break-words">{r.content || '(문의 내용 없음)'}{r.code && <span className="text-ds-fg3"> · ID {r.code}</span>}</p>}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
