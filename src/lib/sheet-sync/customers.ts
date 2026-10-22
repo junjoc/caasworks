@@ -44,19 +44,36 @@ export async function syncCustomers(sb: SupabaseClient, wb: WorkBook, apply: boo
   const update: { id: string; name: string; patch: Record<string, unknown>; before: Record<string, unknown> }[] = []
   const create: Record<string, unknown>[] = []
   let same = 0
+  // 1) 줄마다 고객 찾기
+  const groups = new Map<string, { c: (typeof customers)[number]; rows: Record<string, unknown>[] }>()
   for (const r of rows) {
     let c = r._code ? byCode.get(String(r._code)) : undefined
     if (c && !sameName(c.company_name, r._name)) { codeConflicts.push(`${r._name}: 고객사 ID ${r._code} 는 ${c.company_name} 것`); c = undefined; r.customer_code = null }
     c = c || byName.get(r._name as string) || byName.get(normalize(r._name)) || byName.get(stripSuffix(r._name)) || byName.get(normalize(stripSuffix(r._name)))
     if (!c) { create.push(r); continue }
+    if (!groups.has(c.id)) groups.set(c.id, { c, rows: [] })
+    groups.get(c.id)!.rows.push(r)
+  }
+  // 2) 같은 고객의 여러 줄(예: 유한종합건설 카드 / 선납 — 결제 방식만 다른 계약) → 하나로 합침. 날마다 값이 번갈아 바뀌지 않게
+  //    기본 줄 = 이름에 "(선납)" 같은 표시가 없는 줄. 다른 줄은 빈 칸만 채우고 메모에 "선납 계약 · 고객사 ID …"
+  for (const { c, rows: rs } of Array.from(groups.values())) {
+    const sorted = [...rs].sort((a, b) => (stripSuffix(a._name) === a._name ? 0 : 1) - (stripSuffix(b._name) === b._name ? 0 : 1))
+    const m: Record<string, unknown> = { ...sorted[0] }
+    const extra: string[] = []
+    for (const r of sorted.slice(1)) {
+      for (const f of FIELDS) if (f !== 'customer_code' && m[f] == null && r[f] != null) m[f] = r[f]
+      const tag = String(r._name).match(/\(([^)]+)\)\s*$/)?.[1] || '추가'
+      extra.push([`${tag} 계약`, r._code && `고객사 ID ${r._code}`, r.billing_type && `과금 ${r.billing_type}`, r.notes].filter(Boolean).join(' · '))
+    }
+    if (extra.length) m.notes = [m.notes, ...extra].filter(Boolean).join('\n')
     const patch: Record<string, unknown> = {}
     for (const f of FIELDS) {
-      const v = r[f]; if (v == null) continue
+      const v = m[f]; if (v == null) continue
       const cur = c[f]
       const eq = f === 'deposit_amount' || f === 'user_count' ? Number(cur) === Number(v) : String(cur ?? '') === String(v)
       if (!eq) patch[f] = v
     }
-    if (Object.keys(patch).length) update.push({ id: c.id, name: c.company_name, patch, before: Object.fromEntries(Object.keys(patch).map(k => [k, c[k]])) })
+    if (Object.keys(patch).length) update.push({ id: c.id, name: c.company_name + (rs.length > 1 ? ` (시트 ${rs.length}줄 합침)` : ''), patch, before: Object.fromEntries(Object.keys(patch).map(k => [k, c[k]])) })
     else same++
   }
   const summary = { sheet: rows.length, update: update.length, create: create.length, same, idConflicts: codeConflicts.length }
