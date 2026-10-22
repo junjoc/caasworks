@@ -86,8 +86,10 @@ export function NewLeadDrawer({ open, users, onClose, onCreated, onOpenLead }: {
   const source = !f.group || f.group === '모름' ? null : f.sub === '기타' && (f.etcName || f.etcLink) ? `${f.group} › 기타: ${f.etcName.trim()}${f.etcLink.trim() ? ` | ${f.etcLink.trim()}` : ''}` : `${f.group} › ${f.sub || '기타'}`
 
   // 같은 문의 → 새로 만들지 않고 그 리드로 (담당이 없으면 나로)
+  // 이전 기록(2023~2025.1)은 이어받지 않고 보기만 — 새 문의는 새 리드로 (10/22)
+  const isOld = (l: Lead) => String((l as { notes?: string | null }).notes || '').startsWith('[이전 기록]')
   const takeover = async (l: Lead) => {
-    if (!l.assigned_to && user) {
+    if (!l.assigned_to && user && !isOld(l)) {
       const r = await postUpdate({ action: 'change_assigned', lead_id: l.id, user_id: user.id, old_name: '미배정', new_name: user.name || '나', changed_by: user.id })
       if (r.error) { toast.error(r.error); return }
       toast.success('이어받았습니다 — 담당 = 나')
@@ -156,10 +158,10 @@ export function NewLeadDrawer({ open, users, onClose, onCreated, onOpenLead }: {
             {look.byContact.map(l => (
               <div key={l.id} className="flex items-center gap-2">
                 <div className="flex-1 min-w-0"><LeadLine l={l} /></div>
-                <DsButton size="sm" variant={l.assigned_to ? 'secondary' : 'primary'} onClick={() => takeover(l)}>{l.assigned_to ? `열기 (${uname(l.assigned_to)})` : '이어받기'}</DsButton>
+                <DsButton size="sm" variant={l.assigned_to || isOld(l) ? 'secondary' : 'primary'} onClick={() => takeover(l)}>{isOld(l) ? '이전 기록 보기' : l.assigned_to ? `열기 (${uname(l.assigned_to)})` : '이어받기'}</DsButton>
               </div>
             ))}
-            <div className="text-[12px] text-ds-fg3 mt-1">같은 문의면 새로 만들지 말고 이어받아 통화를 기록하세요. 다른 문의면 아래를 계속 채웁니다.</div>
+            <div className="text-[12px] text-ds-fg3 mt-1">같은 문의면 새로 만들지 말고 이어받아 통화를 기록하세요. 다른 문의거나 이전 기록(2023~2025.1)이면 아래를 계속 채웁니다.</div>
           </div>
         )}
 

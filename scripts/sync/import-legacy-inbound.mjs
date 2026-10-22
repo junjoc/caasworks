@@ -25,7 +25,8 @@ const s = v => String(v ?? '').trim()
 const norm = v => s(v).replace(/\(주\)|주식회사|㈜|\(유\)|유한회사|\s/g, '').toLowerCase()
 const MON = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 }
 // 날짜 칸: 엑셀 날짜 · "2023-01-03(화) 15:52" · "Mon Jun 05 2023 13:40" → "YYYY-MM-DDTHH:mm"(KST)
-function when(v) {
+function when(v) { const r = when0(v); return r && /^20(1[5-9]|2\d)-/.test(r) ? r : null } // 오타 연도(20024 등)는 버림
+function when0(v) {
   if (v instanceof Date) return new Date(v.getTime() + 9 * 3600e3).toISOString().slice(0, 16)
   const t = s(v)
   let m = t.match(/(20\d\d|19\d\d)[-.](\d{1,2})[-.](\d{1,2})(?:\([^)]*\))?\s*(?:(\d{1,2}):(\d{2}))?/)
@@ -84,18 +85,25 @@ const [{ data: users }, { data: custs }] = await Promise.all([sb.from('users').s
 const parkId = users.find(u => u.name === '박성언')?.id || null
 const custByName = new Map(); custs.forEach(c => { const k = norm(c.company_name); if (!custByName.has(k)) custByName.set(k, c.id) })
 // 이미 있는 리드와 같은 날·같은 연락처면 건너뜀
-let L = []; for (let o = 0; ; o += 1000) { const { data } = await sb.from('pipeline_leads').select('company_name, contact_phone, contact_email, inquiry_date, notes').order('id').range(o, o + 999); L = L.concat(data); if (data.length < 1000) break }
+let L = []; for (let o = 0; ; o += 1000) { const { data } = await sb.from('pipeline_leads').select('company_name, contact_phone, contact_email, inquiry_date, notes, customer_code').order('id').range(o, o + 999); L = L.concat(data); if (data.length < 1000) break }
 const already = L.some(l => (l.notes || '').startsWith('[이전 기록]'))
-const existKey = new Set(L.map(l => `${(l.contact_phone || '').replace(/\D/g, '').slice(-8)}|${l.inquiry_date}`).concat(L.map(l => `${norm(l.company_name)}|${l.inquiry_date}`)))
+const usedCode = new Set(L.map(l => l.customer_code).filter(Boolean))
+const legacyKey = new Set(L.filter(l => (l.notes || '').startsWith('[이전 기록]')).map(l => `${norm(l.company_name)}|${l.inquiry_date}|${(l.contact_phone || '').replace(/\D/g, '')}`))
+const L0 = L.filter(l => !(l.notes || '').startsWith('[이전 기록]'))
+const existKey = new Set(L0.map(l => `${(l.contact_phone || '').replace(/\D/g, '').slice(-8)}|${l.inquiry_date}`).concat(L0.map(l => `${norm(l.company_name)}|${l.inquiry_date}`).concat([])))
 
 const out = [], skipped = { dup: 0 }
 for (const { x, i } of keep) {
   const date = x.at ? x.at.slice(0, 10) : null
+  if (legacyKey.has(`${norm(x.company)}|${date}|${x.phone.replace(/\D/g, '')}`)) { skipped.dup++; continue } // 이어 넣기
+  // ID 는 겹치면 안 됨(시트 안 중복·지금 ID) → 비우고 메모에 당시 코드
+  const codeDup = x.code && usedCode.has(x.code); if (x.code && !codeDup) usedCode.add(x.code)
   if (date && (existKey.has(`${x.phone.replace(/\D/g, '').slice(-8)}|${date}`) || existKey.has(`${norm(x.company)}|${date}`))) { skipped.dup++; continue }
   const won = !!x.contract
   const contacts = [x.c1, x.c2, x.c3].map((c, k) => (c[0] || c[1]) ? `${k + 1}차 응대${c[0] ? ` ${when(c[0])?.slice(0, 10) || c[0]}` : ''}: ${c[1]}`.trim() : null).filter(Boolean)
   const notes = [
     `[이전 기록] 2023~2025.1 인바운드 시트 가져오기 (2026-10-22)`,
+    codeDup && `당시 코드 ${x.code} (다른 기록과 겹쳐 ID 비움)`,
     x.owner && `당시 담당자 ${x.owner}`,
     x.route && `당시 유입 경로 ${x.route}${x.channel ? ` · ${x.channel}` : ''}${x.ad ? ` · ${x.ad}` : ''}`,
     x.step && `응대 단계 ${x.step}`, x.endReason && `응대 종료 사유 ${x.endReason}`,
@@ -106,7 +114,7 @@ for (const { x, i } of keep) {
   ].filter(Boolean).join('\n')
   const created = x.at || x.doneAt || '2024-12-31T00:00'
   out.push({
-    customer_code: x.code || null, company_name: x.company, contact_person: x.name || null, contact_phone: phoneFmt(x.phone), contact_email: x.email || null,
+    customer_code: codeDup ? null : x.code || null, company_name: x.company, contact_person: x.name || null, contact_phone: phoneFmt(x.phone), contact_email: x.email || null,
     inquiry_date: date, inquiry_hour: x.at ? Number(x.at.slice(11, 13)) : null,
     inquiry_channel: METHOD[x.route] || '기타', inquiry_source: source(x.channel, x.ad),
     inquiry_content: [x.inquiry, x.contents, x.content2].filter((v, k, a) => v && a.indexOf(v) === k).join('\n') || null,
@@ -135,7 +143,7 @@ const sample = out.filter(r => r.notes.includes('\n미팅 ')).slice(0, 2).concat
 sample.forEach(r => console.log('\n  ─', r.inquiry_date || '(유입일 없음)', r.company_name, '|', r.stage, '|', r.inquiry_channel, '/', r.inquiry_source || '모름', '| ID', r.customer_code || '-', '| 등록일', r.created_at.slice(0, 10), '\n    ' + r.notes.split('\n').slice(1, 6).join('\n    ').replace(/참여 [^·]+·/g, '참여 ○○ ·')))
 
 if (LIVE) {
-  if (already) { console.log('\n이미 들어가 있어 멈춥니다.'); process.exit(1) }
+  if (already && !process.argv.includes('--resume')) { console.log('\n이미 들어가 있어 멈춥니다. 이어 넣기는 --resume'); process.exit(1) }
   const ids = []
   for (let k = 0; k < out.length; k += 200) {
     const { data, error } = await sb.from('pipeline_leads').insert(out.slice(k, k + 200)).select('id')
