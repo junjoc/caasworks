@@ -347,6 +347,8 @@ export async function POST(request: NextRequest) {
         dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: '문의클릭' } } }, metrics: [{ name: 'eventCount' }], limit: '10000' } }),
       analyticsData.properties.runReport({ property: `properties/${propertyId}`, requestBody: {
         dateRanges: [{ startDate, endDate }], dimensions: [{ name: 'date' }, { name: 'sessionSource' }, { name: 'sessionMedium' }, { name: 'sessionCampaignName' }],
+        // 마케팅 사이트 세션만 — 예전에 광고로 가입한 고객이 북마크로 앱을 열어도 GA 는 광고 출처를 이어 붙여서(10월 구글 cpc 151세션이 app.caas.works) 광고 유입이 부풀었다 (10/22)
+        dimensionFilter: gaSegmentFilter('marketing', 'landingPage'),
         metrics: [{ name: 'sessions' }], limit: '10000' } }),
       // 네이버 블로그 클릭: 클릭한 페이지의 직전 주소가 블로그 글이면 그 글의 블로그 아이디로 자사·외주를 가른다
       analyticsData.properties.runReport({ property: `properties/${propertyId}`, requestBody: {
