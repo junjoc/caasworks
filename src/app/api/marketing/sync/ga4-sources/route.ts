@@ -339,80 +339,83 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ─── 문의 클릭(GA 이벤트 "문의클릭")·광고 세션 — 매일 아침 손으로 넣던 값 (10/22) ───
-    // 세그먼트 없이 센다(팀이 GA 에서 보던 숫자와 같음). 네이버 블로그 클릭은 그날 블로그 세션 비율로 자사·외주에 나눈다.
-    const [clickRep, paidRep, blogClickRep] = await Promise.all([
+    // ─── 문의 클릭(GA 이벤트 "문의클릭")·문의 제출("fin-contact", 10/21 GTM v26~)·광고 세션 — 매일 아침 손으로 넣던 값 (10/22) ───
+    // 이벤트는 세그먼트 없이 센다(팀이 GA 에서 보던 숫자와 같음). 네이버 블로그는 이벤트 직전 글 주소의 블로그 아이디로 자사·외주를 가른다.
+    const EVENTS = { '문의클릭': 'inquiry_clicks', 'fin-contact': 'inquiry_submits' } as const
+    type EvField = (typeof EVENTS)[keyof typeof EVENTS]
+    const evFilter = { filter: { fieldName: 'eventName', inListFilter: { values: Object.keys(EVENTS) } } }
+    const [evRep, paidRep, blogEvRep] = await Promise.all([
       analyticsData.properties.runReport({ property: `properties/${propertyId}`, requestBody: {
-        dateRanges: [{ startDate, endDate }], dimensions: [{ name: 'date' }, { name: 'sessionSource' }, { name: 'sessionMedium' }, { name: 'sessionCampaignName' }],
-        dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: '문의클릭' } } }, metrics: [{ name: 'eventCount' }], limit: '10000' } }),
+        dateRanges: [{ startDate, endDate }], dimensions: [{ name: 'date' }, { name: 'sessionSource' }, { name: 'sessionMedium' }, { name: 'sessionCampaignName' }, { name: 'eventName' }],
+        dimensionFilter: evFilter, metrics: [{ name: 'eventCount' }], limit: '10000' } }),
       analyticsData.properties.runReport({ property: `properties/${propertyId}`, requestBody: {
         dateRanges: [{ startDate, endDate }], dimensions: [{ name: 'date' }, { name: 'sessionSource' }, { name: 'sessionMedium' }, { name: 'sessionCampaignName' }],
         // 마케팅 사이트 세션만 — 예전에 광고로 가입한 고객이 북마크로 앱을 열어도 GA 는 광고 출처를 이어 붙여서(10월 구글 cpc 151세션이 app.caas.works) 광고 유입이 부풀었다 (10/22)
         dimensionFilter: gaSegmentFilter('marketing', 'landingPage'),
         metrics: [{ name: 'sessions' }], limit: '10000' } }),
-      // 네이버 블로그 클릭: 클릭한 페이지의 직전 주소가 블로그 글이면 그 글의 블로그 아이디로 자사·외주를 가른다
       analyticsData.properties.runReport({ property: `properties/${propertyId}`, requestBody: {
-        dateRanges: [{ startDate, endDate }], dimensions: [{ name: 'date' }, { name: 'pageReferrer' }],
-        dimensionFilter: { andGroup: { expressions: [
-          { filter: { fieldName: 'eventName', stringFilter: { value: '문의클릭' } } },
-          { filter: { fieldName: 'sessionSource', stringFilter: { matchType: 'CONTAINS', value: 'blog.naver' } } },
-        ] } }, metrics: [{ name: 'eventCount' }], limit: '10000' } }),
+        dateRanges: [{ startDate, endDate }], dimensions: [{ name: 'date' }, { name: 'pageReferrer' }, { name: 'eventName' }],
+        dimensionFilter: { andGroup: { expressions: [evFilter, { filter: { fieldName: 'sessionSource', stringFilter: { matchType: 'CONTAINS', value: 'blog.naver' } } }] } },
+        metrics: [{ name: 'eventCount' }], limit: '10000' } }),
     ])
     const ymd = (v: string) => `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}`
-    const clicks = new Map<string, number>()           // date|channel|campaign → 문의 클릭 (오가닉)
-    const adStats = new Map<string, { date: string; channel: string; campaign_name: string; adgroup_name: string; ga: number; clicks: number }>() // 광고그룹 행
+    // date|channel|campaign → 이벤트 수 (오가닉·캠페인 미확인 행)
+    const ev: Record<EvField, Map<string, number>> = { inquiry_clicks: new Map(), inquiry_submits: new Map() }
+    const bump = (f: EvField, k: string, n: number) => ev[f].set(k, (ev[f].get(k) || 0) + n)
+    const adStats = new Map<string, { date: string; channel: string; campaign_name: string; adgroup_name: string; ga: number; inquiry_clicks: number; inquiry_submits: number }>() // 광고그룹 행
     const addAgg = (date: string, channel: string, campaign_name: string, ad_type = '콘텐츠') => {
       const key = `${date}|${channel}|${campaign_name}`
       if (!aggregated.has(key)) aggregated.set(key, { date, channel, campaign_name, ad_type, ga_visits: 0, active_users: 0, page_views: 0, conversions: 0, sources: new Map() })
       return key
     }
-    const toAd = (date: string, p: { channel: string; campaign_name: string; adgroup_name?: string }, ga: number, cl: number) => {
+    const toAd = (date: string, p: { channel: string; campaign_name: string; adgroup_name?: string }, ga: number, f?: EvField, n = 0) => {
       if (p.adgroup_name) {
         const k = `${date}|${p.channel}|${p.campaign_name}|${p.adgroup_name}`
-        const a = adStats.get(k) || { date, channel: p.channel, campaign_name: p.campaign_name, adgroup_name: p.adgroup_name, ga: 0, clicks: 0 }
-        a.ga += ga; a.clicks += cl; adStats.set(k, a)
+        const a = adStats.get(k) || { date, channel: p.channel, campaign_name: p.campaign_name, adgroup_name: p.adgroup_name, ga: 0, inquiry_clicks: 0, inquiry_submits: 0 }
+        a.ga += ga; if (f) a[f] += n; adStats.set(k, a)
       } else {
         const k = addAgg(date, p.channel, p.campaign_name, '검색')
         aggregated.get(k)!.ga_visits += ga
-        if (cl) clicks.set(k, (clicks.get(k) || 0) + cl)
+        if (f && n) bump(f, k, n)
       }
     }
     for (const row of paidRep.data.rows || []) {
       const [d, s, m, c] = (row.dimensionValues || []).map(v => v.value || '')
-      const p = paidTarget(s, m, c); if (p) toAd(ymd(d), p, Number(row.metricValues?.[0]?.value) || 0, 0)
+      const p = paidTarget(s, m, c); if (p) toAd(ymd(d), p, Number(row.metricValues?.[0]?.value) || 0)
     }
-    const blogClicks = new Map<string, number>()
-    for (const row of clickRep.data.rows || []) {
-      const [d, s, m, c] = (row.dimensionValues || []).map(v => v.value || '')
+    const blogLeft = new Map<string, number>() // `${f}|${date}` → 글 주소로 못 나눈 네이버 블로그 이벤트
+    for (const row of evRep.data.rows || []) {
+      const [d, s, m, c, name] = (row.dimensionValues || []).map(v => v.value || '')
+      const f = EVENTS[name as keyof typeof EVENTS]; if (!f) continue
       const n = Number(row.metricValues?.[0]?.value) || 0
       const p = paidTarget(s, m, c)
-      if (p) { toAd(ymd(d), p, 0, n); continue }
+      if (p) { toAd(ymd(d), p, 0, f, n); continue }
       const mp = mapSourceToChannel(s, m); if (!mp) continue
-      if (s.toLowerCase().includes('blog.naver')) { blogClicks.set(d, (blogClicks.get(d) || 0) + n); continue }
-      const k = addAgg(ymd(d), mp.channel, mp.campaign_name, mp.ad_type)
-      clicks.set(k, (clicks.get(k) || 0) + n)
+      if (s.toLowerCase().includes('blog.naver')) { blogLeft.set(`${f}|${d}`, (blogLeft.get(`${f}|${d}`) || 0) + n); continue }
+      bump(f, addAgg(ymd(d), mp.channel, mp.campaign_name, mp.ad_type), n)
     }
-    for (const row of blogClickRep.data.rows || []) {
-      const [d, ref] = (row.dimensionValues || []).map(v => v.value || '')
+    for (const row of blogEvRep.data.rows || []) {
+      const [d, ref, name] = (row.dimensionValues || []).map(v => v.value || '')
+      const f = EVENTS[name as keyof typeof EVENTS]; const bk = `${f}|${d}`
       const id = /blog\.naver\.com/.test(ref) ? parseNaverBlogUrl(ref)?.blogId : null
       const n = Number(row.metricValues?.[0]?.value) || 0
-      if (!id || !blogClicks.has(d)) continue
+      if (!f || !id || !blogLeft.has(bk)) continue
       const c = classifyNaverBlogId(id)
-      const k = addAgg(ymd(d), c.channel, c.source)
-      clicks.set(k, (clicks.get(k) || 0) + n)
-      blogClicks.set(d, Math.max(0, blogClicks.get(d)! - n))
+      bump(f, addAgg(ymd(d), c.channel, c.source), n)
+      blogLeft.set(bk, Math.max(0, blogLeft.get(bk)! - n))
     }
-    for (const [d, n] of Array.from(blogClicks.entries())) {
+    for (const [bk, n] of Array.from(blogLeft.entries())) {
       if (!n) continue
-      // 글 주소를 모르는 클릭: 그날 네이버 블로그 세션이 들어간 칸(자사·인플루언서·팀부스터)에 비율로, 남는 건 가장 큰 칸에
+      const [f, d] = bk.split('|') as [EvField, string]
+      // 글 주소를 모르는 이벤트: 그날 네이버 블로그 세션이 들어간 칸(자사·인플루언서·팀부스터)에 비율로, 남는 건 가장 큰 칸에
       const date = ymd(d)
       const parts = Array.from(aggregated.values()).filter(a => a.date === date && Array.from(a.sources.keys()).some(x => x.toLowerCase().includes('blog.naver')) && a.ga_visits > 0)
       const tot = parts.reduce((s, a) => s + a.ga_visits, 0)
-      if (!tot) { const k = addAgg(date, '외주 블로그', '팀부스터'); clicks.set(k, (clicks.get(k) || 0) + n); continue }
+      if (!tot) { bump(f, addAgg(date, '외주 블로그', '팀부스터'), n); continue }
       let left = n
       parts.sort((a, b) => b.ga_visits - a.ga_visits).forEach((a, i) => {
         const take = i === parts.length - 1 ? left : Math.min(left, Math.round(n * a.ga_visits / tot))
-        if (take > 0) { const k = `${a.date}|${a.channel}|${a.campaign_name}`; clicks.set(k, (clicks.get(k) || 0) + take); left -= take }
+        if (take > 0) { bump(f, `${a.date}|${a.channel}|${a.campaign_name}`, take); left -= take }
       })
     }
 
@@ -512,7 +515,8 @@ export async function POST(request: NextRequest) {
         cost: 0,                         // 오가닉은 비용 0
         conversions: r.conversions,
         ga_visits: r.ga_visits,          // 세션 수
-        inquiry_clicks: clicks.get(key) || 0,          // GA "문의클릭" (10/22, 이전엔 수동)
+        inquiry_clicks: ev.inquiry_clicks.get(key) || 0,   // GA "문의클릭" (10/22, 이전엔 수동)
+        inquiry_submits: ev.inquiry_submits.get(key) || 0, // GA "fin-contact" 문의 제출
         signups: manual?.signups || 0,
         inquiries: manual?.inquiries || 0,
         adoptions: manual?.adoptions || 0,
@@ -531,7 +535,7 @@ export async function POST(request: NextRequest) {
       insertRows.push({
         date, channel, ad_type: '콘텐츠', campaign_name, campaign_id: null,
         impressions: 0, clicks: 0, cost: 0, conversions: 0, ga_visits: 0,
-        inquiry_clicks: 0, signups: manual.signups || 0,
+        inquiry_clicks: 0, inquiry_submits: 0, signups: manual.signups || 0,
         inquiries: manual.inquiries || 0, adoptions: manual.adoptions || 0,
         signup_companies: manual.signup_companies || null, inquiry_companies: manual.inquiry_companies || null,
         adoption_companies: manual.adoption_companies || null, notes: null,
@@ -554,8 +558,8 @@ export async function POST(request: NextRequest) {
     // 광고그룹 행: GA 세션·문의 클릭을 그 날짜·캠페인·광고그룹 행에 (없으면 만든다)
     for (const a of Array.from(adStats.values())) {
       const { data: ex } = await supabase.from('ad_performance').select('id').eq('date', a.date).eq('channel', a.channel).eq('campaign_name', a.campaign_name).eq('adgroup_name', a.adgroup_name).limit(1)
-      if (ex && ex.length) await supabase.from('ad_performance').update({ ga_visits: a.ga, inquiry_clicks: a.clicks }).eq('id', ex[0].id)
-      else await supabase.from('ad_performance').insert({ date: a.date, channel: a.channel, ad_type: '검색', campaign_name: a.campaign_name, adgroup_name: a.adgroup_name, impressions: 0, clicks: 0, cost: 0, ga_visits: a.ga, inquiry_clicks: a.clicks, signups: 0, inquiries: 0, adoptions: 0 })
+      if (ex && ex.length) await supabase.from('ad_performance').update({ ga_visits: a.ga, inquiry_clicks: a.inquiry_clicks, inquiry_submits: a.inquiry_submits }).eq('id', ex[0].id)
+      else await supabase.from('ad_performance').insert({ date: a.date, channel: a.channel, ad_type: '검색', campaign_name: a.campaign_name, adgroup_name: a.adgroup_name, impressions: 0, clicks: 0, cost: 0, ga_visits: a.ga, inquiry_clicks: a.inquiry_clicks, inquiry_submits: a.inquiry_submits, signups: 0, inquiries: 0, adoptions: 0 })
     }
     // 자동으로 바뀐 뒤 손으로 넣은 GA 유입·문의 클릭이 겹치지 않게 비움 (수동 행의 도입·메모는 그대로)
     await supabase.from('ad_performance').update({ ga_visits: 0, inquiry_clicks: 0 }).eq('data_source', 'manual').in('channel', [...organicChannels, '네이버', '구글', '메타', '유튜브', '기타']).is('campaign_id', null).gte('date', startDate).lte('date', endDate).or('ga_visits.gt.0,inquiry_clicks.gt.0')

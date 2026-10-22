@@ -40,6 +40,8 @@ interface AdPerformance {
   cost: number
   ga_visits: number
   inquiry_clicks: number
+  inquiry_submits?: number     // GA "fin-contact" 문의 제출 (10/21 GTM v26~)
+  media_conversions?: number   // 광고 매체가 회사명 없이 보고한 전환 — 문의에 더하지 않음 (10/22)
   signups: number
   inquiries: number
   adoptions: number
@@ -499,6 +501,8 @@ export default function AdsPage() {
     const totalClicks = items.reduce((s, d) => s + d.clicks, 0)
     const totalGaVisits = items.reduce((s, d) => s + (d.ga_visits || 0), 0)
     const totalInquiryClicks = items.reduce((s, d) => s + (d.inquiry_clicks || 0), 0)
+    const totalSubmits = items.reduce((s, d) => s + (d.inquiry_submits || 0), 0)
+    const totalMedia = items.reduce((s, d) => s + (d.media_conversions || 0), 0)
     const totalSignups = items.reduce((s, d) => s + d.signups, 0)
     const totalInquiries = items.reduce((s, d) => s + d.inquiries, 0)
     const totalAdoptions = items.reduce((s, d) => s + d.adoptions, 0)
@@ -507,7 +511,7 @@ export default function AdsPage() {
     const cpa = (totalSignups + totalInquiries + totalAdoptions) > 0
       ? Math.round(totalCost / (totalSignups + totalInquiries + totalAdoptions))
       : 0
-    return { totalCost, totalImpressions, totalClicks, totalGaVisits, totalInquiryClicks, ctr, cpc, totalSignups, totalInquiries, totalAdoptions, cpa }
+    return { totalCost, totalImpressions, totalClicks, totalGaVisits, totalInquiryClicks, totalSubmits, totalMedia, ctr, cpc, totalSignups, totalInquiries, totalAdoptions, cpa }
   }, [data, tab])
 
   // ─── Channel subtotals ─────────────────────────────────
@@ -883,10 +887,10 @@ export default function AdsPage() {
   // ─── Render ─────────────────────────────────────────────
 
   // ─── 광고 표: 광고비·노출이 있는 행만, 채널 › 캠페인 › 광고그룹 기간 합계 (10/21) ───
-  type AdTot = { cost: number; impressions: number; clicks: number; ga: number; inqClicks: number; inquiries: number; adoptions: number }
+  type AdTot = { cost: number; impressions: number; clicks: number; ga: number; inqClicks: number; submits: number; inquiries: number; adoptions: number }
   const GROUP_COLOR = (g: InflowGroup) => INFLOW_COLOR[g] || 'var(--ds-na)'
-  const add = (t: AdTot, d: AdPerformance) => { t.cost += d.cost; t.impressions += d.impressions; t.clicks += d.clicks; t.ga += d.ga_visits || 0; t.inqClicks += d.inquiry_clicks || 0; t.inquiries += d.inquiries; t.adoptions += d.adoptions }
-  const zero = (): AdTot => ({ cost: 0, impressions: 0, clicks: 0, ga: 0, inqClicks: 0, inquiries: 0, adoptions: 0 })
+  const add = (t: AdTot, d: AdPerformance) => { t.cost += d.cost; t.impressions += d.impressions; t.clicks += d.clicks; t.ga += d.ga_visits || 0; t.inqClicks += d.inquiry_clicks || 0; t.submits += d.inquiry_submits || 0; t.inquiries += d.inquiries; t.adoptions += d.adoptions }
+  const zero = (): AdTot => ({ cost: 0, impressions: 0, clicks: 0, ga: 0, inqClicks: 0, submits: 0, inquiries: 0, adoptions: 0 })
   type Row = AdTot & { key: string; group: InflowGroup; sub: string; label: string; detail: string; campaignId: string | null; type: string; raw: string; days: AdPerformance[] }
   // 유입 분류 11: 광고는 캠페인 › 광고그룹, 나머지는 분류 › 세부. GA 유입은 비고의 실제 출처별로 나눈다(빙·다음, ChatGPT·Gemini …)
   const { adGroups, adTotal, rowByKey } = useMemo(() => {
@@ -911,7 +915,7 @@ export default function AdsPage() {
         r.ga += p.n
         if (!r.days.includes(d)) r.days.push(d)
       }
-      if (!parts.length || main.ga_visits || d.cost || d.inquiry_clicks || d.inquiries || d.adoptions) {
+      if (!parts.length || main.ga_visits || d.cost || d.inquiry_clicks || d.inquiry_submits || d.inquiries || d.adoptions) {
         const sub = parts.length ? '기타' : f.sub // 출처별로 나누고 남은 몫은 그 분류의 기타
         const key = `${f.group}|${sub}`
         const r = get(key, () => ({ key, group: f.group, sub, label: sub, detail: '', campaignId: null, type: d.ad_type, raw: f.raw }))
@@ -920,13 +924,13 @@ export default function AdsPage() {
     }
     const list = Array.from(rows.values())
     list.forEach(r => r.days.sort((a, b) => b.date.localeCompare(a.date)))
-    const total = zero(); list.forEach(r => { total.cost += r.cost; total.impressions += r.impressions; total.clicks += r.clicks; total.ga += r.ga; total.inqClicks += r.inqClicks; total.inquiries += r.inquiries; total.adoptions += r.adoptions })
+    const total = zero(); list.forEach(r => { total.cost += r.cost; total.impressions += r.impressions; total.clicks += r.clicks; total.ga += r.ga; total.inqClicks += r.inqClicks; total.submits += r.submits; total.inquiries += r.inquiries; total.adoptions += r.adoptions })
     // 11 분류는 비어 있어도 모두 보인다 (빠진 유입을 알아볼 수 있게). 미분류는 있을 때만
     const order = INFLOW_ORDER.filter(g => g !== OTHER_GROUP || list.some(r => r.group === OTHER_GROUP))
       .filter(g => tab === '전체' || (tab === '유료') === PAID_GROUPS.includes(g))
     const groups = order.map(ch => {
       const rs = list.filter(r => r.group === ch).sort((a, b) => ch === '광고' ? b.cost - a.cost : subOrder(ch, a.sub) - subOrder(ch, b.sub) || b.ga - a.ga)
-      const tot = zero(); rs.forEach(r => { tot.cost += r.cost; tot.impressions += r.impressions; tot.clicks += r.clicks; tot.ga += r.ga; tot.inqClicks += r.inqClicks; tot.inquiries += r.inquiries; tot.adoptions += r.adoptions })
+      const tot = zero(); rs.forEach(r => { tot.cost += r.cost; tot.impressions += r.impressions; tot.clicks += r.clicks; tot.ga += r.ga; tot.inqClicks += r.inqClicks; tot.submits += r.submits; tot.inquiries += r.inquiries; tot.adoptions += r.adoptions })
       return { ch, rows: rs, tot }
     })
     return { adGroups: groups, adTotal: total, rowByKey: rows }
@@ -940,6 +944,7 @@ export default function AdsPage() {
     <td className="num muted">{t.impressions > 0 ? formatCurrency(Math.round(t.cost / t.impressions * 1000)) : '—'}</td>
     <td className="num">{t.ga || '—'}</td>
     <td className="num">{t.inqClicks || '—'}</td>
+    <td className="num">{t.submits || '—'}</td>
     <td className="num">{t.inquiries || '—'}</td>
     <td className="num">{t.adoptions || '—'}</td>
   </>)
@@ -970,10 +975,10 @@ export default function AdsPage() {
 
       <KpiRow items={[
         { label: '집행비', value: formatCurrency(budgetSummary.totalSpent), bar: budgetSummary.burnRate, sub: `예산 ${formatCurrency(budgetSummary.totalBudget)} · 소진 ${budgetSummary.burnRate.toFixed(1)}% · 기간 ${budgetSummary.daysPassed}/${budgetSummary.daysInMonth}일` },
-        { label: '유입', value: formatNumber(kpi.totalGaVisits), sub: `GA 세션 · 문의 클릭 ${formatNumber(kpi.totalInquiryClicks)}` },
+        { label: '유입', value: formatNumber(kpi.totalGaVisits), sub: `GA 세션 · 문의 클릭 ${formatNumber(kpi.totalInquiryClicks)} · 제출 ${formatNumber(kpi.totalSubmits)}` },
         { label: '클릭', value: formatNumber(kpi.totalClicks), sub: `광고 · 노출 ${formatNumber(kpi.totalImpressions)} · CTR ${kpi.ctr.toFixed(2)}% · CPC ${formatCurrency(kpi.cpc)}` },
-        { label: '문의', value: formatNumber(kpi.totalInquiries), sub: `문의사 · 가입사 ${formatNumber(kpi.totalSignups)}` },
-        { label: '도입', value: formatNumber(kpi.totalAdoptions), sub: kpi.cpa > 0 ? `도입사 · 결과당 ${formatCurrency(kpi.cpa)}` : '도입사' },
+        { label: '문의', value: formatNumber(kpi.totalInquiries), sub: `CRM 리드${kpi.totalMedia ? ` · 매체 보고 전환 ${formatNumber(kpi.totalMedia)} 별도` : ''}` },
+        { label: '도입', value: formatNumber(kpi.totalAdoptions), sub: kpi.cpa > 0 ? `도입완료 리드 · 결과당 ${formatCurrency(kpi.cpa)}` : '도입완료 리드' },
       ]} />
 
       {loading ? <Skeleton rows={10} /> : adGroups.length === 0 ? (
@@ -981,8 +986,8 @@ export default function AdsPage() {
       ) : (
         <div className="ds-wrap max-h-[calc(100vh-300px)]">
           <table className="ds-table is-clickable is-fixed">
-            <colgroup>{[22, 15, 6, 10, 8, 6, 6, 7, 6, 6, 4, 4].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
-            <thead><tr><th>분류 › 세부 · 캠페인</th><th>광고그룹</th><th>유형</th><th>비용</th><th>노출</th><th>클릭</th><th>CTR</th><th>CPM</th><th>GA 유입</th><th>문의 클릭</th><th>문의</th><th>도입</th></tr></thead>
+            <colgroup>{[21, 14, 6, 9, 8, 6, 6, 6, 6, 6, 4, 4, 4].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
+            <thead><tr><th>분류 › 세부 · 캠페인</th><th>광고그룹</th><th>유형</th><th>비용</th><th>노출</th><th>클릭</th><th>CTR</th><th>CPM</th><th>GA 유입</th><th>문의 클릭</th><th>문의 제출</th><th>문의</th><th>도입</th></tr></thead>
             <tbody>
               {/* 합계 줄은 맨 위 + 머리 바로 아래 고정 — 분류를 다 펼쳐도 보이게 (10/21) */}
               <tr className="ds-sum top">
@@ -1018,7 +1023,7 @@ export default function AdsPage() {
           </table>
         </div>
       )}
-      <BasisNote text="문의 = 유입일이 그 날인 리드 수(화면을 열 때 리드에서 다시 맞춤) + 광고 매체가 회사명 없이 보고한 전환 수(예: 2026년 3월 네이버 6건) · 도입은 팀이 적는 값" />
+      <BasisNote text="GA 유입·문의 클릭(GA 「문의클릭」)·문의 제출(GA 「fin-contact」, 2026-10-21 17시부터)은 매일 07시 GA 에서 · 문의 = 유입일이 그 날인 CRM 리드 수 · 도입 = 그 리드가 도입완료 (팀이 적은 도입 중 리드로 확인 안 되는 기록은 그대로) · 광고 매체가 회사명 없이 보고한 전환은 문의에 더하지 않고 따로 · 문의·도입은 화면을 열 때 리드에서 다시 맞춤" />
 
       <Drawer open={!!openRow} onClose={() => setOpenKey(null)} width="60vw"
         title={openRow ? `${openRow.group} › ${openRow.label}${openRow.detail ? ' › ' + openRow.detail : ''}` : ''}
@@ -1027,16 +1032,16 @@ export default function AdsPage() {
           <div className="p-4">
             <div className="ds-wrap">
               <table className="ds-table is-fixed">
-                <colgroup>{[12, 13, 11, 9, 9, 11, 9, 9, 7, 10].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
-                <thead><tr><th>날짜</th><th>비용</th><th>노출</th><th>클릭</th><th>CTR</th><th>GA 유입</th><th>문의 클릭</th><th>문의</th><th>도입</th><th></th></tr></thead>
+                <colgroup>{[11, 12, 10, 8, 8, 10, 9, 9, 8, 7, 8].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
+                <thead><tr><th>날짜</th><th>비용</th><th>노출</th><th>클릭</th><th>CTR</th><th>GA 유입</th><th>문의 클릭</th><th>문의 제출</th><th>문의</th><th>도입</th><th></th></tr></thead>
                 <tbody>
                   {openRow.days.map(d => (
                     <tr key={d.id} className="ds-row group">
                       <td className="c">{d.date.slice(5).replace('-', '.')}</td>
                       <td className="num">{formatCurrency(d.cost)}</td><td className="num">{formatNumber(d.impressions)}</td><td className="num">{formatNumber(d.clicks)}</td>
                       <td className="num muted">{d.impressions > 0 ? (d.clicks / d.impressions * 100).toFixed(2) + '%' : '—'}</td>
-                      <td className="num">{d.ga_visits || '—'}</td><td className="num">{d.inquiry_clicks || '—'}</td>
-                      <td className="num" title={d.inquiry_companies || ''}>{d.inquiries || '—'}</td><td className="num" title={d.adoption_companies || ''}>{d.adoptions || '—'}</td>
+                      <td className="num">{d.ga_visits || '—'}</td><td className="num">{d.inquiry_clicks || '—'}</td><td className="num">{d.inquiry_submits || '—'}</td>
+                      <td className="num" title={[d.inquiry_companies, d.media_conversions ? `매체 보고 전환 ${d.media_conversions} (문의에 안 더함)` : ''].filter(Boolean).join(' · ')}>{d.inquiries || (d.media_conversions ? <span className="text-ds-fg3">({d.media_conversions})</span> : '—')}</td><td className="num" title={d.adoption_companies || ''}>{d.adoptions || '—'}</td>
                       <td className="c"><span className="inline-flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => openEdit(d)} className="icon-btn" title="수정"><Pencil className="w-3.5 h-3.5" /></button>
                         <button onClick={() => handleDelete(d.id)} className="icon-btn hover:!text-ds-bad" title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>

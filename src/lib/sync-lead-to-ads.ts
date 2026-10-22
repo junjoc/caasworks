@@ -310,49 +310,64 @@ export async function recalcAdPerformanceFromLeads(
 }
 
 /**
- * 유입 성과의 문의(inquiries · inquiry_companies)를 리드에서 다시 맞춘다 (2026-10-22).
- * 리스트와 같은 기준: 유입일이 그 날인 리드 1건 = 문의 1. 유입일을 고치거나 리드를 지우면 여기서 따라감.
- * 도입(adoptions)은 팀이 적는 값이라 건드리지 않는다. 회사명 없이 광고 매체가 준 전환 수는 그대로 둔다.
+ * 유입 성과의 문의·도입을 리드에서 다시 맞춘다 (2026-10-22).
+ * 문의 = 유입일이 그 날인 리드 1건 = 1 (리스트와 같은 기준). 유입일을 고치거나 리드를 지우면 따라감.
+ * 도입 = 그 리드가 지금 "도입완료"면 그 리드의 유입일·유입 분류 칸에 1 (팀이 손으로 적던 값, 104건 중 102건 일치).
+ *   팀이 적은 도입 중 도입완료 리드로 확인되지 않는 이름(리드 없이 계약한 고객, 도입 후 이탈 등)은 지우지 않고 남긴다.
+ * 회사명 없이 광고 매체가 준 전환 수는 media_conversions 로 따로 둔다(문의에 안 더함).
  * 문의 기록이 있는 2026-01-01 이후만.
  */
 export async function recomputeInquiries(supabase: SupabaseClient, from: string, to: string) {
   const start = from < '2026-01-01' ? '2026-01-01' : from
   if (start > to) return { changed: 0, created: 0 }
   const page = async <T,>(q: (a: number, b: number) => PromiseLike<{ data: T[] | null }>) => { let all: T[] = []; for (let o = 0; ; o += 1000) { const { data } = await q(o, o + 999); all = all.concat(data || []); if (!data || data.length < 1000) break } return all }
-  const [leads, rows] = await Promise.all([
-    page<{ company_name: string; inquiry_date: string; inquiry_channel: string | null; inquiry_source: string | null }>((a, b) => supabase.from('pipeline_leads').select('company_name, inquiry_date, inquiry_channel, inquiry_source').gte('inquiry_date', start).lte('inquiry_date', to).order('id').range(a, b)),
-    page<{ id: string; date: string; channel: string; campaign_name: string; adgroup_name: string | null; inquiries: number | null; inquiry_companies: string | null }>((a, b) => supabase.from('ad_performance').select('id, date, channel, campaign_name, adgroup_name, inquiries, inquiry_companies').gte('date', start).lte('date', to).order('id').range(a, b)),
+  const [leads, rows, wonAll] = await Promise.all([
+    page<{ company_name: string; inquiry_date: string; inquiry_channel: string | null; inquiry_source: string | null; stage: string }>((a, b) => supabase.from('pipeline_leads').select('company_name, inquiry_date, inquiry_channel, inquiry_source, stage').gte('inquiry_date', start).lte('inquiry_date', to).order('id').range(a, b)),
+    page<{ id: string; date: string; channel: string; campaign_name: string; adgroup_name: string | null; inquiries: number | null; inquiry_companies: string | null; adoptions: number | null; adoption_companies: string | null }>((a, b) => supabase.from('ad_performance').select('id, date, channel, campaign_name, adgroup_name, inquiries, inquiry_companies, adoptions, adoption_companies').gte('date', start).lte('date', to).order('id').range(a, b)),
+    page<{ company_name: string }>((a, b) => supabase.from('pipeline_leads').select('company_name').eq('stage', '도입완료').gte('inquiry_date', '2026-01-01').order('id').range(a, b)),
   ])
+  const norm = (v: string) => v.replace(/\(주\)|주식회사|㈜|\(유\)|유한회사|\(사\)|\s/g, '').toLowerCase()
+  // 자동으로 붙는 도입 = 2026 이후 유입한 도입완료 리드. 그 전에 유입한 고객의 도입은 팀 기록을 그대로 둔다
+  const wonNames = new Set(wonAll.map(l => norm(l.company_name)))
+  const split = (s: string | null) => (s || '').split(',').map(x => x.trim()).filter(Boolean)
   const key = (d: string, ch: string, cp: string, ag?: string | null) => `${d}|${ch}|${cp}|${ag || ''}`
-  const want = new Map<string, { date: string; channel: string; campaign_name: string; adgroup_name?: string; names: string[] }>()
+  const want = new Map<string, { date: string; channel: string; campaign_name: string; adgroup_name?: string; names: string[]; won: string[] }>()
   for (const l of leads) {
     const ch = l.inquiry_channel || '', src = l.inquiry_source || ''
     const f = classifyLead(ch, src)
     // 광고 캠페인 대응표 → 그 광고그룹 행 · 예전 채널 값 → 예전 행 · 10/21 새 분류("검색 › 네이버") → 분류 이름 행
     const m: AdMapping = CAMPAIGN_MAP[ch]?.[src] ? { channel: ch, ...CAMPAIGN_MAP[ch][src] } : (!src.includes('›') && mapLeadChannelToAds(ch, src)) || { channel: f.group, campaign_name: f.sub }
     const k = key(l.inquiry_date, m.channel, m.campaign_name, m.adgroup_name)
-    if (!want.has(k)) want.set(k, { date: l.inquiry_date, ...m, names: [] })
+    if (!want.has(k)) want.set(k, { date: l.inquiry_date, ...m, names: [], won: [] })
     want.get(k)!.names.push(l.company_name)
+    if (l.stage === '도입완료') want.get(k)!.won.push(l.company_name)
   }
   const byKey = new Map<string, typeof rows>()
   for (const r of rows) { const k = key(r.date, r.channel, r.campaign_name, r.adgroup_name); if (!byKey.has(k)) byKey.set(k, []); byKey.get(k)!.push(r) }
+  // 팀이 적은 도입 중 리드로 확인 안 되는 이름 → 그 행에 그대로
+  const keptWon = (r: (typeof rows)[number]) => split(r.adoption_companies).filter(n => !wonNames.has(norm(n)))
+  const unnamedWon = (r: (typeof rows)[number]) => Math.max(0, (r.adoptions || 0) - split(r.adoption_companies).length) // 이름 없이 적힌 도입 수
   const ops: PromiseLike<unknown>[] = []
   let changed = 0, created = 0
   const used = new Set<string>()
+  const patch = (r: (typeof rows)[number], inq: string[], won: string[]) => {
+    const wonAllNames = Array.from(new Set([...won, ...keptWon(r)]))
+    const next = { inquiries: inq.length, inquiry_companies: inq.length ? inq.join(', ') : null, adoptions: wonAllNames.length + unnamedWon(r), adoption_companies: wonAllNames.length ? wonAllNames.join(', ') : null }
+    if ((r.inquiries || 0) !== next.inquiries || (r.inquiry_companies || null) !== next.inquiry_companies || (r.adoptions || 0) !== next.adoptions || (r.adoption_companies || null) !== next.adoption_companies) {
+      changed++; ops.push(supabase.from('ad_performance').update(next).eq('id', r.id))
+    }
+  }
   for (const [k, w] of Array.from(want.entries())) {
     const cands = byKey.get(k) || []
     const row = cands.find(r => r.inquiry_companies) || cands[0]
-    const names = w.names.join(', ')
-    if (row) {
-      used.add(row.id)
-      if ((row.inquiries || 0) !== w.names.length || (row.inquiry_companies || '') !== names) { changed++; ops.push(supabase.from('ad_performance').update({ inquiries: w.names.length, inquiry_companies: names }).eq('id', row.id)) }
-    } else {
+    if (row) { used.add(row.id); patch(row, w.names, w.won) }
+    else {
       created++
-      ops.push(supabase.from('ad_performance').insert({ date: w.date, channel: w.channel, ad_type: '콘텐츠', campaign_name: w.campaign_name, ...adgroupFilter(w), impressions: 0, clicks: 0, cost: 0, ga_visits: 0, inquiry_clicks: 0, signups: 0, inquiries: w.names.length, adoptions: 0, inquiry_companies: names, data_source: 'manual' }))
+      ops.push(supabase.from('ad_performance').insert({ date: w.date, channel: w.channel, ad_type: '콘텐츠', campaign_name: w.campaign_name, ...adgroupFilter(w), impressions: 0, clicks: 0, cost: 0, ga_visits: 0, inquiry_clicks: 0, signups: 0, inquiries: w.names.length, adoptions: w.won.length, inquiry_companies: w.names.join(', '), adoption_companies: w.won.length ? w.won.join(', ') : null, data_source: 'manual' }))
     }
   }
-  // 리드가 없어진 행(유입일 변경·삭제)은 문의를 비움 — 회사명이 있던 행만 (매체 전환 수는 그대로)
-  for (const r of rows) if (!used.has(r.id) && r.inquiry_companies) { changed++; ops.push(supabase.from('ad_performance').update({ inquiries: 0, inquiry_companies: null }).eq('id', r.id)) }
+  // 리드가 없어진 행(유입일 변경·삭제): 문의는 비우고, 도입은 리드로 확인 안 되는 팀 기록만 남김
+  for (const r of rows) if (!used.has(r.id) && (r.inquiry_companies || r.adoption_companies)) patch(r, [], [])
   for (let i = 0; i < ops.length; i += 20) await Promise.all(ops.slice(i, i + 20))
   return { changed, created }
 }
