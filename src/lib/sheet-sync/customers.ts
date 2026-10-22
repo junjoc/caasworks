@@ -2,7 +2,7 @@
 // 매칭: 고객사 ID(customer_code) → 회사명. 시트 값이 있는 칸만 덮어씀. 삭제 없음. DB 에 없는 회사는 생성
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { WorkBook } from 'xlsx'
-import { grid, clean, excelDate, normalize, fetchAll, type Step } from './common'
+import { grid, clean, excelDate, normalize, stripSuffix, fetchAll, type Step } from './common'
 
 const phone = (v: unknown) => {
   if (v == null || v === '') return null
@@ -38,11 +38,16 @@ export async function syncCustomers(sb: SupabaseClient, wb: WorkBook, apply: boo
   const customers = await fetchAll<Record<string, unknown> & { id: string; company_name: string; customer_code: string | null }>(sb, 'customers', '*')
   const byCode = new Map(customers.filter(c => c.customer_code).map(c => [String(c.customer_code), c]))
   const byName = new Map<string, (typeof customers)[number]>(); for (const c of customers) { byName.set(c.company_name, c); byName.set(normalize(c.company_name), c) }
+  // 10/22: 시트에서 고객사 ID 를 잘못 붙여 넣은 줄이 있음(새얼종합건설 줄에 제이앤탑 ID 등) — ID 가 같아도 회사명이 다르면 ID 로 잇지 않는다
+  const sameName = (a: unknown, b: unknown) => { const x = normalize(a).replace(/\(?(선납|선불|후불|후납)\)?/g, ''), y = normalize(b).replace(/\(?(선납|선불|후불|후납)\)?/g, ''); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)) }
+  const codeConflicts: string[] = []
   const update: { id: string; name: string; patch: Record<string, unknown>; before: Record<string, unknown> }[] = []
   const create: Record<string, unknown>[] = []
   let same = 0
   for (const r of rows) {
-    const c = (r._code ? byCode.get(String(r._code)) : null) || byName.get(r._name as string) || byName.get(normalize(r._name))
+    let c = r._code ? byCode.get(String(r._code)) : undefined
+    if (c && !sameName(c.company_name, r._name)) { codeConflicts.push(`${r._name}: 고객사 ID ${r._code} 는 ${c.company_name} 것`); c = undefined; r.customer_code = null }
+    c = c || byName.get(r._name as string) || byName.get(normalize(r._name)) || byName.get(stripSuffix(r._name)) || byName.get(normalize(stripSuffix(r._name)))
     if (!c) { create.push(r); continue }
     const patch: Record<string, unknown> = {}
     for (const f of FIELDS) {
@@ -54,8 +59,8 @@ export async function syncCustomers(sb: SupabaseClient, wb: WorkBook, apply: boo
     if (Object.keys(patch).length) update.push({ id: c.id, name: c.company_name, patch, before: Object.fromEntries(Object.keys(patch).map(k => [k, c[k]])) })
     else same++
   }
-  const summary = { sheet: rows.length, update: update.length, create: create.length, same }
-  const samples = [...update.slice(0, 6).map(u => `${u.name}: ${Object.keys(u.patch).filter(k => k !== 'notes').join(', ')}`), ...create.slice(0, 4).map(r => `+ ${r._name}`)]
+  const summary = { sheet: rows.length, update: update.length, create: create.length, same, idConflicts: codeConflicts.length }
+  const samples = [...codeConflicts.map(x => `ID 겹침 · ${x}`), ...update.slice(0, 6).map(u => `${u.name}: ${Object.keys(u.patch).filter(k => k !== 'notes').join(', ')}`), ...create.slice(0, 4).map(r => `+ ${r._name}`)]
   // 안전: 한 번에 30곳 넘게 새로 생기면 시트 구조 문제일 수 있음
   const held = create.length > 30 ? `새 고객 ${create.length}곳 — 시트 확인 필요` : undefined
   if (!apply || (held && !force)) return { name: '고객 LIST', ok: true, held, summary, samples }
