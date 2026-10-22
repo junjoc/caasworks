@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { recomputeInquiries } from '@/lib/sync-lead-to-ads'
 
 // Vercel Cron Job — 매일 자동 동기화 (구글 광고 + 네이버 광고 + GA4 콘텐츠)
 // vercel.json에서 매일 오전 7시(KST) 실행 설정
@@ -9,6 +11,8 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
 
 function getBaseUrl() {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL
+  // 배포별 주소(VERCEL_URL)는 배포 보호로 로그인 화면이 와서 매일 4개 동기화가 다 실패했다 → 운영 주소로 (10/22)
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
   return 'http://localhost:3000'
 }
@@ -62,8 +66,9 @@ export async function GET(request: NextRequest) {
     console.error('[Daily Sync] 네이버 광고 실패:', err)
   }
 
-  // 3. GA4 콘텐츠 동기화 (당월 1일 ~ 오늘)
-  const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+  // 3. GA4 콘텐츠 동기화 (당월 1일 ~ 오늘, 월초 1~3일은 전월 1일부터 — 전월 말일 보정)
+  const pm = month === 1 ? 12 : month - 1, py = month === 1 ? year - 1 : year
+  const startDate = kst.getDate() <= 3 ? `${py}-${String(pm).padStart(2, '0')}-01` : `${year}-${String(month).padStart(2, '0')}-01`
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(kst.getDate()).padStart(2, '0')}`
 
   try {
@@ -91,6 +96,14 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     results.ga4_sources = { success: false, error: String(err) }
     console.error('[Daily Sync] GA4 유입소스 실패:', err)
+  }
+
+  // 4-1. 문의 수를 리드 기준으로 다시 맞춤 (10/22 — 유입 성과 = 리스트 건수)
+  try {
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    results.inquiries = await recomputeInquiries(sb, startDate, endDate)
+  } catch (err) {
+    results.inquiries = { error: String(err) }
   }
 
   // 5. 전월 데이터도 월초(1~3일)에는 보정 동기화
