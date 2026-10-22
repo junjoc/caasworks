@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useFollowupLeadIds } from '@/hooks/useFollowupLeadIds'
 import { classifyLead, INFLOW_COLOR } from '@/lib/inflow-taxonomy'
 import { confirmConvertedStageChange, INDUSTRY_OPTIONS, CHANNEL_OPTIONS, VOC_CATEGORY_LABELS, VOC_PRIORITY_LABELS, cn } from '@/lib/utils'
-import { since, due, ago, mmdd, kstToday, kstDate, dayDiff } from '@/lib/elapsed'
+import { since, due, ago, mmdd, kstToday, kstDate, dayDiff, codeToInquiry } from '@/lib/elapsed'
 import { Toolbar, Tabs, DsButton, DsSelect, StatusChip, Skeleton, Empty, stageTone, dsInput } from '@/components/ds'
 import { StageBar, PropertyBar, Card, Rows, Popover, type Prop } from '@/components/ds/detail'
 import { RecordComposer, Timeline, RelatedInquiries, useLeadOverview, postUpdate } from '@/components/pipeline/lead-record'
@@ -111,7 +111,13 @@ export default function LeadDetailPage() {
     toast.success(msg); await reload(); return true
   }
   const setField = (k: string) => (v: string) => { save({ action: 'update_lead', updates: { [k]: v || null } }) }
-  const saveFields = (u: Record<string, string | null>) => save({ action: 'update_lead', updates: u })
+  const saveFields = (u: Record<string, string | null>) => {
+    // 10/22: ID 가 유입일의 기준 — ID 를 바꾸면(유입일을 따로 안 바꿨으면) 유입일·시각을 ID 에 맞춘다
+    const up: Record<string, string | number | null> = { ...u }
+    const ci = 'customer_code' in u ? codeToInquiry(u.customer_code) : null
+    if (ci && !('inquiry_date' in u)) { up.inquiry_date = ci.date; if (ci.hour != null) up.inquiry_hour = ci.hour }
+    return save({ action: 'update_lead', updates: up })
+  }
   const setStage = async (s: string) => {
     if (s === lead.stage) return
     const c = confirmConvertedStageChange(lead.stage, s)
@@ -284,13 +290,15 @@ export default function LeadDetailPage() {
             </>}
           </EditCard>
           <EditCard title="회사 · 현장 · 유입" lead={lead} onSave={saveFields} fields={[
-            { key: 'company_name', label: '회사명' }, { key: 'site_name', label: '현장명' }, { key: 'site_region', label: '지역' }, { key: 'contact_team', label: '본사 팀' }, { key: 'customer_code', label: 'ID' },
+            { key: 'company_name', label: '회사명' }, { key: 'site_name', label: '현장명' }, { key: 'site_region', label: '지역' }, { key: 'contact_team', label: '본사 팀' }, { key: 'customer_code', label: 'ID (유입 일시)' },
             { key: 'site_category', label: '발주', kind: 'select', options: ['민간', '공공'] }, { key: 'industry', label: '사업분류', kind: 'select', options: INDUSTRY_OPTIONS },
             { key: 'inquiry_date', label: '유입일', kind: 'date' }, { key: 'inquiry_channel', label: '채널', kind: 'select', options: CHANNEL_OPTIONS },
             { key: 'inquiry_source', label: '경로' }, { key: 'notes', label: '메모', kind: 'textarea' }]}>
             {fill => <Rows onFill={fill} rows={[
               { label: '현장', value: [lead.site_name, lead.site_region].filter(Boolean).join(' · ') || null }, { label: '본사 팀', value: lead.contact_team },
-              { label: 'ID', value: lead.customer_code }, { label: '발주', value: lead.site_category }, { label: '사업분류', value: lead.industry },
+              { label: 'ID', value: lead.customer_code },
+              { label: '유입일', value: lead.inquiry_date ? <span>{lead.inquiry_date}{lead.inquiry_hour != null ? ` · ${lead.inquiry_hour}시` : ''}{codeToInquiry(lead.customer_code) && codeToInquiry(lead.customer_code)!.date !== lead.inquiry_date && <span className="text-ds-warn"> · ID 날짜({codeToInquiry(lead.customer_code)!.date})와 다름</span>}</span> : null },
+              { label: '발주', value: lead.site_category }, { label: '사업분류', value: lead.industry },
               { label: '유입', value: <><span className="inline-block w-[7px] h-[7px] rounded-full mr-1 align-[1px]" style={{ background: INFLOW_COLOR[f.group] }} />{f.group} › {f.sub}</> },
               { label: '메모', value: lead.notes ? <span className="whitespace-pre-wrap">{lead.notes}</span> : null },
             ]} />}

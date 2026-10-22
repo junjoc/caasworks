@@ -284,11 +284,11 @@ export async function POST(request: NextRequest) {
         const attach = !!prev && (prevDate === today || (!['이탈', '도입완료'].includes(prev.stage) && prevDate >= ago30))
         const reContent = [inquiry.company_name && `회사: ${inquiry.company_name}`, inquiry.name && `문의자: ${inquiry.name}`, inquiry.extra_content, inquiry.referrer && `레퍼러: ${inquiry.referrer}`].filter(Boolean).join('\n')
 
-        // 10/22: 같은 내용이 30분 안에 다시 오면 Slack 재전송(응답이 3초를 넘으면 Slack 이 같은 메시지를 다시 보냄)이나 두 번 누름 — 건너뜀
+        // 10/22: 같은 내용이 7일 안에 다시 오면 같은 문의(Slack 재전송 · 두 번 누름 · 같은 내용 재접수)로 보고 건너뜀 (사용자: 30분 → 7일)
         // (셀트리온 10/21: 22:57 등록 → 22:58 같은 내용이 "재문의"로 붙었던 것)
         const body1 = (s: string | null | undefined) => String(s || '').replace(/레퍼러[^\n]*|실제 레퍼러[^\n]*/g, '').replace(/\s+/g, '')
-        if (prev && Date.now() - new Date(prev.created_at).getTime() < 30 * 60 * 1000 && inquiry.extra_content && body1(prev.inquiry_content).includes(body1(inquiry.extra_content))) {
-          console.log('Slack webhook: same inquiry resent within 30min, skipping', prev.id)
+        if (prev && Date.now() - new Date(prev.created_at).getTime() < 7 * 86400000 && inquiry.extra_content && body1(prev.inquiry_content).includes(body1(inquiry.extra_content))) {
+          console.log('Slack webhook: same inquiry within 7 days, skipping', prev.id)
           return NextResponse.json({ ok: true, action: 'duplicate_resend_skipped', lead_id: prev.id })
         }
         if (prev && attach) {

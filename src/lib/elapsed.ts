@@ -27,3 +27,14 @@ export function ago(from: string, today = kstToday()) {
   const n = Math.max(0, dayDiff(from, today))
   return n === 0 ? '오늘' : `${n}일 전`
 }
+
+/** ID(고객사 코드) YYMMDDHHmm → 유입일·시각. ID 가 유입일의 기준 (10/22) */
+export function codeToInquiry(code: string | null | undefined): { date: string; hour: number | null } | null {
+  const c = String(code || '').trim()
+  if (!/^\d{10}$/.test(c)) return null
+  const y = 2000 + +c.slice(0, 2), m = +c.slice(2, 4), d = +c.slice(4, 6), h = +c.slice(6, 8), mi = +c.slice(8, 10)
+  if (m < 1 || m > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  if (dt.getUTCMonth() !== m - 1) return null
+  return { date: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`, hour: c.slice(6, 10) > '0010' ? h : null }
+}

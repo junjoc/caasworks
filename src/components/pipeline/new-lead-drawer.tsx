@@ -11,6 +11,7 @@ import { Drawer, DsButton, DsSelect, StatusChip, stageTone, dsInput } from '@/co
 import { postUpdate } from '@/components/pipeline/lead-record'
 import { toast } from 'sonner'
 import { formatPhone } from '@/lib/phone'
+import { codeToInquiry } from '@/lib/elapsed'
 
 const METHODS: [string, string][] = [['홈페이지 문의', '자사채널'], ['대표전화', '대표전화'], ['개인전화', '개인전화'], ['이메일', '이메일'], ['해피톡', '해피톡'], ['행사', '행사방문'], ['기타', '기타']]
 const SERVICES = ['AI CCTV', '동영상 기록관리', '스마트 안전장비', '공정관리 플랫폼', '중대재해예방', '통합 솔루션']
@@ -97,7 +98,9 @@ export function NewLeadDrawer({ open, users, onClose, onCreated, onOpenLead }: {
   const submit = async (again: boolean) => {
     if (!f.company.trim()) { toast.error('회사명을 입력하세요'); return }
     setBusy(true)
-    const at = f.at || kstNow()
+    // 10/22: ID 를 직접 넣었으면 유입일·시각은 그 ID 를 따른다
+    const ci = f.code.trim() ? codeToInquiry(f.code.trim()) : null
+    const at = ci ? `${ci.date}T${String(ci.hour ?? 0).padStart(2, '0')}:${f.code.trim().slice(8, 10)}` : (f.at || kstNow())
     const body: Record<string, unknown> = {
       customer_code: code, company_name: f.company.trim(),
       inquiry_date: at.slice(0, 10), inquiry_hour: Number(at.slice(11, 13)),
