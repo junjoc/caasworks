@@ -22,20 +22,24 @@ interface ChannelMapping {
   ad_type?: string       // 기본 '콘텐츠'. 광고 대행사 유입은 '검색'
 }
 const NEWS = ['news', 'press', 'media', 'herald', 'chosun', 'donga', 'joongang', 'hani', 'khan', 'mk.co', 'sedaily', 'etnews', 'zdnet', 'bloter', 'venturesquare', 'platum', 'byline', 'cnews', 'dnews', 'kharn', 'safetynews', 'yna.co', 'newsis', 'edaily', 'hankyung', 'mt.co', 'asiae', 'fnnews', 'heraldcorp']
-const COMMUNITY = ['clien', 'dcinside', 'fmkorea', 'ruliweb', 'theqoo', 'ppomppu', 'inven', 'blind', 'okky', 'disquiet']
+const COMMUNITY = ['band.us', 'clien', 'dcinside', 'fmkorea', 'ruliweb', 'theqoo', 'ppomppu', 'inven', 'blind', 'okky', 'disquiet']
 
 function mapSourceToChannel(source: string, medium: string): ChannelMapping | null {
   const src = (source || '').toLowerCase()
   const med = (medium || '').toLowerCase()
   const has = (...ks: string[]) => ks.some(k => src.includes(k))
 
-  // 유료 광고 클릭(cpc 등)은 광고 API 동기화가 따로 넣는다 → 중복 방지로 제외
-  if (['cpc', 'ppc', 'paid', 'paidsearch', 'display', 'cpm'].includes(med)) return null
+  // 0. 고객 사용(유입 아님): 고객사가 프로젝트에서 발주처를 초대하는 경로 — 유입 집계에서 뺀다 (마케팅팀 GA 채널 그룹 0번, 10/22 국장)
+  if (has('caas.page.link', 'hausplanner.com')) return null
+  // 1. 광고 — 광고 행은 광고그룹 단위로 따로 넣는다(paidTarget) → 여기선 제외
+  if (['cpc', 'ppc', 'paid', 'paidsearch', 'display', 'cpm', 'banner', 'keywords', 'paid_social'].includes(med) || /^(paid|instagram_|facebook_)/.test(med) || src === 'meta') return null
   // NAds = 네이버 광고 캠페인, GAds = 구글 광고 캠페인. 광고 행의 GA 유입은 팀이 일괄 입력하므로 여기서 또 넣으면 중복
   if (['nads', 'gads', 'naver_ads', 'naverads', 'google_ads'].includes(src)) return null
 
-  // 자사 블로그 배너: "tistory / contact_banner", "naver_blog / contact_banner" (우리 글이라는 표시)
-  if (med === 'contact_banner') {
+  // 2. 생성형 AI — GA4 가 매체를 ai-assistant 로 주는 경우
+  if (med === 'ai-assistant') return { channel: '검색유입', campaign_name: '생성형AI' }
+  // 3. 자사 블로그: 우리 글의 UTM 링크 (배너·본문). 소스 naver_blog·tistory·aicon_blog·caas_blog
+  if (med === 'contact_banner' || ['naver_blog', 'tistory', 'aicon_blog', 'caas_blog'].includes(src)) {
     if (has('tistory')) return { channel: '블로그', campaign_name: '티스토리' }
     if (has('naver')) return { channel: '블로그', campaign_name: '네이버' }
     return { channel: '블로그', campaign_name: '기타' }
@@ -57,17 +61,23 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
     return { channel: '검색유입', campaign_name: '기타' }
   }
 
+  // 4. 외주 블로그 UTM: 매체 blog_outsource, 소스 influencer_아이디
+  if (src.startsWith('influencer_')) return { channel: '외주 블로그', campaign_name: '인플루언서' }
+  if (med === 'blog_outsource') return { channel: '외주 블로그', campaign_name: '팀부스터' }
+
   // 오프라인·인쇄물 QR (검토 #10): event_{행사} / print_{종류} · offline
   if (src.startsWith('event_') || (med === 'offline' && !src.startsWith('print_'))) return { channel: '직접 연락', campaign_name: '행사' }
   if (src.startsWith('print_')) return { channel: '직접 연락', campaign_name: '인쇄물' }
   // 보도자료 (검토 #12): press / pr 로 통일
   if (src === 'press' || med === 'pr') return { channel: '언론·뉴스', campaign_name: '보도자료' }
   // 이메일·뉴스레터·영업 메일
-  if (src === 'newsletter' || med === 'email' || has('stibee', 'maillink')) return { channel: '직접 연락', campaign_name: '이메일' }
+  // 고객사 메일·그룹웨어(mail.… · gw.…)도 이메일 (10/22 국장)
+  if (src === 'newsletter' || med === 'email' || has('stibee', 'maillink', 'sales_mail', 'groupware') || /(^|\.)mail\./.test(src) || src.startsWith('mail.') || src.startsWith('gw.')) return { channel: '직접 연락', campaign_name: '이메일' }
   if (med === 'document' || src === 'proposal') return { channel: '직접 연락', campaign_name: '기타' }
 
-  // 자사 채널 — 직접 방문(주소 입력·북마크·앱 링크)은 '직접'으로 따로 (검토 #11), 집계는 자사 채널
-  if (src === '(direct)' && (med === '(none)' || med === 'none')) return { channel: '자사채널', campaign_name: '직접' }
+  // 자사 채널 — 직접 방문(주소 입력·북마크) = 자사 채널 › 홈페이지 (10/22 국장 확정, 검토 #11 '직접' 세부는 철회)
+  if (src === '(direct)' && (med === '(none)' || med === 'none')) return { channel: '자사채널', campaign_name: '홈페이지' }
+  if (med === 'owned') return { channel: '자사채널', campaign_name: '기타' }
   if (has('caas.works', 'caasworks')) return { channel: '자사채널', campaign_name: '홈페이지' }
   if (has('ai-con.co.kr')) return { channel: '자사채널', campaign_name: '회사 홈페이지' } // (주)아이콘 회사 사이트
   if (has('contech.ai.kr')) return { channel: '자사채널', campaign_name: '건설포털' } // 회사 운영 건설포털
@@ -83,7 +93,6 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   if (src === 'google' || has('google.co', 'google.com')) return { channel: '검색유입', campaign_name: '구글' }
   if (has('bing.com')) return { channel: '검색유입', campaign_name: '빙' }
   // 자사 단축 링크(파이어베이스 등)
-  if (has('page.link')) return { channel: '자사채널', campaign_name: '기타' }
 
   // 외주 블로그: 팀부스터 유입체크 링크. blog.naver.com 은 아래 POST 에서 글 주소로 자사·인플루언서·팀부스터를 나눈다
   if (has('boosterlink', 'teambooster')) return { channel: '외주 블로그', campaign_name: '팀부스터' }
@@ -102,12 +111,12 @@ function mapSourceToChannel(source: string, medium: string): ChannelMapping | nu
   if (has('facebook', 'fb.com', 'fb.me')) return { channel: '소셜', campaign_name: '페이스북' }
   if (has('linkedin', 'lnkd.in')) return { channel: '소셜', campaign_name: '링크드인' }
   if (has('kakao')) return { channel: '소셜', campaign_name: '카카오' }
-  if (med === 'social') return { channel: '소셜', campaign_name: '기타' }
+  if (med === 'social' || med === 'message' || src === 't.co' || src === 'x.com' || src.endsWith('.x.com') || has('twitter')) return { channel: '소셜', campaign_name: '기타' }
   // 외부 글 (남이 쓴 글·위키). contact_banner 없는 티스토리는 남의 글
   if (has('tistory')) return { channel: '외부 글', campaign_name: '티스토리' }
   if (has('brunch')) return { channel: '외부 글', campaign_name: '브런치' }
   if (has('namu.wiki')) return { channel: '외부 글', campaign_name: '나무위키' }
-  if (has('velog', 'medium.com', 'notion.site', 'wikipedia')) return { channel: '외부 글', campaign_name: '기타' }
+  if (has('velog', 'medium.com', 'notion.site', 'wikipedia', 'post.naver')) return { channel: '외부 글', campaign_name: '기타' }
   if (has('msn.com')) return { channel: '언론·뉴스', campaign_name: '기타' } // MSN 첫 화면 뉴스
   if (NEWS.some(k => src.includes(k))) return { channel: '언론·뉴스', campaign_name: '언론사' }
   if (COMMUNITY.some(k => src.includes(k)) || has('cafe.')) return { channel: '커뮤니티', campaign_name: '기타' }
@@ -123,9 +132,12 @@ const CAMPAIGN_MAP = campaignMap as unknown as Record<string, Record<string, { c
 function paidTarget(source: string, medium: string, campaign: string): { channel: string; campaign_name: string; adgroup_name?: string } | null {
   const src = source.toLowerCase(), med = medium.toLowerCase()
   const naver = ['nads', 'naver_ads', 'naverads'].includes(src) || (src.includes('naver') && ['cpc', 'ppc', 'paid', 'paidsearch', 'display', 'keywords'].includes(med))
-  const google = ['gads', 'google_ads'].includes(src) || (src.includes('google') && ['cpc', 'ppc', 'paid', 'paidsearch', 'display', 'cpm'].includes(med))
+  const google = ['gads', 'google_ads'].includes(src) || (src.includes('google') && ['cpc', 'ppc', 'paid', 'paidsearch', 'display', 'cpm'].includes(med)) || /^G_/.test(campaign)
+  // 메타: 지금 집행 없음 — 예전 광고 링크(Instagram_Feed 등)로 남아 들어오는 잔여 유입은 광고 › 메타 › 종료 캠페인 (10/22 국장)
+  const meta = src === 'meta' || /^(instagram_|facebook_|paid_social)/.test(med)
   if (naver) { const m = CAMPAIGN_MAP['네이버']?.[campaign] || CAMPAIGN_MAP['네이버']?.[`N_${campaign}`]; return m ? { channel: '네이버', ...m } : { channel: '네이버', campaign_name: '캠페인 미확인' } }
-  if (google) return { channel: '구글', campaign_name: '캠페인 미확인' }
+  if (google) return { channel: '구글', campaign_name: '종료 캠페인' } // 구글 광고 2026.5 이후 중단 (10/22 국장)
+  if (meta) return { channel: '메타', campaign_name: '종료 캠페인' }
   return null
 }
 
@@ -461,7 +473,7 @@ export async function POST(request: NextRequest) {
     })
 
     // 광고 대행사 레퍼러(네이버 › 캠페인 미확인)만 지운다 — 같은 '네이버' 채널의 광고 행은 건드리지 않음
-    await supabase.from('ad_performance').delete().in('channel', ['네이버', '구글']).eq('campaign_name', '캠페인 미확인').is('campaign_id', null).gte('date', startDate).lte('date', endDate)
+    await supabase.from('ad_performance').delete().in('channel', ['네이버', '구글', '메타']).in('campaign_name', ['캠페인 미확인', '종료 캠페인']).is('campaign_id', null).gte('date', startDate).lte('date', endDate)
 
     // 기존 동기화 데이터만 삭제 (수동 입력 data_source='manual'은 보존)
     await supabase.from('ad_performance')
