@@ -47,17 +47,17 @@ B = f'''<div class="pg2 wide" style="opacity:.35;pointer-events:none">{A.split('
 <div class="db cd-form"><label>보내는 사람</label><div class="inp">김규재 대리 &lt;본인 지메일&gt; <span class="muted">· 처음 한 번 구글 연결</span></div>
 <label>받는 사람</label><div class="inp">황○○ 대리 &lt;····@celltrion.com&gt; <span class="muted">· 프로젝트 고객 담당자</span></div>
 <label>참조</label><div class="inp">비즈니스팀 <span class="muted">(기본 · CRM 메일함도 여기로 받음)</span></div>
-<label>제목 (규칙 · 고칠 수 있음)</label><div class="inp mono"><b>[아이콘:견적서 Q-2610-0412]</b> 셀트리온 안전관리 솔루션 견적서</div>
+<label>제목 (규칙 · 고칠 수 있음)</label><div class="inp mono"><b>[아이콘:견적서]</b> 셀트리온 안전관리 솔루션 견적서 <span class="muted">(Q-2610-0412)</span></div>
 <label>본문 (문구 틀)</label><div class="inp ta">안녕하세요, (주)아이콘 김규재입니다. 요청하신 카스웍스 서비스 견적서를 첨부드립니다. 검토 후 회신 부탁드립니다. …</div>
 <label>첨부 (자동)</label><div class="pls2"><span class="pl on">[셀트리온] 견적서_v1.pdf</span><span class="pl">+ 카탈로그 (고정형 PTZ)</span><span class="pl">+ 서비스 소개서</span></div>
-<p class="muted s2">보내면: 프로젝트 히스토리에 "견적서 v1 발송 · 받는 사람 · 첨부" · 견적 상태 "보냄" · "회신 대기" 이슈 시작. 회신은 제목의 [아이콘:견적서 번호] → 없으면 메일 스레드로 같은 견적에 붙음</p></div>
+<p class="muted s2">보내면: 프로젝트 히스토리에 "견적서 v1 발송 · 받는 사람 · 첨부" · 견적 상태 "보냄" · "회신 대기" 이슈 시작. 회신은 ① 메일 스레드 ② 제목 끝 (견적번호) ③ [아이콘:견적서] + 회사명 순으로 같은 견적에 붙음 — 번호가 잘리거나 지워져도 이어짐</p></div>
 <div class="df"><span class="btn sm quiet">취소</span><span class="sp"></span><span class="btn sm">나에게 테스트</span><span class="btn sm primary">보내기</span></div></div>'''
-FB = frame('견적서 작성', '견적서', B, dims=[('right:16px;top:60px', '보내기 드로어 600: 받는 사람·참조·제목 규칙·본문 틀·첨부 자동')], h=680)
+FB = frame('견적서 작성', '견적서', B, dims=[('right:16px;top:60px', '보내기 드로어 600: 받는 사람·참조·제목 [아이콘:견적서] 내용 (번호)·본문 틀·첨부 자동')], h=680)
 
 # ───────── 3. 자동 기록 — 프로젝트 히스토리 · 견적 ─────────
 LOG = [('10.21 22:57', '리드', '홈페이지 문의 · 안전관리', 'lead', '리드 (자동)'),
        ('10.23 14:12', '견적서 v1 발송', 'Q-2610-0412 · 400,000/월 · 황○○ 대리 · 첨부 [셀트리온] 견적서_v1.pdf', 'info', 'CRM 보내기'),
-       ('10.24 09:30', '고객 회신', 'RE: [아이콘:견적서 Q-2610-0412] — "현장 2곳 대수 추가 견적 요청" (요약)', 'ok', 'CRM 메일함'),
+       ('10.24 09:30', '고객 회신', 'RE: [아이콘:견적서] 셀트리온 안전관리 솔루션 견적서 (Q-2610-0412) — "현장 2곳 대수 추가 견적 요청" (요약)', 'ok', 'CRM 메일함'),
        ('10.27 11:05', '견적서 v2 발송', '400,000 → 1,240,000/월 · 바뀐 것: AI CCTV 고정형 6대 · 통신 6대 추가', 'info', 'CRM 보내기'),
        ('10.30 16:40', '고객 회신 · 확정', '"v2 로 진행" → [확정] (계약서 없이 견적 = 계약) → 서비스 줄 6 제안', 'ok', 'CRM 메일함 + 담당 확인')]
 lg = ''.join(f'<li class="{c}"><span class="d">{d}</span><b>{k}</b><span class="t">{esc(x)} <i class="src">{s}</i></span></li>' for d, k, x, c, s in LOG)
@@ -65,7 +65,7 @@ C = f'''<div class="pg2 wide"><div class="h2top"><span class="muted">‹ 프로�
 <div class="h2name"><h1>셀트리온 (현장 확인 중)</h1>{chip("info", "견적")}<span class="muted">· 고객사 셀트리온 · 유입 자사 채널 › 홈페이지 · 담당 김규재</span></div>
 <div class="body2"><div><div class="cd-h"><b>히스토리</b><span class="muted">담당자가 따로 적지 않아도 — 리드 · 보낸 견적 · 회신 · 확정이 자동 (10.24 이후 줄은 흐름 예시)</span></div><ol class="cd-hist">{lg}</ol></div>
 <div class="rcol"><div class="card2x cd-iss"><div class="ch"><b>견적</b></div><ol><li class="ok"><b>v2 확정 · 1,240,000/월</b><span>10.30 · 고객 회신으로</span></li><li><b>v1 · 400,000/월</b><span>10.23 보냄 · 10.24 회신</span></li></ol></div>
-<div class="card2x"><div class="ch"><b>메일 규칙</b></div><div class="kv3"><span>견적서</span><b class="mono">[아이콘:견적서 Q-…]</b><span>계약서</span><b class="mono">[아이콘:계약서 C-…]</b><span>청구서</span><b class="mono">[아이콘:청구서 …]</b></div></div></div></div></div>'''
+<div class="card2x"><div class="ch"><b>메일 규칙</b></div><div class="kv3"><span>견적서</span><b class="mono">[아이콘:견적서] 내용 (Q-…)</b><span>계약서</span><b class="mono">[아이콘:계약서] 내용 (C-…)</b><span>청구서</span><b class="mono">[아이콘:청구서] 내용 (…)</b></div></div></div></div></div>'''
 FC = frame('프로젝트 상세', '', C, dims=[('left:206px;top:120px', '히스토리 출처 태그: CRM 보내기 · CRM 메일함 · 리드(자동) — 손으로 적은 줄과 구분')], h=560, menu=[('대시보드', None), ('마케팅', 1), ('세일즈', 1), ('고객관리', ['매출 현황', '프로젝트', '고객사']), ('재무관리', 1), ('운영관리', 1), ('분석', 1), ('VoC/CS', 1), ('업무', 1), ('피드백', 1), ('설정', 1)])
 
 # ───────── 4. 업무보고 자동 정리 ─────────
@@ -82,15 +82,15 @@ SEC = f'''<section id="m-quote">{CSS}<h2>세일즈 — 견적서를 CRM 에서 �
 <p class="rule">10/22 사용자: "가능하면 CRM 에서 견적서를 만들고 보내고 싶다 · 제목 규칙이 생기면 회신도 알아서 거른다 · 기록이 자동으로 남아 담당자 할 일이 줄고 업무보고까지 쉬워진다". 지금은 견적서 = 구글 시트(고객사별 파일, 탭 = 견적 1장), 계약서 = 구글 문서 기안 → 날인본 PDF 폴더, 메일은 비즈니스팀 참조.</p>
 <table class="dg"><colgroup><col style="width:20%"><col style="width:40%"><col style="width:40%"></colgroup><thead><tr><th></th><th>지금</th><th>CRM 에서</th></tr></thead><tbody>
 <tr><td><b>만들기</b></td><td>시트 양식 복사 → 칸 채움 (양식 2가지, 합친 칸)</td><td>같은 칸(구분·품명·상세·단가·수량·단위·기간·공급방식·공급가) · 품목은 단가표에서 · 저장하면 시트 탭 + PDF 를 폴더에 (같은 모양)</td></tr>
-<tr><td><b>보내기</b></td><td>메일에 직접 첨부 · 비즈니스팀 참조</td><td>[메일로 보내기]: 담당자 본인 지메일 · 참조 비즈니스팀 · 제목 규칙 · 첨부 자동</td></tr>
-<tr><td><b>회신</b></td><td>전체답장 → 각자 메일함</td><td>CRM 메일함(비즈니스팀 구성원)이 받아 제목의 [아이콘:견적서 번호] → 메일 스레드 순으로 같은 견적에 붙임</td></tr>
+<tr><td><b>보내기</b></td><td>메일에 직접 첨부 · 비즈니스팀 참조</td><td>[메일로 보내기]: 담당자 본인 지메일 · 참조 비즈니스팀 · 제목 "[아이콘:견적서] 내용 (견적번호)" · 첨부 자동</td></tr>
+<tr><td><b>회신</b></td><td>전체답장 → 각자 메일함</td><td>CRM 메일함(비즈니스팀 구성원)이 받아 메일 스레드 → 제목 끝 (견적번호) → [아이콘:견적서] + 회사명 순으로 같은 견적에 붙임</td></tr>
 <tr><td><b>버전 · 확정</b></td><td>탭 복사 · 확정 표시 없음</td><td>v1 · v2 … 차이 표시 · [확정] = 계약 → 서비스 줄 제안</td></tr>
 <tr><td><b>보고</b></td><td>손으로 정리</td><td>보낸 견적 · 회신 · 확정 · 날인 · 기록을 기간·담당별로 자동 집계 + 문장 요약</td></tr></tbody></table>
 <h3 class="ph3">1. 견적서 작성 (실례: 셀트리온 10/23 — 견적서 폴더의 실제 견적과 같은 항목)</h3><div class="fwrap">{FA}</div>
-<h3 class="ph3">2. 메일로 보내기 — 제목 규칙 [아이콘:견적서 Q-번호]</h3><div class="fwrap">{FB}</div>
+<h3 class="ph3">2. 메일로 보내기 — 제목 규칙 "[아이콘:견적서] 내용 (견적번호)" (10/22 사용자: 번호 때문에 중요한 제목이 잘리지 않게 번호는 끝에)</h3><div class="fwrap">{FB}</div>
 <h3 class="ph3">3. 자동 기록 — 프로젝트 히스토리</h3><div class="fwrap">{FC}</div>
 <h3 class="ph3">4. 업무보고 자동 정리</h3><div class="fwrap">{FD}</div>
-<div class="cmp"><div><h4>정해 주실 것</h4><ul><li>제목 규칙: [아이콘:견적서 Q-연월-순번] 회사 (현장) 견적명 · 계약서 C- · 청구서</li><li>보내는 계정: 담당자 본인 지메일 (추천) / CRM 전용 계정</li><li>CRM 전용 메일 계정 + 비즈니스팀 그룹 구성원 (관리자)</li><li>견적서 · 계약서 폴더에 CRM 서비스 계정 편집자 권한 (파일 만들기)</li></ul></div>
+<div class="cmp"><div><h4>정해 주실 것</h4><ul><li>✔ 제목 규칙: [아이콘:견적서] 회사 (현장) 견적명 (Q-연월-순번) · 계약서 (C-…) · 청구서 (10/22)</li><li>보내는 계정: 담당자 본인 지메일 (추천) / CRM 전용 계정</li><li>CRM 전용 메일 계정 + 비즈니스팀 그룹 구성원 (관리자)</li><li>견적서 · 계약서 폴더에 CRM 서비스 계정 편집자 권한 (파일 만들기)</li></ul></div>
 <div><h4>순서</h4><ul><li>1 견적서 작성 · 버전 · PDF/시트 내보내기</li><li>2 메일로 보내기(본인 지메일) + CRM 메일함 회신 연결</li><li>3 확정 → 서비스 줄 · 계약서 기안·발송·날인본</li><li>4 업무보고 자동 · 지난 견적서 폴더 이력 가져오기</li></ul></div></div></section>'''
 
 s = open(P, encoding='utf-8').read()
