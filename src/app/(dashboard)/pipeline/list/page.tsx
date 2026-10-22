@@ -19,13 +19,13 @@ import { fetchJson, getCached, prefetchLead } from '@/lib/swr-cache'
 import { useActiveUsers } from '@/hooks/useActiveUsers'
 import { Plus, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Info, Trash2 } from 'lucide-react'
 
-type Tab = '전체' | '진행' | '예정' | '도입완료' | '이탈'
+type Tab = '전체' | '진행' | '예정' | '도입완료' | '이탈' | '이전 기록'
 type Row = { id: string; company_name: string; stage: string; priority: string | null; date: string; assigned_to: string | null; site_category: string | null; industry: string | null; conversion_probability: string | null; next_action: string | null; next_action_date: string | null; group: InflowGroup; sub: string; site_name: string | null; contact_team: string | null }
 type Res = { rows: Row[]; total: number; page: number; pageSize: number; counts: Record<Tab, number>; kpi: { month: number; prevMonth: number; prog: number; plan: number; wonMonth: number; yLeads: number; yWon: number }; today: string }
 
-const TABS: Tab[] = ['전체', '진행', '예정', '도입완료', '이탈']
+const TABS: Tab[] = ['전체', '진행', '예정', '도입완료', '이탈', '이전 기록']
 const thisYear = new Date().getFullYear()
-const YEARS = ['전체', ...Array.from({ length: thisYear - 2023 }, (_, i) => String(thisYear - i))]
+const YEARS = ['전체', ...Array.from({ length: thisYear - 2022 }, (_, i) => String(thisYear - i))]
 const md = (s: string | null) => (s ? s.slice(5).replace('-', '.') : '')
 
 // 다음 액션 날짜 색: 지남 빨강 · 오늘 주황 · 3일 이내 진하게
@@ -178,6 +178,7 @@ export default function PipelineListPage() {
               <div className="absolute right-0 top-8 z-30 w-[320px] bg-ds-bg border border-ds-line rounded-lg shadow-[0_8px_24px_rgba(0,0,0,.08)] p-3 text-[12px] text-ds-fg2 leading-relaxed" onClick={() => setShowHelp(false)}>
                 <p><b className="text-ds-fg">진행</b> = 신규리드·컨텍·제안·미팅·도입직전</p>
                 <p><b className="text-ds-fg">유입일</b> = 문의일(없으면 등록일). 연도 필터도 같은 기준</p>
+                <p><b className="text-ds-fg">이전 기록</b> = 2023~2025.1 인바운드 시트에서 가져온 기록. 다른 탭·KPI·보드에는 넣지 않음</p>
                 <p><b className="text-ds-fg">유입</b> = 유입 분류 11 › 세부 (디자인 정의 §5)</p>
                 <p><span className="inline-block w-1.5 h-1.5 rounded-full bg-ds-bad mr-1 align-[2px]" />회사명 앞 빨간 점 = 우선순위 높음·긴급</p>
                 <p><b className="text-ds-fg">추가 진행</b> = 도입완료 뒤 견적·제안·미팅·데모 활동이 있는 리드</p>

@@ -8,6 +8,9 @@ export async function isSignedIn() {
   return !!session
 }
 
+/** 2023~2025.1 인바운드 시트에서 가져온 기록 (10/22) — 메모 첫 줄 표시로 구분. 리스트 [이전 기록] 탭에만, 보드·KPI 제외 */
+export const isLegacy = (l: Record<string, unknown>) => String(l.notes ?? '').startsWith('[이전 기록]')
+
 export async function readLeads<T>(cols: string): Promise<T[]> {
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
   // 건수 조회 없이 3묶음(3,000행)을 한 번에 — 넘치면 이어서
