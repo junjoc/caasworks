@@ -3,7 +3,8 @@
 // 화면 문법 v2 — 상세·드로어 공용 부품 (2026-10-21, 디자인 정의 › ★ 화면 문법 v2 › 부품 10)
 // StageBar(단계 줄) · PropertyBar/PropPill(속성 줄·칩) · Card(값 있는 칸만, 빈 칸은 한 줄) · Popover
 // 리드 상세·드로어가 먼저 쓰고, 고객사·현장·견적서 상세도 같은 부품으로 옮긴다.
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { stageTone, toneVar } from './index'
 import { ChevronDown } from 'lucide-react'
@@ -43,8 +44,22 @@ export function StageBar({ flow, stage, note, onPick, variant = 'full' }: { flow
 }
 
 /* ─── 떠 있는 작은 창 (속성 편집·더 보기 메뉴) — 바깥 클릭·Esc 닫힘 ─── */
-export function Popover({ open, onClose, children, align = 'left', width = 280 }: { open: boolean; onClose: () => void; children: ReactNode; align?: 'left' | 'right'; width?: number }) {
+// float: 표 칸처럼 넘치는 부분이 잘리는 곳 안에서 열 때 — 화면 위(body)에 띄워 잘리지 않게 (10/22 글별 조회수 URL 칸)
+export function Popover({ open, onClose, children, align = 'left', width = 280, float = false }: { open: boolean; onClose: () => void; children: ReactNode; align?: 'left' | 'right'; width?: number; float?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
+  const anchor = useRef<HTMLSpanElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  useLayoutEffect(() => {
+    if (!open || !float) return
+    const place = () => {
+      const r = anchor.current?.parentElement?.getBoundingClientRect(); if (!r) return
+      const left = align === 'right' ? r.right - width : r.left
+      setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(left, window.innerWidth - width - 8)) })
+    }
+    place()
+    window.addEventListener('scroll', place, true); window.addEventListener('resize', place)
+    return () => { window.removeEventListener('scroll', place, true); window.removeEventListener('resize', place) }
+  }, [open, float, align, width])
   useEffect(() => {
     if (!open) return
     const down = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
@@ -54,6 +69,8 @@ export function Popover({ open, onClose, children, align = 'left', width = 280 }
     return () => { document.removeEventListener('mousedown', down); window.removeEventListener('keydown', key) }
   }, [open, onClose])
   if (!open) return null
+  if (float) return <span ref={anchor} className="hidden">{pos && createPortal(
+    <div ref={ref} style={{ width, top: pos.top, left: pos.left }} className="fixed z-[60] bg-ds-bg border border-ds-line rounded-lg shadow-[0_8px_24px_rgba(0,0,0,.08)] p-2.5">{children}</div>, document.body)}</span>
   return <div ref={ref} style={{ width }} className={cn('absolute z-40 top-full mt-1 bg-ds-bg border border-ds-line rounded-lg shadow-[0_8px_24px_rgba(0,0,0,.08)] p-2.5', align === 'right' ? 'right-0' : 'left-0')}>{children}</div>
 }
 

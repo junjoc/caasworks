@@ -47,13 +47,15 @@ function UrlEdit({ row, onSaved }: { row: Row; onSaved: (url: string | null, log
         className={cn('ml-1 inline-grid place-items-center w-5 h-5 rounded hover:bg-ds-subtle', row.url ? 'text-ds-accent' : 'text-ds-line')}><Link2 className="w-3.5 h-3.5" /></button>
       {/* 글 바로 열기 (10/22) — URL 이 있을 때만 */}
       {row.url && <a href={row.url} target="_blank" rel="noopener noreferrer" title="새 창에서 글 열기" className="inline-grid place-items-center w-5 h-5 rounded hover:bg-ds-subtle text-ds-fg3 hover:text-ds-accent"><ExternalLink className="w-3.5 h-3.5" /></a>}
-      <Popover open={open} onClose={() => setOpen(false)} width={340}>
-        <div className="grid gap-1.5 text-[12.5px]">
-          <span className="text-ds-fg2">네이버 글 URL</span>
-          <input autoFocus value={v} onChange={e => setV(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save() }} placeholder="https://blog.naver.com/아이디/글번호" className={cn(dsInput, 'h-7 text-[12.5px]')} />
+      <Popover open={open} onClose={() => setOpen(false)} width={400} float>
+        <div className="grid gap-2 text-[12.5px]">
+          <span className="text-ds-fg2 truncate" title={row.title}>네이버 글 URL · <span className="text-ds-fg">{row.title}</span></span>
+          <input autoFocus value={v} onChange={e => setV(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setOpen(false) }} placeholder="https://blog.naver.com/아이디/글번호" className={cn(dsInput, 'h-8 text-[12.5px] w-full')} />
           <div className="flex gap-1.5 items-center">
             <DsButton size="sm" variant="primary" onClick={save}>저장</DsButton>
+            <DsButton size="sm" variant="ghost" onClick={() => setOpen(false)}>취소</DsButton>
             {row.url && <a href={row.url} target="_blank" rel="noopener noreferrer" className="text-ds-accent text-[12px] inline-flex items-center gap-1">글 열기 <ExternalLink className="w-3 h-3" /></a>}
+            <span className="ml-auto text-[12px] text-ds-fg3">Enter 저장 · Esc 닫기 · 비우고 저장하면 삭제</span>
           </div>
         </div>
       </Popover>
