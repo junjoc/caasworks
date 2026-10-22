@@ -83,16 +83,26 @@ export async function syncRevenue(sb: SupabaseClient, wb: WorkBook, apply: boole
     }
     for (let m = 1; m <= 12; m++) { const ex = dbRevByKey.get(`${p.id}|${m}`); if (ex && !months.has(m)) deleteRevs.push({ ...ex, _name: `${r.company} / ${projectName}` }) }
   }
-  const withRev = new Set(dbRevs.map(r => r.project_id))
-  const missingInSheet = projs.filter(p => withRev.has(p.id) && !seen.has(p.id)).length
+  // 시트에 없는데 CRM 에 올해 매출이 있는 프로젝트 (손으로 만든 프로젝트 포함) — 지우지 않고 이름·금액만 알림
+  const orphanSum = new Map<string, number>()
+  for (const r of dbRevs) if (!seen.has(r.project_id)) orphanSum.set(r.project_id, (orphanSum.get(r.project_id) || 0) + Number(r.amount))
+  const orphanIds = Array.from(orphanSum.keys()).filter(id => orphanSum.get(id))
+  const orphanInfo = new Map<string, { project_name: string; customers: { company_name: string } | null }>()
+  for (let i = 0; i < orphanIds.length; i += 200) {
+    const { data } = await sb.from('projects').select('id, project_name, customers(company_name)').in('id', orphanIds.slice(i, i + 200))
+    for (const d of (data || []) as unknown as { id: string; project_name: string; customers: { company_name: string } | null }[]) orphanInfo.set(d.id, d)
+  }
+  const orphans = orphanIds.map(id => ({ id, sum: orphanSum.get(id)!, name: `${orphanInfo.get(id)?.customers?.company_name || '?'} / ${orphanInfo.get(id)?.project_name || id}` })).sort((a, b) => b.sum - a.sum)
+  const missingInSheet = orphans.length
   const sheetSum = sheetMonth.reduce((a, b) => a + b, 0), dbSum = dbMonth.reduce((a, b) => a + b, 0)
   const newRevCells = newProjects.reduce((a, n) => a + n.r.monthly.length, 0)
 
-  const summary = { rows: rows.length, newCustomers: missCustomers.length, newProjects: newProjects.length, newRevCells, changed: upsert.length, deleted: deleteRevs.length, unchanged, renamed: renamed.length, missingInSheet, sheetSum, dbSum, diff: sheetSum - dbSum }
+  const summary = { rows: rows.length, newCustomers: missCustomers.length, newProjects: newProjects.length, newRevCells, changed: upsert.length, deleted: deleteRevs.length, unchanged, renamed: renamed.length, missingInSheet, missingSum: orphans.reduce((a, o) => a + o.sum, 0), sheetSum, dbSum, diff: sheetSum - dbSum }
   const samples = [
     ...upsert.slice(0, 8).map(u => `${u.month}월 ${u._name}: ${u._old == null ? '없음' : won(u._old)} → ${won(u.amount)}`),
     ...deleteRevs.slice(0, 4).map(d => `${d.month}월 ${d._name}: ${won(Number(d.amount))} → 0`),
     ...newProjects.slice(0, 4).map(n => `+ ${n.r.company} / ${n.projectName}`),
+    ...orphans.slice(0, 12).map(o => `시트에 없음 · ${o.name}: 올해 ${won(o.sum)}`),
   ]
   // 안전 2: 평소보다 크게 바뀌면 멈춤 (시트에서 행을 지우거나 열이 밀린 경우)
   const held = badMonths.length ? `시트 합계 행과 읽은 값이 다름 (${badMonths.join('·')}월) — 열·행 확인`

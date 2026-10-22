@@ -19,6 +19,8 @@ function getBaseUrl() {
 }
 
 export const maxDuration = 300
+// 10/22: 없으면 빌드 때 이 GET 을 미리 실행해 봄(동기화가 배포마다 한 번 돌았음)
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   // Vercel Cron 인증 (CRON_SECRET 설정 시)
