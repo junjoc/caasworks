@@ -104,6 +104,7 @@ export default function LeadDetailPage() {
   const enteredAt = timeline.find(t => t.kind === 'stage' && t.new === lead.stage)?.at || date
   const lastAct = acts[0]?.at
   const stale = isOpen && (!lastAct || dayDiff(lastAct, today) > 14)
+  const legacyOwner = lead.notes?.startsWith('[이전 기록]') ? (lead.notes.match(/당시 담당자 (\S+)/)?.[1] || '') : null
 
   const save = async (body: Record<string, unknown>, msg = '저장했습니다') => {
     const r = await postUpdate({ lead_id: id, changed_by: user?.id, ...body })
@@ -202,13 +203,15 @@ export default function LeadDetailPage() {
       </div>
       <p className="text-[12px] text-ds-fg2 mt-1 mb-3">
         <span className="inline-block w-[7px] h-[7px] rounded-full mr-1 align-[1px]" style={{ background: INFLOW_COLOR[f.group] }} />{f.group} › {f.sub}
-        {' · '}유입 {mmdd(date)} ({since(date, today)})
+        {' · '}유입 {date.slice(0, 4) === today.slice(0, 4) ? mmdd(date) : date.slice(0, 10).replace(/-/g, '.')} ({since(date, today)})
         {' · '}<span className={stale ? 'text-ds-bad' : ''}>마지막 활동 {lastAct ? ago(lastAct, today) : '없음'}</span>
         {lead.lead_number ? ` · No.${lead.lead_number}` : ''}
       </p>
 
       <StageBar flow={FLOW} stage={lead.stage} note={since(enteredAt, today)} onPick={setStage} />
-      {lead.stage === '이탈' && <p className="text-[12px] text-ds-fg2 mt-1.5">지금 <b className="font-medium">이탈</b> ({since(enteredAt, today)}) — 단계를 누르면 다시 진행으로</p>}
+      {/* 이전 기록(2023~2025.1 시트) — 당시 응대·미팅은 메모에 (10/22) */}
+      {legacyOwner !== null && <p className="text-[12px] text-ds-fg2 mt-1.5 rounded-md bg-ds-subtle px-2.5 py-1.5"><b className="font-medium text-ds-fg">이전 기록</b> — 2023~2025.1 인바운드 시트에서 가져온 기록{legacyOwner ? ` · 당시 담당자 ${legacyOwner}` : ''}. 당시 응대·미팅 내용은 오른쪽 메모에 있습니다.</p>}
+      {lead.stage === '이탈' && legacyOwner === null && <p className="text-[12px] text-ds-fg2 mt-1.5">지금 <b className="font-medium">이탈</b> ({since(enteredAt, today)}) — 단계를 누르면 다시 진행으로</p>}
       <div className="mt-3 mb-4"><PropertyBar items={props} /></div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] gap-5 items-start">

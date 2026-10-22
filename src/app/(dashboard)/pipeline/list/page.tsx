@@ -26,7 +26,7 @@ type Res = { rows: Row[]; total: number; page: number; pageSize: number; counts:
 const TABS: Tab[] = ['전체', '진행', '예정', '도입완료', '이탈', '이전 기록']
 const thisYear = new Date().getFullYear()
 const YEARS = ['전체', ...Array.from({ length: thisYear - 2022 }, (_, i) => String(thisYear - i))]
-const md = (s: string | null) => (s ? s.slice(5).replace('-', '.') : '')
+const md = (s: string | null) => (s ? (s.startsWith(String(thisYear)) ? s.slice(5) : s.slice(2)).replace(/-/g, '.') : '') // 올해는 10.21, 다른 해는 24.12.30
 
 // 다음 액션 날짜 색: 지남 빨강 · 오늘 주황 · 3일 이내 진하게
 function dueClass(dateStr: string | null, today: string) {
