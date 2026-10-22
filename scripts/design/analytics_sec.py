@@ -42,24 +42,24 @@ def frow(r):
 def phrow(r):
     n, q, a = r
     return (f'<tr><td><b>{n}</b></td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num"><b>{q[-1]}</b></td>'
-            f'<td class="num">—</td><td class="c spkc">{spark(q)}<span class="muted"> {"·".join(map(str, q))}</span></td><td class="num"><b>{a}</b></td><td>{chip("due", "어디서 봤는지 모름")}</td></tr>')
+            f'<td class="num">—</td><td class="c spkc">{spark(q)}<span class="muted"> {"·".join(map(str, q))}</span></td><td class="num"><b>{a}</b></td><td>{chip("na", "출처는 GA 전화클릭으로")}</td></tr>')
 COLS = '<colgroup><col style="width:22%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:9%"><col style="width:17%"><col style="width:7%"><col style="width:15%"></colgroup>'
 TH = '<thead><tr><th>채널</th><th>비용</th><th>방문</th><th>문의 클릭</th><th>문의</th><th>문의당 비용</th><th>문의 7 · 8 · 9 · 10월</th><th>도입 7~10</th><th>한 줄 판단</th></tr></thead>'
 A = f'''<div class="pg2 wide"><div class="h2top"><h1 style="margin:0;font-size:18px">마케팅 효율</h1><span class="muted">돈과 시간을 쓴 곳에서 문의 · 도입이 얼마나 나왔나</span><span class="sp"></span>
-<span class="seg"><span>주</span><span class="on">월</span><span>분기</span><span>연</span></span><span class="btn sm">2026년 10월 ▾</span><span class="btn sm quiet">비용 입력</span></div>
+<span class="seg"><span>주</span><span class="on">월</span><span>분기</span><span>연</span></span><span class="btn sm">2026년 10월 ▾</span><span class="btn sm quiet">비용 입력 (외주 · 행사)</span></div>
 <div class="kpis"><div><span>쓴 돈</span><b>2,677,242</b><em class="muted">9월 2,772,503</em></div><div><span>문의 (리드)</span><b>38</b><em class="muted">9월 34 · 8월 70</em></div><div><span>돈 쓴 곳 문의</span><b>5</b><em class="muted">문의당 535,448</em></div><div><span>도입 (7~10월 문의 중)</span><b>28</b><em class="muted">전화 18 · 웹 10</em></div><div><span>출처 모르는 문의</span><b class="due">12</b><em class="muted">10월 전화 문의 전부</em></div></div>
-<div class="ins"><div class="w"><b>외주 블로그: 월 200만 원, 문의 14 → 6 → 1</b><span>8월 이후 계속 줄어듦 · 7~10월 도입 1건 · 계약 조건 다시 보기</span></div><div class="w"><b>자연 검색 문의가 8월 이후 ⅓</b><span>방문은 4,580 → 2,899 · 검색 노출 확인 (문의까지 가는 길에서 들어온 곳별로)</span></div><div class="r"><b>도입 28건 중 18건이 전화인데 어디서 봤는지 모름</b><span>통화 기록에 "어디서 보셨어요?" 한 칸 → 이 표에 자동으로</span></div></div>
+<div class="ins"><div class="w"><b>외주 블로그: 월 200만 원, 문의 14 → 6 → 1</b><span>8월 이후 계속 줄어듦 · 7~10월 도입 1건 · 계약 조건 다시 보기</span></div><div class="w"><b>자연 검색 문의가 8월 이후 ⅓</b><span>방문은 4,580 → 2,899 · 검색 노출 확인 (문의까지 가는 길에서 들어온 곳별로)</span></div><div class="r"><b>도입 28건 중 18건이 전화</b><span>통화마다 묻기는 어려움 → 홈페이지 "전화클릭"(GA 에 이미 있음)을 채널별로 세어 전화 줄 옆에 "홈페이지에서 전화 버튼 누른 곳" 분포로 표시</span></div></div>
 <div class="cd-h"><b>돈 쓴 곳</b><span class="muted">비용은 광고 자동 수집 + 직접 입력(외주 · 행사)</span></div>
 <table class="ds fixed">{COLS}{TH}<tbody>{''.join(prow(r) for r in PAID)}</tbody></table>
 <div class="cd-h" style="margin-top:12px"><b>돈 안 쓴 곳</b><span class="muted">시간은 들었지만 비용 0 · 콘텐츠 성과와 연결</span></div>
 <table class="ds fixed">{COLS}<tbody>{''.join(frow(r) for r in FREE)}</tbody></table>
-<div class="cd-h" style="margin-top:12px"><b>전화</b><span class="muted">출처를 물어 적으면 위 채널로 옮겨짐</span></div>
+<div class="cd-h" style="margin-top:12px"><b>전화</b><span class="muted">통화 출처는 기록 없음 · 홈페이지 전화 버튼 클릭(GA)의 채널 분포로 짐작</span></div>
 <table class="ds fixed">{COLS}<tbody>{''.join(phrow(r) for r in PHONE)}</tbody></table>
 <p class="cd-note" style="margin-top:8px">숫자를 누르면 그 리드 목록 · 문의 = 리드 기준(유입 성과 · 코호트와 같은 계산) · 도입은 그 달 문의가 나중에 도입된 것까지</p></div>'''
 FA = frame('분석 › 마케팅 효율', '마케팅 효율', A, h=860)
 
 # ───────── 2. 문의까지 가는 길 (= 방문자 여정 대체) ─────────
-FUN = [('방문', 5049, '세션 · GA (www.caas.works 만)'), ('서비스 페이지 봄', None, '스마트 안전 · AI 솔루션 · VMS … (GA 이벤트 추가 필요)'), ('문의 버튼 누름', 263, '문의 클릭 이벤트'), ('문의 남김', 26, '홈페이지 · 채팅 문의 → 리드'), ('도입', None, '아직 진행 중 · 7~10월 웹 문의 도입 10')]
+FUN = [('방문', 5049, '세션 · GA (www.caas.works 만)'), ('서비스 페이지 봄', None, '/pages · /products 페이지를 본 세션 — GA 페이지 데이터로 계산 (GTM 작업 없음)'), ('문의 버튼 누름', 263, '문의 클릭 이벤트'), ('문의 남김', 26, '홈페이지 · 채팅 문의 → 리드'), ('도입', None, '아직 진행 중 · 7~10월 웹 문의 도입 10')]
 fmax = 5049
 fun = ''.join(f'<div class="fn"><span class="l">{n}</span><span class="bar"><i style="width:{max(2, (v or 0) / fmax * 100):.1f}%"></i></span><b>{won(v) if v else "—"}</b><span class="muted">{esc(d)}</span></div>' for n, v, d in FUN)
 REF = [('네이버 검색', 36, 2), ('네이버 블로그', 30, 1), ('구글 검색', 24, 2), ('직접 입력 · 북마크', 20, 2), ('카스웍스 안 (다른 페이지에서)', 17, 1),
@@ -113,8 +113,8 @@ SEC = f'''<section id="m-analytics-v3">{CSS}<h2>분석 — 메뉴 재구성 v3 (
 <h3 class="ph3">1. 마케팅 효율 — 마케팅 분석 + 연간 비교 대체 (10월 · 실데이터)</h3><div class="fwrap">{FA}</div>
 <p class="rule">채널을 "돈 쓴 곳 · 돈 안 쓴 곳 · 전화" 3묶음으로. <b>묶음은 고정이 아니라 그 기간에 비용이 있느냐로 자동</b> — 구글 광고를 다시 켜면 그 달부터 "돈 쓴 곳"에 줄이 생기고, 예산을 넣으면 "예산 · 소진율" 칸이 붙음(캠페인 일예산 대비 어제까지 소진은 캠페인 관리 화면에서 매일). 광고 자동 수집(구글 · 네이버)은 그대로. 마케팅팀이 매달 보는 질문 = "200만 원 낸 외주 블로그가 값을 하나" "검색이 왜 줄었나" "전화 문의는 어디서 왔나". 외주 · 행사 비용은 [비용 입력]으로 월 단위 직접 입력 (광고는 자동). 전화 출처는 리드 통화 기록에 "어디서 보셨어요?" 한 칸을 더해 채움 — 도입 28건 중 18건이 전화라 이게 빠지면 효율 판단이 틀어짐.</p>
 <h3 class="ph3">2. 문의까지 가는 길 — 방문자 여정 대체 (10월 흐름 · 7~10월 들어온 곳)</h3><div class="fwrap">{FB}</div>
-<p class="rule">세션 · 바운스 나열 대신 "방문 → 서비스 페이지 → 문의 버튼 → 문의 남김 → 도입" 한 줄 흐름과, 들어온 곳별 문의 · 도입. 10월 문의 버튼 263번 → 문의 26건(10%)이라 문의 양식 점검이 첫 할 일. "서비스 페이지 봄" 단계는 GA 에 페이지 묶음 이벤트를 더해야 채워짐(마케팅팀 GTM). 문의 직전 페이지는 지금 27건만 기록 — 모든 문의에 남기도록 고쳐야 함. 들어온 곳별 문의 주제는 어디나 "가격·견적 · AI CCTV"가 1 · 2위라 구분이 안 돼 표에서 뺌 (주제는 문의 내용 메뉴에서). 외주 글(miracleintip · boosterlink) 19건 · AI 검색 8건은 아직 도입 0.</p>
-<div class="cmp"><div><h4>정해 주실 것</h4><ul><li>분석 메뉴 10 → 6 구성 · 개요 없앰 · 손익 분석 숨김</li><li>마케팅 효율: 외주 · 행사 비용 월 입력 (누가)</li><li>전화 문의 "어디서 보셨어요?" 칸 — 리드 상세 통화 기록에 (세일즈)</li><li>GA "서비스 페이지 봄" 이벤트 (마케팅팀 GTM)</li></ul></div>
+<p class="rule">세션 · 바운스 나열 대신 "방문 → 서비스 페이지 → 문의 버튼 → 문의 남김 → 도입" 한 줄 흐름과, 들어온 곳별 문의 · 도입. 10월 문의 버튼 263번 → 문의 26건(10%)이라 문의 양식 점검이 첫 할 일. "서비스 페이지 봄" = 서비스 · 제품 소개 페이지(/pages · /products)를 한 번이라도 본 세션 — 이미 받는 GA 페이지 데이터로 계산(추가 설정 없음). 방문자가 소개를 보고 문의하는지, 첫 화면에서 바로 나가는지를 가름. 문의 직전 페이지는 지금 27건만 기록 — 모든 문의에 남기도록 고쳐야 함. 들어온 곳별 문의 주제는 어디나 "가격·견적 · AI CCTV"가 1 · 2위라 구분이 안 돼 표에서 뺌 (주제는 문의 내용 메뉴에서). 외주 글(miracleintip · boosterlink) 19건 · AI 검색 8건은 아직 도입 0.</p>
+<div class="cmp"><div><h4>정해 주실 것</h4><ul><li>개요 없앰 · 손익 분석 숨김</li><li>✔ 분석 메뉴 10 → 6 (10/22)</li><li>✔ 외주 · 행사 비용 = 사용자가 직접 [비용 입력] (10/22)</li><li>✔ 전화 출처는 묻지 않음 → GA 전화클릭 채널 분포로 (10/22)</li><li>✔ 서비스 페이지 봄 = GA 페이지 데이터로 (설정 추가 없음)</li></ul></div>
 <div><h4>순서 (합의 후)</h4><ul><li>1 마케팅 효율 · 문의까지 가는 길 (마케팅 2개)</li><li>2 파이프라인 · 문의 내용 (세일즈 2개)</li><li>3 매출 분석 (시트 동기화 데이터)</li><li>4 메뉴 정리 (개요 · 손익 · 연간 비교 · 방문자 여정 옛 화면 내림)</li></ul></div></div></section>'''
 
 s = open(P, encoding='utf-8').read()
