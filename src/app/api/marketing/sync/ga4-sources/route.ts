@@ -544,7 +544,7 @@ export async function POST(request: NextRequest) {
       else await supabase.from('ad_performance').insert({ date: a.date, channel: a.channel, ad_type: '검색', campaign_name: a.campaign_name, adgroup_name: a.adgroup_name, impressions: 0, clicks: 0, cost: 0, ga_visits: a.ga, inquiry_clicks: a.clicks, signups: 0, inquiries: 0, adoptions: 0 })
     }
     // 자동으로 바뀐 뒤 손으로 넣은 GA 유입·문의 클릭이 겹치지 않게 비움 (수동 행의 도입·메모는 그대로)
-    await supabase.from('ad_performance').update({ ga_visits: 0, inquiry_clicks: 0 }).eq('data_source', 'manual').in('channel', organicChannels).is('campaign_id', null).gte('date', startDate).lte('date', endDate).or('ga_visits.gt.0,inquiry_clicks.gt.0')
+    await supabase.from('ad_performance').update({ ga_visits: 0, inquiry_clicks: 0 }).eq('data_source', 'manual').in('channel', [...organicChannels, '네이버', '구글', '메타', '유튜브', '기타']).is('campaign_id', null).gte('date', startDate).lte('date', endDate).or('ga_visits.gt.0,inquiry_clicks.gt.0')
 
     // ─── 결과 요약 ───
     const summary: Record<string, number> = {}
