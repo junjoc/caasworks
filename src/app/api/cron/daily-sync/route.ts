@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { recomputeInquiries } from '@/lib/sync-lead-to-ads'
+import { runSheetSync } from '@/lib/sheet-sync'
 
-// Vercel Cron Job — 매일 자동 동기화 (구글 광고 + 네이버 광고 + GA4 콘텐츠)
-// vercel.json에서 매일 오전 7시(KST) 실행 설정
+// Vercel Cron Job — 매일 자동 동기화 (구글 광고 + 네이버 광고 + GA4 + 문의 다시 맞추기 + 매출 시트)
+// vercel.json 에서 매일 오전 8시(KST) — 10/22 사용자: 9~10시 출근 전에 끝나 있게
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -16,6 +17,8 @@ function getBaseUrl() {
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
   return 'http://localhost:3000'
 }
+
+export const maxDuration = 300
 
 export async function GET(request: NextRequest) {
   // Vercel Cron 인증 (CRON_SECRET 설정 시)
@@ -104,6 +107,15 @@ export async function GET(request: NextRequest) {
     results.inquiries = await recomputeInquiries(sb, startDate, endDate)
   } catch (err) {
     results.inquiries = { error: String(err) }
+  }
+
+  // 4-2. 매출 시트(구글 시트 "[경영관리] 2026년 매출 현황") → 고객 · 매출 · 청구·미납 (10/22). 크게 바뀌면 멈추고 화면에서 확인
+  try {
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const r = await runSheetSync(sb, { apply: true, trigger: 'cron' })
+    results.sheet = { ok: r.ok, held: r.held, ms: r.ms, steps: r.steps.map(s => ({ name: s.name, held: s.held, error: s.error, summary: s.summary })) }
+  } catch (err) {
+    results.sheet = { error: String(err) }
   }
 
   // 5. 전월 데이터도 월초(1~3일)에는 보정 동기화

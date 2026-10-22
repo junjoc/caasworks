@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { Plus, Search, X, Copy, Trash2 } from 'lucide-react'
 import { BILLING_METHOD_OPTIONS } from '@/lib/billing-methods'
 import { SERVICE_TYPE_OPTIONS, serviceColor } from '@/lib/service-types'
+import { SheetSyncBar } from '@/components/revenue/sheet-sync-bar'
 
 /* ──── Constants ──── */
 // 이용 서비스: 시트와 1:1 (총 22종) — src/lib/service-types.ts
@@ -552,6 +553,7 @@ export default function RevenuePage() {
           </label>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
           <Select value={String(year)} onChange={e => setYear(Number(e.target.value))} options={yOpts} className="w-32" />
+          <SheetSyncBar onApplied={() => load()} />
         </div>
       </div>
 

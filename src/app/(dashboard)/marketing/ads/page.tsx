@@ -1023,7 +1023,7 @@ export default function AdsPage() {
           </table>
         </div>
       )}
-      <BasisNote text="GA 유입·문의 클릭(GA 「문의클릭」)·문의 제출(GA 「fin-contact」, 2026-10-21 17시부터)은 매일 07시 GA 에서 · 문의 = 유입일이 그 날인 CRM 리드 수 · 도입 = 그 리드가 도입완료 (팀이 적은 도입 중 리드로 확인 안 되는 기록은 그대로) · 광고 매체가 회사명 없이 보고한 전환은 문의에 더하지 않고 따로 · 문의·도입은 화면을 열 때 리드에서 다시 맞춤" />
+      <BasisNote text="GA 유입·문의 클릭(GA 「문의클릭」)·문의 제출(GA 「fin-contact」, 2026-10-21 17시부터)은 매일 08시 GA 에서 · 문의 = 유입일이 그 날인 CRM 리드 수 · 도입 = 그 리드가 도입완료 (팀이 적은 도입 중 리드로 확인 안 되는 기록은 그대로) · 광고 매체가 회사명 없이 보고한 전환은 문의에 더하지 않고 따로 · 문의·도입은 화면을 열 때 리드에서 다시 맞춤" />
 
       <Drawer open={!!openRow} onClose={() => setOpenKey(null)} width="60vw"
         title={openRow ? `${openRow.group} › ${openRow.label}${openRow.detail ? ' › ' + openRow.detail : ''}` : ''}
