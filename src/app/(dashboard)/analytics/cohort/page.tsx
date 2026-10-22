@@ -124,21 +124,22 @@ export default function CohortPage() {
 
       <BasisNote text={HELP} />
 
-      <Drawer open={!!sel} onClose={() => setOpen(null)} width="60vw" title={sel ? `${sel.label} 유입 ${sel.n}건${channel !== 'all' ? ` · ${channel}` : ''}` : ''}
+      <Drawer open={!!sel} onClose={() => setOpen(null)} width="min(1180px, 94vw)" title={sel ? `${sel.label} 유입 ${sel.n}건${channel !== 'all' ? ` · ${channel}` : ''}` : ''}
         meta={sel ? <>도입 {sel.won}건 · 누적 매출 {fmtWon(sel.total)}원 · 유입 후 1개월 {fmtWon(sel.rev_1)} · 3개월 {fmtWon(sel.rev_3)} · 6개월 {fmtWon(sel.rev_6)} · 12개월 {fmtWon(sel.rev_12)}</> : ''}>
         {sel && (
           <div className="p-4">
             <div className="ds-wrap max-h-[calc(100vh-140px)]">
-              <table className="ds-table">
+              <table className="ds-table is-fixed is-clip">
+                <colgroup>{[22, 9, 10, 15, 10, 10, 6, 9, 9].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
                 <thead><tr><th>회사</th><th>단계</th><th>유입일</th><th>채널</th><th>업종</th><th>도입일</th><th>소요일</th><th>서비스</th><th>누적 매출</th></tr></thead>
                 <tbody>
                   {[...sel.rows].sort((a, b) => b.rev_total - a.rev_total).map(r => (
                     <tr key={r.key} className="ds-row">
-                      <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} prefetch={false} className="hover:text-ds-accent">{r.company_name}</Link> : <>{r.company_name} <span className="text-[12px] text-ds-fg3">미연결</span></>}{r.lead_count > 1 && <span className="text-[12px] text-ds-fg3"> · {r.lead_count}번째 문의</span>}</td>
+                      <td className="font-medium" title={`${r.company_name}${r.lead_count > 1 ? ` · ${r.lead_count}번째 문의` : ''}`}>{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} prefetch={false} className="hover:text-ds-accent">{r.company_name}</Link> : <>{r.company_name} <span className="text-[12px] text-ds-fg3">미연결</span></>}{r.lead_count > 1 && <span className="text-[12px] text-ds-fg3"> · {r.lead_count}번째 문의</span>}</td>
                       <td className="c"><StatusChip tone={r.won ? 'ok' : 'info'}>{r.won ? '도입완료' : '진행'}</StatusChip></td>
-                      <td className="c muted">{r.inquiry_date}</td><td>{r.inquiry_channel || '—'}{r.inquiry_source ? <span className="text-ds-fg3"> / {r.inquiry_source}</span> : ''}</td><td>{r.industry || '—'}</td>
+                      <td className="c muted">{r.inquiry_date}</td><td title={[r.inquiry_channel, r.inquiry_source].filter(Boolean).join(' / ')}>{r.inquiry_channel || '—'}{r.inquiry_source ? <span className="text-ds-fg3"> / {r.inquiry_source}</span> : ''}</td><td>{r.industry || '—'}</td>
                       <td className="c muted">{r.converted_at || '—'}</td><td className="num">{r.days_to_convert ?? '—'}</td>
-                      <td className="text-[12px] text-ds-fg2 max-w-[220px] truncate" title={r.services.join(', ')}>{r.services.join(', ') || '—'}</td><td className="num font-medium">{fmtWon(r.rev_total)}</td>
+                      <td className="text-[12px] text-ds-fg2" title={r.services.join(', ')}>{r.services.join(', ') || '—'}</td><td className="num font-medium">{fmtWon(r.rev_total)}</td>
                     </tr>
                   ))}
                 </tbody>

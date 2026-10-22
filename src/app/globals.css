@@ -64,6 +64,8 @@
   .ds-table td:first-child { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
   /* 집계 표: 열 비율 고정 (colgroup %) — 보기 전환해도 열 위치가 그대로 */
   .ds-table.is-fixed { table-layout: fixed; }
+  /* 10/22: 말줄임 표(is-clip) — 긴 글자가 표를 밀지 않아 어느 달·어느 조건을 열어도 열 위치·폭이 같다 (전체 글자는 title). 칸 안에 팝업이 있는 표에는 쓰지 않는다 */
+  .ds-table.is-clip td { overflow: hidden; text-overflow: ellipsis; }
   /* 묶음 열 구분: 묶음 첫 칸 왼쪽에 세로선 (예: 서비스별 이전·올해·누적) */
   .ds-table th.g, .ds-table td.g { border-left: 1px solid var(--ds-line); }
   .ds-table.is-fixed th:first-child, .ds-table.is-fixed td:first-child { width: auto; min-width: 0; }

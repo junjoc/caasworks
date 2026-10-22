@@ -83,20 +83,21 @@ export default function ChannelValuePage() {
 
       <BasisNote text={HELP} />
 
-      <Drawer open={!!sel} onClose={() => setOpen(null)} width="60vw" title={sel ? `${sel.key} — ${sel.n}건` : ''} meta={sel ? `도입 ${sel.won}건 · 누적 매출 ${fmtWon(sel.rev)}원` : ''}>
+      <Drawer open={!!sel} onClose={() => setOpen(null)} width="min(1180px, 94vw)" title={sel ? `${sel.key} — ${sel.n}건` : ''} meta={sel ? `도입 ${sel.won}건 · 누적 매출 ${fmtWon(sel.rev)}원` : ''}>
         {sel && (
           <div className="p-4">
             <div className="ds-wrap max-h-[calc(100vh-140px)]">
-              <table className="ds-table">
+              <table className="ds-table is-fixed is-clip">
+                <colgroup>{[24, 10, 18, 10, 10, 7, 11, 10].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
                 <thead><tr><th>회사</th><th>유입일</th><th>유입경로</th><th>상태</th><th>도입일</th><th>소요일</th><th>서비스</th><th>누적 매출</th></tr></thead>
                 <tbody>
                   {[...sel.rows].sort((a, b) => b.rev_total - a.rev_total).map(r => (
                     <tr key={r.key} className="ds-row">
-                      <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} className="hover:text-ds-accent">{r.company_name}</Link> : r.company_name}</td>
-                      <td className="c muted">{r.inquiry_date}</td><td>{r.inquiry_source || '—'}</td>
+                      <td className="font-medium" title={r.company_name}>{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} className="hover:text-ds-accent">{r.company_name}</Link> : r.company_name}</td>
+                      <td className="c muted">{r.inquiry_date}</td><td title={r.inquiry_source || ''}>{r.inquiry_source || '—'}</td>
                       <td><StatusChip cell tone={r.won ? 'ok' : 'info'}>{r.won ? '도입완료' : '진행'}</StatusChip></td>
                       <td className="c muted">{r.converted_at || '—'}</td><td className="num">{r.days_to_convert ?? '—'}</td>
-                      <td className="text-[12px] text-ds-fg2">{r.services.join(', ') || '—'}</td><td className="num font-medium">{fmtWon(r.rev_total)}</td>
+                      <td className="text-[12px] text-ds-fg2" title={r.services.join(', ')}>{r.services.join(', ') || '—'}</td><td className="num font-medium">{fmtWon(r.rev_total)}</td>
                     </tr>
                   ))}
                 </tbody>

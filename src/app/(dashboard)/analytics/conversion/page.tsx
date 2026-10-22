@@ -94,19 +94,20 @@ export default function ConversionPage() {
 
       <BasisNote text={HELP} />
 
-      <Drawer open={!!sel} onClose={() => setSel(null)} width="60vw" title={sel ? `${sel.axis === '*' ? '전체' : sel.axis} · ${bucketLabel(sel.bucket)}` : ''}
+      <Drawer open={!!sel} onClose={() => setSel(null)} width="min(1180px, 94vw)" title={sel ? `${sel.axis === '*' ? '전체' : sel.axis} · ${bucketLabel(sel.bucket)}` : ''}
         meta={sel ? `${selRows.length}곳 · 누적 매출 ${fmtWon(selRows.reduce((s, r) => s + r.rev_total, 0))}원 · 소요일 중앙값 ${median(selRows.map(r => r.days_to_convert!)) ?? '—'}일` : ''}>
         {sel && (
           <div className="p-4">
             <div className="ds-wrap max-h-[calc(100vh-140px)]">
-              <table className="ds-table">
+              <table className="ds-table is-fixed is-clip">
+                <colgroup>{[19, 9, 9, 6, 13, 10, 9, 10, 6, 9].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
                 <thead><tr><th>회사</th><th>유입일</th><th>도입일</th><th>소요일</th><th>채널</th><th>업종</th><th>발주유형</th><th>서비스</th><th>담당</th><th>누적 매출</th></tr></thead>
                 <tbody>
                   {[...selRows].sort((a, b) => a.days_to_convert! - b.days_to_convert!).map(r => (
                     <tr key={r.key} className="ds-row">
-                      <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} className="hover:text-ds-accent">{r.company_name}</Link> : r.company_name}</td>
+                      <td className="font-medium" title={r.company_name}>{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} className="hover:text-ds-accent">{r.company_name}</Link> : r.company_name}</td>
                       <td className="c muted">{r.inquiry_date}</td><td className="c muted">{r.converted_at}</td><td className="num">{r.days_to_convert}</td>
-                      <td>{r.inquiry_channel || '—'}</td><td>{r.industry || '—'}</td><td className="num">{r.site_category || '—'}</td><td className="text-[12px] text-ds-fg2">{r.services.join(', ') || '—'}</td><td><Avatar name={r.assigned_to} /></td>
+                      <td title={r.inquiry_channel || ''}>{r.inquiry_channel || '—'}</td><td title={r.industry || ''}>{r.industry || '—'}</td><td className="c">{r.site_category || '—'}</td><td className="text-[12px] text-ds-fg2" title={r.services.join(', ')}>{r.services.join(', ') || '—'}</td><td><Avatar name={r.assigned_to} /></td>
                       <td className="num font-medium">{fmtWon(r.rev_total)}</td>
                     </tr>
                   ))}
