@@ -438,7 +438,7 @@ export async function POST(request: NextRequest) {
     // ─── Supabase에 저장 ───
     const supabase = createClient(supabaseUrl, supabaseKey)
     // 외주 블로그는 월 비용 행(캠페인 연결, campaign_id 있음)이 같은 채널에 있어서 campaign_id 없는 행만 다룬다
-    const organicChannels = ['검색유입', '자사채널', '블로그', '외주 블로그', '언론', '외부 글', '언론·뉴스', '커뮤니티', '소셜', '미분류']
+    const organicChannels = ['검색유입', '자사채널', '블로그', '외주 블로그', '언론', '외부 글', '언론·뉴스', '커뮤니티', '소셜', '미분류', '직접 연락'] // 직접 연락이 빠져 동기화 때마다 이메일·행사 행이 겹쳐 쌓였다 (10/22)
 
     // 기존 수동 입력 데이터(문의/도입 등) 보존을 위해 먼저 조회 (기본 1000행 제한이 있어서 나눠 읽음)
     const existingRows: Record<string, any>[] = []
