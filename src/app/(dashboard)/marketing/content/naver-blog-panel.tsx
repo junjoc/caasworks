@@ -45,6 +45,8 @@ function UrlEdit({ row, onSaved }: { row: Row; onSaved: (url: string | null, log
     <span className="relative inline-flex">
       <button onClick={() => { setV(row.url || ''); setOpen(true) }} title={row.url ? 'URL 수정' : 'URL 넣기 — 넣으면 마케팅 리포트 레퍼러에 글 제목이 보임'}
         className={cn('ml-1 inline-grid place-items-center w-5 h-5 rounded hover:bg-ds-subtle', row.url ? 'text-ds-accent' : 'text-ds-line')}><Link2 className="w-3.5 h-3.5" /></button>
+      {/* 글 바로 열기 (10/22) — URL 이 있을 때만 */}
+      {row.url && <a href={row.url} target="_blank" rel="noopener noreferrer" title="새 창에서 글 열기" className="inline-grid place-items-center w-5 h-5 rounded hover:bg-ds-subtle text-ds-fg3 hover:text-ds-accent"><ExternalLink className="w-3.5 h-3.5" /></a>}
       <Popover open={open} onClose={() => setOpen(false)} width={340}>
         <div className="grid gap-1.5 text-[12.5px]">
           <span className="text-ds-fg2">네이버 글 URL</span>
@@ -64,6 +66,8 @@ export function NaverBlogPanel({ tabs }: { tabs: ReactNode }) {
   const [year, setYear] = useState('')
   const [kw, setKw] = useState('')
   const [search, setSearch] = useState('')
+  // 글별 정렬 열: 'YYYY-MM'(월) · 'YYYY'(연 합계) · 'tot'(누적). 비우면 펼친 해의 가장 최근 달 (10/22 — 최근 추세 먼저)
+  const [sortKey, setSortKey] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [results, setResults] = useState<UploadResult[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
@@ -132,7 +136,13 @@ export function NaverBlogPanel({ tabs }: { tabs: ReactNode }) {
   const open = data.year
   const latestWith = <K extends keyof Trend>(k: K) => [...trend].reverse().find(t => t[k] != null)
   const q = search.trim().toLowerCase()
-  const rows = q ? data.rows.filter(r => r.title.toLowerCase().includes(q)) : data.rows
+  const latestMonth = [...yearMonths].reverse().find(m => (data.mt[m] || 0) > 0)
+  const sk = sortKey || latestMonth || open
+  const val = (r: Row) => sk === 'tot' ? r.tot : sk.length === 7 ? r.m[sk] || 0 : r.ys[sk] || 0
+  const rows = (q ? data.rows.filter(r => r.title.toLowerCase().includes(q)) : data.rows).slice().sort((a, b) => val(b) - val(a) || b.tot - a.tot)
+  const skLabel = sk === 'tot' ? '누적' : sk.length === 7 ? `${sk.slice(2, 4)}년 ${Number(sk.slice(5))}월` : `${sk}년`
+  const sortTh = (k: string) => ({ onClick: () => setSortKey(k), className: cn('cursor-pointer select-none hover:bg-ds-accent-soft', sk === k && 'text-ds-accent'), title: '이 열 조회수 많은 순' })
+  const arrow = (k: string) => sk === k ? ' ▼' : ''
   const kwRows = data.inflow.filter(i => i.kind === 'keyword')
   const routeRows = data.inflow.filter(i => i.kind === 'route')
   const setUrl = (id: string) => (url: string | null, log_no: string | null) => setData(d => d && ({ ...d, rows: d.rows.map(r => r.id === id ? { ...r, url, log_no } : r), linked: d.linked + (log_no ? 1 : 0) - (d.rows.find(r => r.id === id)?.log_no ? 1 : 0) }))
@@ -178,22 +188,22 @@ export function NaverBlogPanel({ tabs }: { tabs: ReactNode }) {
         </Sec>
       )}
 
-      <Sec title="글별 조회수" sub={`${data.rows.length}편 · URL 연결 ${data.linked}편 · 연도 머리를 누르면 그해 월별`}
+      <Sec title="글별 조회수" sub={`${data.rows.length}편 · ${skLabel} 조회수 순 · 월·누적 머리를 누르면 그 열 순 · 접힌 연도를 누르면 그해 월별 · URL 연결 ${data.linked}편`}
         right={<input value={search} onChange={e => setSearch(e.target.value)} placeholder="제목 검색" className={cn(dsInput, 'h-7 w-48 text-[12.5px]')} />}>
         <div className="ds-wrap max-h-[600px]">
           <table className="ds-table is-fixed">
             <colgroup>
-              <col style={{ width: 260 }} /><col style={{ width: 72 }} />
+              <col style={{ width: 236 }} /><col style={{ width: 72 }} />
               {years.flatMap(y => y === open ? [...yearMonths.map(m => <col key={m} style={{ width: 48 }} />), <col key={y} style={{ width: 64 }} />] : [<col key={y} style={{ width: 64 }} />])}
               <col style={{ width: 72 }} />
             </colgroup>
             <thead><tr>
               <th>제목</th><th>작성일</th>
               {years.flatMap(y => [
-                ...(y === open ? yearMonths.map(m => <th key={m}>{Number(m.slice(5))}월</th>) : []),
-                <th key={y} className={cn('g cursor-pointer select-none', y === open ? 'text-ds-fg' : 'text-ds-accent hover:bg-ds-accent-soft')} onClick={() => y !== open && setYear(y)} title={y === open ? `${y} 합계` : `${y}년 월별 펼치기`}>{y} {y === open ? '▾' : '▸'}</th>,
+                ...(y === open ? yearMonths.map(m => { const s = sortTh(m); return <th key={m} {...s}>{Number(m.slice(5))}월{arrow(m)}</th> }) : []),
+                <th key={y} className={cn('g cursor-pointer select-none', y === open ? (sk === y ? 'text-ds-accent hover:bg-ds-accent-soft' : 'text-ds-fg hover:bg-ds-accent-soft') : 'text-ds-accent hover:bg-ds-accent-soft')} onClick={() => y === open ? setSortKey(y) : (setYear(y), setSortKey(null))} title={y === open ? `${y} 합계 많은 순` : `${y}년 월별 펼치기`}>{y} {y === open ? '▾' : '▸'}{arrow(y)}</th>,
               ])}
-              <th className="g">누적</th>
+              {(() => { const s = sortTh('tot'); return <th {...s} className={cn('g', s.className)}>누적{arrow('tot')}</th> })()}
             </tr></thead>
             <tbody>
               <tr className="ds-sum top">
