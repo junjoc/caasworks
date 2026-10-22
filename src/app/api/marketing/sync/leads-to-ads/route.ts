@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { mapLeadChannelToAds } from '@/lib/sync-lead-to-ads'
+import { mapLeadChannelToAds, recomputeInquiries } from '@/lib/sync-lead-to-ads'
+import { isSignedIn } from '@/lib/pipeline/read-leads'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -10,7 +11,10 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 
 export async function POST(request: NextRequest) {
   try {
-    const { startDate, endDate } = await request.json()
+    if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+    const { startDate, endDate, mode } = await request.json()
+    // 유입 성과 화면을 열 때: 그 기간 문의를 리드 기준으로 다시 맞춤 (10/22)
+    if (mode === 'inquiries' && startDate && endDate) return NextResponse.json({ success: true, ...(await recomputeInquiries(createClient(supabaseUrl, supabaseKey), startDate, endDate)) })
 
     if (!startDate || !endDate) {
       return NextResponse.json({ error: 'startDate, endDate 필수' }, { status: 400 })

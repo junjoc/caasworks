@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import campaignMap from '@/config/ad_campaign_map.json'
+import { classifyLead } from '@/lib/inflow-taxonomy'
 
 export interface AdMapping { channel: string; campaign_name: string; adgroup_name?: string }
 
@@ -306,4 +307,52 @@ export async function recalcAdPerformanceFromLeads(
         })
     }
   }
+}
+
+/**
+ * 유입 성과의 문의(inquiries · inquiry_companies)를 리드에서 다시 맞춘다 (2026-10-22).
+ * 리스트와 같은 기준: 유입일이 그 날인 리드 1건 = 문의 1. 유입일을 고치거나 리드를 지우면 여기서 따라감.
+ * 도입(adoptions)은 팀이 적는 값이라 건드리지 않는다. 회사명 없이 광고 매체가 준 전환 수는 그대로 둔다.
+ * 문의 기록이 있는 2026-01-01 이후만.
+ */
+export async function recomputeInquiries(supabase: SupabaseClient, from: string, to: string) {
+  const start = from < '2026-01-01' ? '2026-01-01' : from
+  if (start > to) return { changed: 0, created: 0 }
+  const page = async <T,>(q: (a: number, b: number) => PromiseLike<{ data: T[] | null }>) => { let all: T[] = []; for (let o = 0; ; o += 1000) { const { data } = await q(o, o + 999); all = all.concat(data || []); if (!data || data.length < 1000) break } return all }
+  const [leads, rows] = await Promise.all([
+    page<{ company_name: string; inquiry_date: string; inquiry_channel: string | null; inquiry_source: string | null }>((a, b) => supabase.from('pipeline_leads').select('company_name, inquiry_date, inquiry_channel, inquiry_source').gte('inquiry_date', start).lte('inquiry_date', to).order('id').range(a, b)),
+    page<{ id: string; date: string; channel: string; campaign_name: string; adgroup_name: string | null; inquiries: number | null; inquiry_companies: string | null }>((a, b) => supabase.from('ad_performance').select('id, date, channel, campaign_name, adgroup_name, inquiries, inquiry_companies').gte('date', start).lte('date', to).order('id').range(a, b)),
+  ])
+  const key = (d: string, ch: string, cp: string, ag?: string | null) => `${d}|${ch}|${cp}|${ag || ''}`
+  const want = new Map<string, { date: string; channel: string; campaign_name: string; adgroup_name?: string; names: string[] }>()
+  for (const l of leads) {
+    const ch = l.inquiry_channel || '', src = l.inquiry_source || ''
+    const f = classifyLead(ch, src)
+    // 광고 캠페인 대응표 → 그 광고그룹 행 · 예전 채널 값 → 예전 행 · 10/21 새 분류("검색 › 네이버") → 분류 이름 행
+    const m: AdMapping = CAMPAIGN_MAP[ch]?.[src] ? { channel: ch, ...CAMPAIGN_MAP[ch][src] } : (!src.includes('›') && mapLeadChannelToAds(ch, src)) || { channel: f.group, campaign_name: f.sub }
+    const k = key(l.inquiry_date, m.channel, m.campaign_name, m.adgroup_name)
+    if (!want.has(k)) want.set(k, { date: l.inquiry_date, ...m, names: [] })
+    want.get(k)!.names.push(l.company_name)
+  }
+  const byKey = new Map<string, typeof rows>()
+  for (const r of rows) { const k = key(r.date, r.channel, r.campaign_name, r.adgroup_name); if (!byKey.has(k)) byKey.set(k, []); byKey.get(k)!.push(r) }
+  const ops: PromiseLike<unknown>[] = []
+  let changed = 0, created = 0
+  const used = new Set<string>()
+  for (const [k, w] of Array.from(want.entries())) {
+    const cands = byKey.get(k) || []
+    const row = cands.find(r => r.inquiry_companies) || cands[0]
+    const names = w.names.join(', ')
+    if (row) {
+      used.add(row.id)
+      if ((row.inquiries || 0) !== w.names.length || (row.inquiry_companies || '') !== names) { changed++; ops.push(supabase.from('ad_performance').update({ inquiries: w.names.length, inquiry_companies: names }).eq('id', row.id)) }
+    } else {
+      created++
+      ops.push(supabase.from('ad_performance').insert({ date: w.date, channel: w.channel, ad_type: '콘텐츠', campaign_name: w.campaign_name, ...adgroupFilter(w), impressions: 0, clicks: 0, cost: 0, ga_visits: 0, inquiry_clicks: 0, signups: 0, inquiries: w.names.length, adoptions: 0, inquiry_companies: names, data_source: 'manual' }))
+    }
+  }
+  // 리드가 없어진 행(유입일 변경·삭제)은 문의를 비움 — 회사명이 있던 행만 (매체 전환 수는 그대로)
+  for (const r of rows) if (!used.has(r.id) && r.inquiry_companies) { changed++; ops.push(supabase.from('ad_performance').update({ inquiries: 0, inquiry_companies: null }).eq('id', r.id)) }
+  for (let i = 0; i < ops.length; i += 20) await Promise.all(ops.slice(i, i + 20))
+  return { changed, created }
 }

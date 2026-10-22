@@ -392,6 +392,9 @@ export default function AdsPage() {
       cur.setMonth(cur.getMonth() + 1)
     }
 
+    // 문의 수를 리드 기준으로 먼저 맞춘다 — 리스트·코호트와 같은 건수 (10/22). 실패해도 화면은 그대로
+    if (!silent) await fetch('/api/marketing/sync/leads-to-ads', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'inquiries', startDate: dateRange.from, endDate: dateRange.to }) }).catch(() => null)
+
     // 광고 데이터(1,000행 단위)와 예산을 동시에 읽는다 (2026-10-21: 순차 → 병렬)
     const fetchAds = async () => {
       let allAds: AdPerformance[] = []

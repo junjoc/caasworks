@@ -98,7 +98,7 @@ export default function PipelineAnalyticsPage() {
       supabase.from('users').select('id, name'),
       fetch('/api/analytics/lifecycle').then(r => r.json()).catch(() => null),
     ])
-    if (lifecycle?.rows) setRevByCust(new Map((lifecycle.rows as { customer_id: string | null; rev_total: number }[]).filter(r => r.customer_id).map(r => [r.customer_id!, r.rev_total])))
+    if (lifecycle?.rows) { const m = new Map<string, number>(); for (const r of lifecycle.rows as { customer_id: string | null; rev_total: number }[]) if (r.customer_id) m.set(r.customer_id, (m.get(r.customer_id) || 0) + r.rev_total); setRevByCust(m) } // 문의마다 1행 → 회사별 합
     let allLeads: any[] = []
     for (const r of leadsResults) {
       if (r.error) { console.error(r.error); continue }

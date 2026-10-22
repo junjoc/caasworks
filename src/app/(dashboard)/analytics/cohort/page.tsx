@@ -10,7 +10,7 @@ import { KpiRow, Toolbar, Tabs, DsSelect, Check, Skeleton, Empty, StatusChip, Dr
 
 type Group = 'month' | 'quarter'
 const thisYear = String(new Date().getFullYear())
-const HELP = '회사 단위 · 첫 리드의 유입월 기준 · 매출은 유입월부터 공급가(VAT 제외) 누적 · 소요일 = 유입일 → 도입일 · 유입 전 매출이 있던 기존 고객은 기본 제외'
+const HELP = '문의 1건 = 1행 · 유입월 = 그 문의의 유입일 (예전에 문의한 회사도 이번 달 문의는 이번 달) — 리스트·유입 성과와 같은 건수 · 매출은 그 문의의 유입월부터 다음 문의 전까지 공급가(VAT 제외) 누적 · 소요일 = 유입일 → 도입일 · "기존 고객 포함"을 끄면 유입 전 매출이 있던 고객의 문의를 뺌'
 
 interface Cohort { key: string; label: string; rows: LifecycleRow[]; n: number; won: number; days: number | null; total: number; rev_1: number | null; rev_3: number | null; rev_6: number | null; rev_12: number | null }
 
@@ -32,7 +32,7 @@ export default function CohortPage() {
   const [group, setGroup] = useState<Group>('month')
   const [year, setYear] = useState(thisYear)
   const [channel, setChannel] = useState('all')
-  const [includeExisting, setIncludeExisting] = useState(false)
+  const [includeExisting, setIncludeExisting] = useState(true)
   const [open, setOpen] = useState<string | null>(null)
 
   useEffect(() => { fetchLifecycle().then(d => setRows(d.rows)).catch(e => toast.error(e.message)).finally(() => setLoading(false)) }, [])
@@ -72,8 +72,8 @@ export default function CohortPage() {
         <DsSelect value={channel} onChange={e => { setChannel(e.target.value); setOpen(null) }}><option value="all">채널 전체</option>{channels.map(c => <option key={c.key} value={c.key}>{c.key}</option>)}</DsSelect>
       </Toolbar>
       <KpiRow items={[
-        { label: `${scope} 유입`, value: `${tot.n.toLocaleString()}곳` },
-        { label: '도입', value: `${tot.won}곳`, sub: `도입률 ${fmtPct(tot.won, tot.n)}` },
+        { label: `${scope} 유입`, value: `${tot.n.toLocaleString()}건` },
+        { label: '도입', value: `${tot.won}건`, sub: `도입률 ${fmtPct(tot.won, tot.n)}` },
         { label: '소요일 중앙값', value: tot.days != null ? `${tot.days}일` : '—' },
         { label: '누적 매출', value: `${fmtWon(tot.total)}원`, sub: '유입 이후 공급가' },
         { label: '도입당', value: tot.won ? `${fmtWon(tot.total / tot.won)}원` : '—' },
@@ -82,7 +82,7 @@ export default function CohortPage() {
       {loading ? <Skeleton rows={8} /> : tot.n === 0 && cohorts.every(c => c.n === 0) ? <Empty text="조건에 맞는 유입이 없습니다" /> : (
         <div className="grid lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] gap-5 items-start">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-2 h-5"><h2 className="text-[14px] font-medium text-ds-fg">유입{group === 'month' ? '월' : '분기'}별</h2><span className="text-[12px] text-ds-fg3">{channel === 'all' ? '전체 채널' : channel} · 행을 누르면 회사 목록</span></div>
+            <div className="flex items-center gap-2 mb-2 h-5"><h2 className="text-[14px] font-medium text-ds-fg">유입{group === 'month' ? '월' : '분기'}별</h2><span className="text-[12px] text-ds-fg3">{channel === 'all' ? '전체 채널' : channel} · 행을 누르면 문의 목록</span></div>
           <div className={`ds-wrap ${group === 'quarter' ? 'max-h-[70vh]' : ''}`}>
             <table className="ds-table is-clickable is-fixed">
               <colgroup><col style={{ width: '12%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '20%' }} /><col style={{ width: '14%' }} /><col style={{ width: '18%' }} /><col style={{ width: '16%' }} /></colgroup>
@@ -124,8 +124,8 @@ export default function CohortPage() {
 
       <BasisNote text={HELP} />
 
-      <Drawer open={!!sel} onClose={() => setOpen(null)} width="60vw" title={sel ? `${sel.label} 유입 ${sel.n}곳${channel !== 'all' ? ` · ${channel}` : ''}` : ''}
-        meta={sel ? <>도입 {sel.won}곳 · 누적 매출 {fmtWon(sel.total)}원 · 유입 후 1개월 {fmtWon(sel.rev_1)} · 3개월 {fmtWon(sel.rev_3)} · 6개월 {fmtWon(sel.rev_6)} · 12개월 {fmtWon(sel.rev_12)}</> : ''}>
+      <Drawer open={!!sel} onClose={() => setOpen(null)} width="60vw" title={sel ? `${sel.label} 유입 ${sel.n}건${channel !== 'all' ? ` · ${channel}` : ''}` : ''}
+        meta={sel ? <>도입 {sel.won}건 · 누적 매출 {fmtWon(sel.total)}원 · 유입 후 1개월 {fmtWon(sel.rev_1)} · 3개월 {fmtWon(sel.rev_3)} · 6개월 {fmtWon(sel.rev_6)} · 12개월 {fmtWon(sel.rev_12)}</> : ''}>
         {sel && (
           <div className="p-4">
             <div className="ds-wrap max-h-[calc(100vh-140px)]">
@@ -134,7 +134,7 @@ export default function CohortPage() {
                 <tbody>
                   {[...sel.rows].sort((a, b) => b.rev_total - a.rev_total).map(r => (
                     <tr key={r.key} className="ds-row">
-                      <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} prefetch={false} className="hover:text-ds-accent">{r.company_name}</Link> : <>{r.company_name} <span className="text-[12px] text-ds-fg3">미연결</span></>}</td>
+                      <td className="font-medium">{r.customer_id ? <Link href={`/analytics/company/${r.customer_id}`} prefetch={false} className="hover:text-ds-accent">{r.company_name}</Link> : <>{r.company_name} <span className="text-[12px] text-ds-fg3">미연결</span></>}{r.lead_count > 1 && <span className="text-[12px] text-ds-fg3"> · {r.lead_count}번째 문의</span>}</td>
                       <td className="c"><StatusChip tone={r.won ? 'ok' : 'info'}>{r.won ? '도입완료' : '진행'}</StatusChip></td>
                       <td className="c muted">{r.inquiry_date}</td><td>{r.inquiry_channel || '—'}{r.inquiry_source ? <span className="text-ds-fg3"> / {r.inquiry_source}</span> : ''}</td><td>{r.industry || '—'}</td>
                       <td className="c muted">{r.converted_at || '—'}</td><td className="num">{r.days_to_convert ?? '—'}</td>

@@ -33,7 +33,7 @@ export default function ConversionPage() {
   const maxN = Math.max(1, ...buckets.map(b => b.n))
   const bucketLabel = (k: string) => BUCKETS.find(b => b.key === k)?.label
 
-  const HELP = '소요 기간 = 첫 리드 유입일 → 도입일(단계 이력, 없으면 고객사 과금 시작일) · 매출은 유입 이후 공급가 누적 · 칸을 누르면 회사 목록'
+  const HELP = '소요 기간 = 그 문의의 유입일 → 도입일(단계 이력, 없으면 고객사 과금 시작일) · 매출은 유입 이후 공급가 누적 · 칸을 누르면 회사 목록'
   return (
     <div>
       <Toolbar right={<>

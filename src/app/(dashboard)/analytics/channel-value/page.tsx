@@ -43,7 +43,7 @@ export default function ChannelValuePage() {
   const tot = { n: table.reduce((s, t) => s + t.n, 0), won: table.reduce((s, t) => s + t.won, 0), rev: table.reduce((s, t) => s + t.rev, 0), cost: table.reduce((s, t) => s + t.cost, 0) }
   const sel = table.find(t => t.key === open)
 
-  const HELP = '첫 리드의 유입 채널 기준 · 매출은 유입 이후 공급가 누적 · 광고비는 유입 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 — · 행을 누르면 회사 목록'
+  const HELP = '문의 1건 = 1행, 그 문의의 유입 채널 기준 (같은 회사 재문의는 그 문의 채널로, 매출은 다음 문의 전까지만 — 겹쳐 세지 않음) · 매출은 유입 이후 공급가 누적 · 광고비는 유입 성과에 입력된 그 채널 비용(선택 연도) · 2023~2025 광고비는 아직 연결 전이라 그 해는 — · 행을 누르면 회사 목록'
   return (
     <div>
       <Toolbar right={<>
@@ -54,8 +54,8 @@ export default function ChannelValuePage() {
         <DsButton variant="ghost" size="sm" title={HELP}>ⓘ 기준</DsButton>
       </>} />
       <KpiRow items={[
-        { label: '유입 회사', value: `${tot.n.toLocaleString()}곳` },
-        { label: '도입', value: `${tot.won}곳`, sub: `도입률 ${fmtPct(tot.won, tot.n)}` },
+        { label: '유입', value: `${tot.n.toLocaleString()}건` },
+        { label: '도입', value: `${tot.won}건`, sub: `도입률 ${fmtPct(tot.won, tot.n)}` },
         { label: '누적 매출', value: `${fmtWon(tot.rev)}원`, sub: '유입 이후 공급가' },
         { label: '광고비', value: tot.cost ? `${fmtWon(tot.cost)}원` : '—', sub: '광고·외주 블로그' },
         { label: '매출/광고비', value: tot.cost ? `${(tot.rev / tot.cost).toFixed(1)}배` : '—' },
@@ -83,7 +83,7 @@ export default function ChannelValuePage() {
 
       <BasisNote text={HELP} />
 
-      <Drawer open={!!sel} onClose={() => setOpen(null)} width="60vw" title={sel ? `${sel.key} — ${sel.n}곳` : ''} meta={sel ? `도입 ${sel.won}곳 · 누적 매출 ${fmtWon(sel.rev)}원` : ''}>
+      <Drawer open={!!sel} onClose={() => setOpen(null)} width="60vw" title={sel ? `${sel.key} — ${sel.n}건` : ''} meta={sel ? `도입 ${sel.won}건 · 누적 매출 ${fmtWon(sel.rev)}원` : ''}>
         {sel && (
           <div className="p-4">
             <div className="ds-wrap max-h-[calc(100vh-140px)]">

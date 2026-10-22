@@ -8,7 +8,7 @@ import { unstable_cache } from 'next/cache'
 export const dynamic = 'force-dynamic'
 
 export interface LifecycleRow {
-  key: string                      // customer_id 또는 lead_id
+  key: string                      // lead_id (문의 1건 = 1행)
   customer_id: string | null
   company_name: string
   company_type: string | null
@@ -20,7 +20,7 @@ export interface LifecycleRow {
   site_category: string | null
   conversion_probability: string | null
   assigned_to: string | null       // 담당자 이름
-  lead_count: number
+  lead_count: number               // 이 회사의 몇 번째 문의인지 (1 = 첫 문의)
   won: boolean
   converted_at: string | null      // YYYY-MM-DD
   days_to_convert: number | null
@@ -73,51 +73,54 @@ async function build() {
     m.set(k, (m.get(k) || 0) + Number(r.amount))
   }
 
-  // 회사(연결된 리드는 customer_id, 아니면 리드 자체) 단위로 묶고 첫 리드를 생애주기 시작으로
+  // 문의 1건 = 1행 (10/22 사용자: "과거에 문의했어도 이번 달에 들어온 건 이번 달로"). 리스트·유입 성과와 같은 건수.
+  // 매출은 겹치지 않게 나눔: 같은 회사의 문의마다 그 유입월부터 다음 문의 달 전까지. 같은 달 문의가 여럿이면 첫 문의에.
   const groups = new Map<string, typeof leads>()
   for (const l of leads) {
     const key = l.customer_id || `lead:${l.id}`
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(l)
   }
-  const thisMonth = new Date().toISOString().slice(0, 7)
+  const thisMonth = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7)
   const rows: LifecycleRow[] = []
-  for (const [key, ls] of Array.from(groups.entries())) {
+  for (const ls of Array.from(groups.values())) {
     const dated = ls.map(l => ({ ...l, d: l.inquiry_date || l.created_at.slice(0, 10) })).sort((a, b) => a.d.localeCompare(b.d))
-    const first = dated[0]
-    const wonLeads = dated.filter(l => l.stage === '도입완료')
-    const won = wonLeads.length > 0
-    const conv = wonLeads.map(l => l.converted_at?.slice(0, 10)).filter((d): d is string => !!d && d >= first.d).sort()[0] || null
-    const cust = first.customer_id ? custMap.get(first.customer_id) : undefined
-    const inqMonth = ym(first.d)
-    const revMap = first.customer_id ? revByCust.get(first.customer_id) : undefined
-    const rev_by_month: Record<string, number> = {}
-    let existing = false, total = 0
-    if (revMap) for (const [m, amt] of Array.from(revMap.entries())) {
-      if (m < inqMonth) { if (amt > 0) existing = true; continue }
-      rev_by_month[m] = amt; total += amt
-    }
-    const elapsed = monthDiff(inqMonth, thisMonth)
-    const cum = (n: number) => {
-      if (elapsed < n - 1) return null // 아직 N개월이 안 지남 (유입월 포함 N개월)
-      let s = 0
-      for (const [m, amt] of Object.entries(rev_by_month)) if (monthDiff(inqMonth, m) < n) s += amt
-      return s
-    }
-    rows.push({
-      key, customer_id: first.customer_id, company_name: cust?.company_name || first.company_name, company_type: cust?.company_type || null,
-      inquiry_date: first.d, inquiry_month: inqMonth, inquiry_channel: first.inquiry_channel, inquiry_source: first.inquiry_source,
-      industry: first.industry, site_category: first.site_category, conversion_probability: first.conversion_probability,
-      assigned_to: first.assigned_to ? userName.get(first.assigned_to) || null : null,
-      lead_count: ls.length, won, converted_at: conv,
-      days_to_convert: conv ? Math.round((new Date(conv).getTime() - new Date(first.d).getTime()) / 86400000) : null,
-      services: Array.from(services.get(first.customer_id || '') || []),
-      existing_customer: existing, months_elapsed: elapsed, rev_by_month, rev_total: total,
-      rev_1: cum(1), rev_3: cum(3), rev_6: cum(6), rev_12: cum(12),
+    const revMap = dated[0].customer_id ? revByCust.get(dated[0].customer_id) : undefined
+    dated.forEach((l, i) => {
+      const inqMonth = ym(l.d)
+      const firstInMonth = !dated.slice(0, i).some(x => ym(x.d) === inqMonth)
+      const until = dated.slice(i + 1).map(x => ym(x.d)).find(m => m > inqMonth) || '9999-99'
+      const cust = l.customer_id ? custMap.get(l.customer_id) : undefined
+      const conv = l.stage === '도입완료' && l.converted_at && l.converted_at.slice(0, 10) >= l.d ? l.converted_at.slice(0, 10) : null
+      const rev_by_month: Record<string, number> = {}
+      let existing = false, total = 0
+      if (revMap) for (const [m, amt] of Array.from(revMap.entries())) {
+        if (m < inqMonth) { if (amt > 0) existing = true; continue }
+        if (!firstInMonth || m >= until) continue
+        rev_by_month[m] = amt; total += amt
+      }
+      const elapsed = monthDiff(inqMonth, thisMonth)
+      const cum = (n: number) => {
+        if (elapsed < n - 1) return null // 아직 N개월이 안 지남 (유입월 포함 N개월)
+        let s = 0
+        for (const [m, amt] of Object.entries(rev_by_month)) if (monthDiff(inqMonth, m) < n) s += amt
+        return s
+      }
+      rows.push({
+        key: l.id, customer_id: l.customer_id, company_name: cust?.company_name || l.company_name, company_type: cust?.company_type || null,
+        inquiry_date: l.d, inquiry_month: inqMonth, inquiry_channel: l.inquiry_channel, inquiry_source: l.inquiry_source,
+        industry: l.industry, site_category: l.site_category, conversion_probability: l.conversion_probability,
+        assigned_to: l.assigned_to ? userName.get(l.assigned_to) || null : null,
+        lead_count: i + 1, won: l.stage === '도입완료', converted_at: conv,
+        days_to_convert: conv ? Math.round((new Date(conv).getTime() - new Date(l.d).getTime()) / 86400000) : null,
+        services: Array.from(services.get(l.customer_id || '') || []),
+        existing_customer: existing, months_elapsed: elapsed, rev_by_month, rev_total: total,
+        rev_1: cum(1), rev_3: cum(3), rev_6: cum(6), rev_12: cum(12),
+      })
     })
   }
   rows.sort((a, b) => b.inquiry_date.localeCompare(a.inquiry_date))
-  return { rows, ad_cost, generated_at: new Date().toISOString(), ms: Date.now() - t0, counts: { leads: leads.length, companies: rows.length, won: rows.filter(r => r.won).length } }
+  return { rows, ad_cost, generated_at: new Date().toISOString(), ms: Date.now() - t0, counts: { leads: leads.length, companies: groups.size, won: rows.filter(r => r.won).length } }
 }
 
 const cached = unstable_cache(build, ['analytics-lifecycle'], { revalidate: 300 })
