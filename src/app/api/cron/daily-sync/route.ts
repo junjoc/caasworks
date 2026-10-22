@@ -23,14 +23,13 @@ export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  // Vercel Cron 인증 (CRON_SECRET 설정 시)
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  }
+  // Vercel Cron 인증 — CRON_SECRET 이 있으면 그 값, 없으면 Vercel 크론 요청(user-agent vercel-cron)만
+  // 10/22: 잠금이 없어 주소를 여는 것만으로 매출 시트 동기화까지 실행됐음
+  const cronSecret = process.env.CRON_SECRET?.trim()
+  const ok = cronSecret
+    ? request.headers.get('authorization') === `Bearer ${cronSecret}`
+    : (request.headers.get('user-agent') || '').startsWith('vercel-cron')
+  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const now = new Date()
   // KST (UTC+9)
