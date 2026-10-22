@@ -329,13 +329,20 @@ export async function POST(request: NextRequest) {
 
     // ─── 문의 클릭(GA 이벤트 "문의클릭")·광고 세션 — 매일 아침 손으로 넣던 값 (10/22) ───
     // 세그먼트 없이 센다(팀이 GA 에서 보던 숫자와 같음). 네이버 블로그 클릭은 그날 블로그 세션 비율로 자사·외주에 나눈다.
-    const [clickRep, paidRep] = await Promise.all([
+    const [clickRep, paidRep, blogClickRep] = await Promise.all([
       analyticsData.properties.runReport({ property: `properties/${propertyId}`, requestBody: {
         dateRanges: [{ startDate, endDate }], dimensions: [{ name: 'date' }, { name: 'sessionSource' }, { name: 'sessionMedium' }, { name: 'sessionCampaignName' }],
         dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: '문의클릭' } } }, metrics: [{ name: 'eventCount' }], limit: '10000' } }),
       analyticsData.properties.runReport({ property: `properties/${propertyId}`, requestBody: {
         dateRanges: [{ startDate, endDate }], dimensions: [{ name: 'date' }, { name: 'sessionSource' }, { name: 'sessionMedium' }, { name: 'sessionCampaignName' }],
         metrics: [{ name: 'sessions' }], limit: '10000' } }),
+      // 네이버 블로그 클릭: 클릭한 페이지의 직전 주소가 블로그 글이면 그 글의 블로그 아이디로 자사·외주를 가른다
+      analyticsData.properties.runReport({ property: `properties/${propertyId}`, requestBody: {
+        dateRanges: [{ startDate, endDate }], dimensions: [{ name: 'date' }, { name: 'pageReferrer' }],
+        dimensionFilter: { andGroup: { expressions: [
+          { filter: { fieldName: 'eventName', stringFilter: { value: '문의클릭' } } },
+          { filter: { fieldName: 'sessionSource', stringFilter: { matchType: 'CONTAINS', value: 'blog.naver' } } },
+        ] } }, metrics: [{ name: 'eventCount' }], limit: '10000' } }),
     ])
     const ymd = (v: string) => `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}`
     const clicks = new Map<string, number>()           // date|channel|campaign → 문의 클릭 (오가닉)
@@ -371,8 +378,19 @@ export async function POST(request: NextRequest) {
       const k = addAgg(ymd(d), mp.channel, mp.campaign_name, mp.ad_type)
       clicks.set(k, (clicks.get(k) || 0) + n)
     }
+    for (const row of blogClickRep.data.rows || []) {
+      const [d, ref] = (row.dimensionValues || []).map(v => v.value || '')
+      const id = /blog\.naver\.com/.test(ref) ? parseNaverBlogUrl(ref)?.blogId : null
+      const n = Number(row.metricValues?.[0]?.value) || 0
+      if (!id || !blogClicks.has(d)) continue
+      const c = classifyNaverBlogId(id)
+      const k = addAgg(ymd(d), c.channel, c.source)
+      clicks.set(k, (clicks.get(k) || 0) + n)
+      blogClicks.set(d, Math.max(0, blogClicks.get(d)! - n))
+    }
     for (const [d, n] of Array.from(blogClicks.entries())) {
-      // 그날 네이버 블로그 세션이 들어간 칸(자사·인플루언서·팀부스터)에 비율로, 남는 건 가장 큰 칸에
+      if (!n) continue
+      // 글 주소를 모르는 클릭: 그날 네이버 블로그 세션이 들어간 칸(자사·인플루언서·팀부스터)에 비율로, 남는 건 가장 큰 칸에
       const date = ymd(d)
       const parts = Array.from(aggregated.values()).filter(a => a.date === date && Array.from(a.sources.keys()).some(x => x.toLowerCase().includes('blog.naver')) && a.ga_visits > 0)
       const tot = parts.reduce((s, a) => s + a.ga_visits, 0)
