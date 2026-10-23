@@ -43,18 +43,18 @@ DIRECT = [('직접 연락', '대표전화 28 · 개인전화 12 · 추천 3 · �
 def fact(t): return f'<span class="fact">{esc(t)}</span><span class="memo">+ 판단</span>'
 def prow(r):
     g, sub, c, v, k, q, a, f = r
-    return (f'<tr><td><b>{g}</b><span class="sub">{sub}</span></td><td class="num">{won(c)}</td><td class="num">{won(v)}</td><td class="num">{k}</td><td class="num"><b>{q[-1]}</b></td>'
-            f'<td class="num">{won(c / q[-1]) if q[-1] else "—"}</td><td class="c spkc">{spark(q)}<span class="muted"> {"·".join(map(str, q))}</span></td><td class="num">{a}</td><td>{fact(f)}</td></tr>')
+    return (f'<tr><td><b>{g}</b><span class="dsub">{sub}</span></td><td class="num">{won(c)}</td><td class="num">{won(v)}</td><td class="num">{k}</td><td class="num"><b>{q[-1]}</b></td>'
+            f'<td class="num">{won(c / q[-1]) if q[-1] else "—"}</td><td class="c spkc">{spark(q)}<span class="muted"> {"·".join(map(str, q))}</span></td><td class="num muted">—</td><td class="num">{a}</td><td>{fact(f)}</td></tr>')
 def frow(r):
     g, sub, v, k, q, a, f = r
-    return (f'<tr><td><b>{g}</b><span class="sub">{sub}</span></td><td class="num">—</td><td class="num">{won(v) if v is not None else "—"}</td><td class="num">{k if k is not None else "—"}</td><td class="num"><b>{q[-1]}</b></td>'
-            f'<td class="num">—</td><td class="c spkc">{spark(q) if any(q) else ""}<span class="muted"> {"·".join(map(str, q))}</span></td><td class="num">{a}</td><td>{fact(f)}</td></tr>')
+    return (f'<tr><td><b>{g}</b><span class="dsub">{sub}</span></td><td class="num">—</td><td class="num">{won(v) if v is not None else "—"}</td><td class="num">{k if k is not None else "—"}</td><td class="num"><b>{q[-1]}</b></td>'
+            f'<td class="num">—</td><td class="c spkc">{spark(q) if any(q) else ""}<span class="muted"> {"·".join(map(str, q))}</span></td><td class="num muted">—</td><td class="num">{a}</td><td>{fact(f)}</td></tr>')
 def drow(r):
     g, sub, q, a = r
-    return (f'<tr><td><b>{g}</b><span class="sub">{sub}</span></td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num"><b>{q[-1]}</b></td>'
-            f'<td class="num">—</td><td class="c spkc">{spark(q)}<span class="muted"> {"·".join(map(str, q))}</span></td><td class="num"><b>{a}</b></td><td>{fact("도입 29 중 21 · 경로는 GA 전화클릭으로")}</td></tr>')
-COLS = '<colgroup><col style="width:23%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:16%"><col style="width:6%"><col style="width:17%"></colgroup>'
-TH = '<thead><tr><th>유입 분류</th><th>비용</th><th>방문</th><th>문의 클릭<br><small>클릭 수</small></th><th>문의</th><th>문의당 비용</th><th>문의 7 · 8 · 9 · 10월</th><th>도입<br><small>7~10</small></th><th>숫자 요약 · 판단(사람)</th></tr></thead>'
+    return (f'<tr><td><b>{g}</b><span class="dsub">{sub}</span></td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num"><b>{q[-1]}</b></td>'
+            f'<td class="num">—</td><td class="c spkc">{spark(q)}<span class="muted"> {"·".join(map(str, q))}</span></td><td class="num muted">—</td><td class="num"><b>{a}</b></td><td>{fact("도입 29 중 21 · 경로는 GA 전화클릭으로")}</td></tr>')
+COLS = '<colgroup><col style="width:22%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:14%"><col style="width:6%"><col style="width:6%"><col style="width:14%"></colgroup>'
+TH = '<thead><tr><th>유입 분류</th><th>비용</th><th>방문</th><th>문의 클릭<br><small>클릭 수</small></th><th>문의</th><th>문의당 비용</th><th>문의 7 · 8 · 9 · 10월</th><th>☆ 관심<br><small>올라간 건</small></th><th>도입<br><small>7~10</small></th><th>숫자 요약 · 판단(사람)</th></tr></thead>'
 A = f'''<div class="pg2 wide"><div class="h2top"><h1 style="margin:0;font-size:18px">마케팅 효율</h1><span class="muted">돈과 시간을 쓴 곳에서 문의 · 도입이 얼마나 나왔나</span><span class="sp"></span>
 <span class="seg"><span>주</span><span class="on">월</span><span>분기</span><span>연</span></span><span class="btn sm">2026년 10월 ▾</span><span class="btn sm">고객 유형 전체 ▾</span><span class="btn sm quiet">비용 입력 (외주 · 행사)</span></div>
 <div class="kpis"><div><span>쓴 돈</span><b>2,677,242</b><em class="muted">9월 2,772,503</em></div><div><span>문의 (리드)</span><b>39</b><em class="muted">9월 34 · 8월 70</em></div><div><span>돈 쓴 곳 문의</span><b>5</b><em class="muted">문의당 535,448</em></div><div><span>도입 (7~10월 문의)</span><b>29</b><em class="muted">직접 연락 21 · 웹 8</em></div><div><span>출처 아는 문의</span><b>64%</b><em class="muted">10월 39 중 25 (웹)</em></div></div>
@@ -65,7 +65,7 @@ A = f'''<div class="pg2 wide"><div class="h2top"><h1 style="margin:0;font-size:1
 <table class="ds fixed">{COLS}<tbody>{''.join(frow(r) for r in FREE)}</tbody></table>
 <div class="cd-h" style="margin-top:12px"><b>직접 연락</b><span class="muted">경로를 모를 때 · 통화 때 묻지 않음</span></div>
 <table class="ds fixed">{COLS}<tbody>{''.join(drow(r) for r in DIRECT)}</tbody></table>
-<p class="cd-note" style="margin-top:8px">숫자를 누르면 그 리드 목록 · 문의 = 리드 기준 · 다시 문의한 리드는 그 달 문의 · 그때 유입으로 · 숫자 요약은 CRM 이 자동으로 (사실만), 판단은 사람이 [+ 판단]으로 · 연결률: 10월 문의 중 출처를 아는 비율</p></div>'''
+<p class="cd-note" style="margin-top:8px">숫자를 누르면 그 리드 목록 · 문의 = 리드 기준 · 다시 문의한 리드는 그 달 문의 · 그때 유입으로 · ☆ 관심 = 그 분류에서 들어와 관심 프로젝트로 올라간 건 (관심 · 중요 표시가 생기면 채워짐 · 마케팅팀 10/23 요청, 이탈 사유 대신) · 숫자 요약은 CRM 이 자동으로 (사실만), 판단은 사람이 [+ 판단]으로 · 연결률: 10월 문의 중 출처를 아는 비율</p></div>'''
 FA = frame('분석 › 마케팅 효율', '마케팅 효율', A, h=860)
 
 # ───────── 2. 문의까지 가는 길 (= 방문자 여정 대체) ─────────
@@ -73,7 +73,7 @@ FUN = [('방문', '5,049', '세션 · www.caas.works 만'), ('서비스 페이�
 fun = '<div class="flow2">' + '<i class="ar">→</i>'.join(f'<div><span>{n}</span><b>{v}</b><em>{esc(d)}</em></div>' for n, v, d in FUN) + '</div>'
 REF = [('검색', '네이버 37 · 구글 25 · 기타 2', 64, 4), ('직접 연락', '대표전화 28 · 개인전화 12 · 추천 · 이메일', 46, 21), ('자사 채널', '홈페이지 37 · 기타 6 · 해피톡 1', 44, 3), ('외주 블로그', '팀부스터(boosterlink 포함) 30 · 인플루언서 1', 31, 1),
        ('광고', '네이버 16 — miracleintip 경유 15 포함', 16, 0), ('생성형 AI', 'ChatGPT · Gemini · AI 검색', 11, 0), ('자사 블로그', '네이버 블로그', 3, 0)]
-rrows = ''.join(f'<tr><td><b>{n}</b><span class="sub">▸ {sub}</span></td><td class="num">{q}</td><td class="c"><span class="mbar"><i style="width:{q / 64 * 100:.0f}%"></i></span></td><td class="num">{a}</td><td class="num">{a / q * 100:.0f}%</td></tr>' for n, sub, q, a in REF)
+rrows = ''.join(f'<tr><td><b>{n}</b><span class="dsub">▸ {sub}</span></td><td class="num">{q}</td><td class="c"><span class="mbar"><i style="width:{q / 64 * 100:.0f}%"></i></span></td><td class="num">{a}</td><td class="num">{a / q * 100:.0f}%</td></tr>' for n, sub, q, a in REF)
 LAND = [('/pages/smart-safe', '스마트 안전', 11), ('/contact', '문의하기', 5), ('/pages/ai-solutions', 'AI 솔루션', 3), ('/pages/vms', 'VMS', 2), ('/', '첫 화면', 2), ('/pages/edgeaicctv', '엣지 AI CCTV', 1)]
 lrows = ''.join(f'<tr><td class="mono">{p}</td><td>{n}</td><td class="num">{q}</td></tr>' for p, n, q in LAND)
 B = f'''<div class="pg2 wide"><div class="h2top"><h1 style="margin:0;font-size:18px">문의까지 가는 길</h1><span class="muted">어디서 와서 · 무엇을 보고 · 어디서 멈추나</span><span class="sp"></span><span class="btn sm">2026년 10월 ▾</span></div>
@@ -166,9 +166,9 @@ CSS = '''<style>
 #m-analytics-v3 .wc{background:var(--bg,#fff);border:1px solid var(--line);border-radius:6px;padding:6px 8px;display:grid;gap:2px;font-size:12px}#m-analytics-v3 .wc em{font-style:normal;color:#579bfc;font-size:11.5px}
 #m-analytics-v3 .cands{display:flex;gap:8px;flex-wrap:wrap;font-size:12.5px}#m-analytics-v3 .cands span{border:1px dashed var(--line);border-radius:6px;padding:4px 10px}
 #m-analytics-v3 td.duet{color:#b4233a;font-weight:600}
-#m-analytics-v3 .kpis div{min-height:74px;align-content:start}#m-analytics-v3 .kpis em{white-space:normal;line-height:1.35}
+#m-analytics-v3 .kpis{height:auto!important}#m-analytics-v3 .kpis div{min-height:74px;align-content:start;padding-bottom:8px}#m-analytics-v3 .kpis em{display:block;margin-left:0!important;white-space:normal;line-height:1.35}
 #m-analytics-v3 table.ds th{white-space:normal;line-height:1.25;vertical-align:bottom}#m-analytics-v3 th small{font-weight:400;color:var(--fg3)}
-#m-analytics-v3 .sub{display:block;font-size:11px;color:var(--fg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#m-analytics-v3 .dsub{display:block;font-size:11px;color:var(--fg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #m-analytics-v3 .fact{display:inline-block;background:var(--bg-subtle,#f2f2f4);border-radius:4px;padding:1px 6px;font-size:11.5px;color:var(--fg2);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}#m-analytics-v3 .memo{font-size:11px;color:var(--accent,#2563eb);margin-left:4px}
 #m-analytics-v3 .ins>div button{justify-self:start;margin-top:4px}
 #m-analytics-v3 .flow2{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}#m-analytics-v3 .flow2>div{flex:1;min-width:110px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;display:grid;gap:1px}#m-analytics-v3 .flow2 span{font-size:11.5px;color:var(--fg3)}#m-analytics-v3 .flow2 b{font-size:18px}#m-analytics-v3 .flow2 em{font-style:normal;font-size:11px;color:var(--fg2)}#m-analytics-v3 .flow2 .ar{align-self:center;font-style:normal;color:var(--fg3)}
@@ -190,19 +190,19 @@ SEC = f'''<section id="m-analytics-v3">{CSS}<h2>분석 — 메뉴 재구성 v3 (
 <h3 class="ph3">3. 파이프라인 — 파이프라인 분석 + 전환 소요 기간 대체 (2026 문의 · 10/23 실데이터)</h3><div class="fwrap">{FC}</div>
 <p class="rule">지금 파이프라인 분석은 퍼널 · 담당 · 업종 · 채널 · 에이징 · 단계 변경을 한 화면에 나열. 새 화면은 질문 셋 — <b>어디에 쌓였나</b>(단계 × 지난 날), <b>얼마나 걸리나</b>(도입까지 날 · 문의한 달별 결과), <b>누가 무엇을 정리할까</b>(담당별 30일+ 기록 없음). 업종 · 채널별 전환은 코호트 · 마케팅 효율로 옮김. "휴면"은 단계가 아니라 표시 — 2023~25 이전 기록처럼 몇 년 뒤 다시 문의하는 경우가 많아 이탈로 닫지 않고, 다시 문의하면 같은 리드로 이어짐. 전성환 줄은 테스트 리드 포함(10/21 사용자: 그대로 둠).</p>
 <h3 class="ph3">3-b. 관심 · 중요 프로젝트 — 중요 프로젝트 · 관심 프로젝트 (기획 초안 v2 2026-10-23 · 사용자 정의 반영 · 마케팅팀 · 세일즈 논의용)</h3>
-<p class="rule">10/23 사용자: "휴면을 날짜로 정하기보다 관심 있게 관심 프로젝트을 따로 모아서 보는 것도 좋겠다 · 중요 프로젝트과 관심 프로젝트 등으로 구별." 국장 정정(공공 30~90일 기본 · 설계 반영 1년 이상 · 날짜 하나로 휴면 금지)과 합침.</p>
+<p class="rule">10/23 국장님: "휴면을 날짜로 정하기보다 관심 있게 관심 프로젝트을 따로 모아서 보는 것도 좋겠다 · 중요 프로젝트과 관심 프로젝트 등으로 구별." 국장 정정(공공 30~90일 기본 · 설계 반영 1년 이상 · 날짜 하나로 휴면 금지)과 합침.</p>
 <table class="dg"><colgroup><col style="width:16%"><col style="width:42%"><col style="width:42%"></colgroup><thead><tr><th></th><th>★ 중요 프로젝트</th><th>☆ 관심 프로젝트</th></tr></thead><tbody>
-<tr><td><b>뜻 (사용자 정의 10/23)</b></td><td><b>이미 진행되고 있는 현장인데, 데일리로 체크해야 하는 현장 (혹은 회사)</b> — 도입 결정 뒤: 설치 중 · 과금 중</td><td><b>설계 중이거나 도입까지 시일이 걸릴 만한 곳</b> — 대부분 공공 · 대형 건설사 현장. 결재가 오래 걸리고, 입찰 사양에 우리 제품을 넣어 낙찰 · 착공을 기다리는 경우 (사용자 10/23)</td></tr>
-<tr><td><b>흐름 (사용자 10/23)</b></td><td colspan="2">리드 → <b>☆ 관심 프로젝트</b> (설계 중 · 결재 · 입찰 · <b>도입직전</b>) → <b>도입 결정</b> → <b>★ 중요 프로젝트</b> (설치 · 과금 중 · 데일리 체크) → 공사 종료 · 회수 → 표시 해제. 관심에서 중요로 무조건 가지는 않음 (도입 안 되면 관심에서 해제) · 관심을 거치지 않고 바로 중요가 되는 건도 있음</td></tr><tr><td><b>붙이는 칸</b></td><td>왜 중요한가 (한 줄) · 단위: 현장(프로젝트) 또는 회사(고객사 전체)</td><td>기다리는 것 (결재 / 입찰 — 우리 제품 사양 반영 · 공고 · 낙찰 / 설계 확정 / 예산 반영 / 착공 / 기타) · 입찰이면 공고번호 · 낙찰 예정일 · 낙찰 시공사 · 예상 시점(고객 쪽 일정) · 한 줄 메모</td></tr>
-<tr><td><b>챙기는 기준</b></td><td>매일 — "어제 이후 바뀐 것": 청구 · 입금 · 미납(시트 08시) · 장비 출고 · 교체 · 회수 · 메일 회신 · VoC · 단계 변경 · 공사 종료 임박</td><td>고객 쪽 일정과 고객에게서 오는 신호 — 우리가 연락할 주기가 아님 (사용자 10/23: "우리가 먼저 연락한다고 움직이는 게 아니다") · 지난 날로 정체 표시 안 함</td></tr>
+<tr><td><b>뜻 (사용자 정의 10/23)</b></td><td><b>이미 진행되고 있는 현장인데, 데일리로 체크해야 하는 현장 (혹은 회사)</b> — 도입 결정 뒤: 설치 중 · 과금 중</td><td><b>설계 중이거나 도입까지 시일이 걸릴 만한 곳</b> — 대부분 공공 · 대형 건설사 현장. 결재가 오래 걸리고, 입찰 사양에 우리 제품을 넣어 낙찰 · 착공을 기다리는 경우 (국장님 10/23)</td></tr>
+<tr><td><b>흐름 (국장님 10/23)</b></td><td colspan="2">리드 → <b>☆ 관심 프로젝트</b> (설계 중 · 결재 · 입찰 · <b>도입직전</b>) → <b>도입 결정</b> → <b>★ 중요 프로젝트</b> (설치 · 과금 중 · 데일리 체크) → 공사 종료 · 회수 → 표시 해제. 관심에서 중요로 무조건 가지는 않음 (도입 안 되면 관심에서 해제) · 관심을 거치지 않고 바로 중요가 되는 건도 있음</td></tr><tr><td><b>붙이는 칸</b></td><td>왜 중요한가 (한 줄) · 단위: 현장(프로젝트) 또는 회사(고객사 전체)</td><td>기다리는 것 (결재 / 입찰 — 우리 제품 사양 반영 · 공고 · 낙찰 / 발주처 사양 · 지침 확인 / 설계 확정 / 예산 반영 / 착공 / 기타) · 입찰이면 공고번호 · 낙찰 예정일 · 낙찰 시공사 · 예상 시점(고객 쪽 일정) · 한 줄 메모</td></tr>
+<tr><td><b>챙기는 기준</b></td><td>매일 — "어제 이후 바뀐 것": 청구 · 입금 · 미납(시트 08시) · 장비 출고 · 교체 · 회수 · 메일 회신 · VoC · 단계 변경 · 공사 종료 임박</td><td>고객 쪽 일정과 고객에게서 오는 신호 — 우리가 연락할 주기가 아님 (국장님 10/23: "우리가 먼저 연락한다고 움직이는 게 아니다") · 지난 날로 정체 표시 안 함</td></tr>
 <tr><td><b>보는 곳</b></td><td>대시보드 맨 위 "오늘 체크할 중요 프로젝트" · 관심 · 중요 프로젝트 · 프로젝트 상세 머리 ★</td><td>세일즈 › 관심 · 중요 프로젝트(예상 시점 순) · 신호가 오면 대시보드 맨 위</td></tr>
 <tr><td><b>알려 주는 신호 (자동)</b></td><td colspan="2">고객 쪽에서 움직임이 생길 때만: 같은 회사 / 연락처 다시 문의(이미 자동 연결) · 견적 회신(견적서 연동 뒤) · 같은 고객사 다른 현장 매출 시작(시트 동기화) · 예상 시점이 다가옴 → 담당에게 알림</td></tr>
 <tr><td><b>누가 붙이나</b></td><td>담당자 · 관리자. 후보 제안: 관심 프로젝트가 도입 결정(도입완료)되면 "중요로 옮길까요?" · 미납 생긴 과금 현장, 여러 현장을 쓰는 고객사</td><td>담당자. 후보 제안: 건축사 · 발주처 문의, 건 유형 "설계 반영", 담당이 "이번엔 진행 안 함"을 고를 때 "관심 프로젝트로 둘까요?"</td></tr></tbody></table>
-<div class="cmp"><div><h4>나머지 리드 (표시 없음)</h4><ul><li><b>연락 주기 · "연락 필요 / 연락 지남" 표시는 쓰지 않음</b> — 사용자 10/23: 우리가 먼저 연락한다고 건이 움직이지 않음 (국장 정정안의 연락 주기 부분 대체). 대신 "마지막 고객 신호"(문의 · 회신 · 미팅 · 매출)를 보여 줌</li><li>건 유형(민간 현장 · 공공 현장 · 설계 반영 · 기존 고객)은 유지 — 걸리는 시간이 달라 분석을 나눠 보는 용도</li><li>휴면은 자동으로 붙이지 않음 — 담당이 "진행 안 함"을 고를 때만, 그때 관심 프로젝트 후보로 먼저 물음</li><li>건 유형 첫 값: 기존 고객 = 매출 있는 고객사 연결 리드 자동 · 공공/민간 = 리드 "현장 분류"(2026 문의 51% 빈칸 → 매출 시트 값으로 채움) · 설계 반영 = 업종 발주처 · 건축사 후보를 담당이 확인</li></ul></div>
+<div class="cmp"><div><h4>나머지 리드 (표시 없음)</h4><ul><li><b>연락 주기 · "연락 필요 / 연락 지남" 표시는 쓰지 않음</b> — 국장님 10/23: 우리가 먼저 연락한다고 건이 움직이지 않음 (국장 정정안의 연락 주기 부분 대체). 대신 "마지막 고객 신호"(문의 · 회신 · 미팅 · 매출)를 보여 줌</li><li>건 유형(민간 현장 · 공공 현장 · 설계 반영 · 기존 고객)은 유지 — 걸리는 시간이 달라 분석을 나눠 보는 용도</li><li>휴면은 자동으로 붙이지 않음 — 담당이 "진행 안 함"을 고를 때만, 그때 관심 프로젝트 후보로 먼저 물음</li><li>건 유형 첫 값: 기존 고객 = 매출 있는 고객사 연결 리드 자동 · 공공/민간 = 리드 "현장 분류"(2026 문의 51% 빈칸 → 매출 시트 값으로 채움) · 설계 반영 = 업종 발주처 · 건축사 후보를 담당이 확인</li></ul></div>
 <div><h4>분석 · 마케팅과 잇기</h4><ul><li>파이프라인: "관심 · 중요 프로젝트만" 필터 · 도입까지 걸린 날을 건 유형별로</li><li>마케팅: 관심 프로젝트을 주제 · 고객 유형 · 기다리는 것별 <b>건수</b>로 (연락처 없이) → 분기 재접촉 콘텐츠 기획 (회의록 6장 5번)</li><li>v4 프로젝트 구조가 생기면 표시는 리드 → 프로젝트로 옮김 (같은 현장의 견적 · 매출 · 장비와 한 곳)</li></ul></div></div>
 <h3 class="ph3">3-b 화면 — 세일즈 › 관심 · 중요 프로젝트 (실데이터 + 예시 표시)</h3><div class="fwrap">{FD}</div>
-<div class="cmp"><div><h4>논의할 것 (마케팅팀 · 세일즈)</h4><ul><li>✔ 이름: 관심 프로젝트 ☆ / 중요 프로젝트 ★ · 흐름 관심 → (도입 결정) → 중요 (사용자 10/23)</li><li>✔ 뜻: 중요 = 도입 결정 뒤 진행 중 · 데일리 체크 / 관심 = 설계 중 · 결재 · 입찰 · 도입직전 (사용자 10/23)</li><li>✔ 연락 주기 기준 쓰지 않음 (사용자 10/23)</li><li>중요 프로젝트 "어제 이후 바뀐 것" 중 무엇을 위로 올릴지 (미납 · 장비 · VoC 우선순위)</li><li>중요 프로젝트 상한 — 담당당 10건 안팎 권장 (데일리로 볼 수 있는 양)</li><li>"기다리는 것" 목록 (결재 · 입찰 · 설계 확정 · 예산 · 착공 · 기타)</li><li>입찰 건: 낙찰되면 낙찰 시공사를 고객사로 잇고 현장(프로젝트)을 만듦 — 관심 → 중요로 넘어가는 지점 · (나중) 나라장터 공고 · 낙찰 결과 자동 확인</li><li>자동 후보 기준 · 주간 회의에서 이 화면을 쓸지</li></ul></div>
-<div><h4>결정됨</h4><ul><li>✔ 이탈 사유 칸은 만들지 않음 — <b>사용자 결정 10/23</b> ("의미 없음"). 회의록 6장 3번 · 8장 3순위 제외</li><li>✔ 휴면 = 날짜 하나로 정하지 않음 (국장 10/23)</li></ul></div></div>
+<div class="cmp"><div><h4>논의할 것 (마케팅팀 · 세일즈)</h4><ul><li>✔ 이름: 관심 프로젝트 ☆ / 중요 프로젝트 ★ · 흐름 관심 → (도입 결정) → 중요 (국장님 10/23)</li><li>✔ 뜻: 중요 = 도입 결정 뒤 진행 중 · 데일리 체크 / 관심 = 설계 중 · 결재 · 입찰 · 도입직전 (국장님 10/23)</li><li>✔ 연락 주기 기준 쓰지 않음 (국장님 10/23)</li><li>중요 프로젝트 "어제 이후 바뀐 것" 중 무엇을 위로 올릴지 (미납 · 장비 · VoC 우선순위)</li><li>중요 프로젝트 상한 — 담당당 10건 안팎 권장 (데일리로 볼 수 있는 양)</li><li>✔ "기다리는 것" 목록: 결재 · 입찰 · 발주처 사양 · 지침 확인 · 설계 확정 · 예산 · 착공 · 기타 (마케팅팀 10/23 — 항목별 영업 지원 자료를 마케팅팀이 만듦)</li><li>주간 회의 사용 · 중요 프로젝트 순서 · 상한 = 세일즈 · 국장님 결정 · 마케팅팀은 월 1회 "기다리는 것별 건수"</li><li>입찰 건: 낙찰되면 낙찰 시공사를 고객사로 잇고 현장(프로젝트)을 만듦 — 관심 → 중요로 넘어가는 지점 · (나중) 나라장터 공고 · 낙찰 결과 자동 확인</li><li>자동 후보 기준 · 주간 회의에서 이 화면을 쓸지</li></ul></div>
+<div><h4>결정됨</h4><ul><li>✔ 이탈 사유 칸은 만들지 않음 — <b>국장님 결정 10/23</b> ("의미 없음"). 회의록 6장 3번 · 8장 3순위 제외</li><li>✔ 휴면 = 날짜 하나로 정하지 않음 (국장 10/23)</li></ul></div></div>
 <div class="cmp"><div><h4>정해 주실 것</h4><ul><li>개요 없앰 · 손익 분석 숨김</li><li>파이프라인: 휴면 · 연락 기준 대신 관심 · 중요 프로젝트(3-b)으로</li><li>✔ 분석 메뉴 10 → 6 (10/22)</li><li>✔ 외주 · 행사 비용 = 사용자가 직접 [비용 입력] (10/22)</li><li>✔ 전화 출처는 묻지 않음 → GA 전화클릭 채널 분포로 (10/22)</li><li>✔ 서비스 페이지 봄 = GA 페이지 데이터로 (설정 추가 없음)</li></ul></div>
 <div><h4>순서 (합의 후)</h4><ul><li>1 마케팅 효율 · 문의까지 가는 길 (마케팅 2개)</li><li>2 파이프라인 · 문의 내용 (세일즈 2개)</li><li>3 매출 분석 (시트 동기화 데이터)</li><li>4 메뉴 정리 (개요 · 손익 · 연간 비교 · 방문자 여정 옛 화면 내림)</li></ul></div></div></section>'''
 
