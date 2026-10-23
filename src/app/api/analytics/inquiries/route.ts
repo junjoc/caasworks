@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
+import { isSignedIn } from '@/lib/pipeline/read-leads'
 import { classifyLead } from '@/lib/inflow-taxonomy'
 import questions from '@/config/inquiry_questions.json'
 
@@ -62,6 +63,8 @@ const cached = unstable_cache(build, ['analytics-inquiries-v2'], { revalidate: 3
 
 export async function GET(request: Request) {
   try {
+    // 미들웨어가 /api 를 거르지 않아 로그인 확인을 여기서 (10/23 — 고객사 · 매출 · 문의 원문이 로그인 없이 열렸음)
+    if (!(await isSignedIn())) return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 })
     const fresh = new URL(request.url).searchParams.get('fresh') === '1'
     return NextResponse.json(fresh ? await build() : await cached())
   } catch (e) {

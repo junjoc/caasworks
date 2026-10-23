@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
+import { isSignedIn } from '@/lib/pipeline/read-leads'
 
 // 고객 생애주기 기준 데이터 (서버 집계). 코호트·전환 소요 기간·채널별 생애 가치 화면이 같이 쓴다.
 // 한 회사 = 한 행: 첫 리드(유입일·채널) → 도입(converted_at) → 유입월 이후 월별 매출(공급가).
@@ -127,6 +128,8 @@ const cached = unstable_cache(build, ['analytics-lifecycle'], { revalidate: 300 
 
 export async function GET(request: Request) {
   try {
+    // 미들웨어가 /api 를 거르지 않아 로그인 확인을 여기서 (10/23 — 고객사 · 매출 · 문의 원문이 로그인 없이 열렸음)
+    if (!(await isSignedIn())) return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 })
     const fresh = new URL(request.url).searchParams.get('fresh') === '1'
     const data = fresh ? await build() : await cached()
     return NextResponse.json(data)
