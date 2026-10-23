@@ -103,6 +103,29 @@ C = f"""<div class="pg2 wide"><div class="h2top"><h1 style="margin:0;font-size:1
 <table class="ds fixed"><colgroup><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:40%"></colgroup><thead><tr><th>달</th><th>문의</th><th>도입</th><th>이탈</th><th>열림</th><th></th></tr></thead><tbody>{mrows2}</tbody></table></div></div></div>"""
 FC = frame('분석 › 파이프라인', '파이프라인', C, h=1040)
 
+# ───────── 3-b. 관심 현장 (중요 · 지켜볼) 기획 — 10/23 사용자 제안, 마케팅팀 논의용 ─────────
+# 실제 열린 리드(10/23)로 그림. "이유 · 기다리는 것 · 깨울 날"은 예시 문장
+IMP = [('대방건설', '공공 현장', '도입직전', '동영상 기록관리', '최한별', '10.22', '10.29', '공공 레퍼런스 · 동영상 기록관리 첫 공공 도입', 'ok', '단계 ↑ 제안 → 도입직전'),
+       ('한국전력공사', '공공 현장', '제안', 'AI CCTV', '최한별', '10.20', '11.03', '공기업 · 여러 사업소로 번질 수 있음', 'na', '변화 없음'),
+       ('한국도로공사', '공공 현장', '컨텍', 'AI CCTV', '김규재', '10.23', '10.30', '오늘 문의 · 공기업', 'info', '새 문의'),
+       ('대우건설', '공공 현장', '제안', '—', '박성언', '10.20', '10.21', '대형 시공사 · 다른 현장 확대', 'due', '연락 지남 2일')]
+irows = ''.join(f'<tr><td>★ <b>{c}</b></td><td>{t}</td><td>{chip("info", st)}</td><td>{sv}</td><td>{av(o)} {o}</td><td class="num">{lr}</td><td class="num{" duet" if k == "due" else ""}">{nx}</td><td class="muted">{w}</td><td>{chip(k, ch)}</td></tr>' for c, t, st, sv, o, lr, nx, w, k, ch in IMP)
+WAKE = [('이번 달', [('SODA건축사사무소', '설계 반영', '설계 확정 → 시공사 선정', '10.31', '최한별')]),
+        ('11월', [('리엔건축사사무소', '설계 반영', '실시설계 반영 여부', '11.14', '최한별'), ('에스이오피 건축사사무소', '설계 반영', '발주처 예산 반영', '11.28', '최한별')]),
+        ('12월 ~ 내년 1분기', [('건축학동건축사사무소', '설계 반영', '착공 시점', '2027.01', '최한별'), ('한화에너지', '민간 현장', '내년 예산 확정', '2027.02', '최한별')])]
+wcols = ''.join(f'<div class="wk"><div class="wh">{h} <span class="muted">{len(it)}</span></div>' + ''.join(f'<div class="wc"><b>👁 {c}</b><span>{t} · {av(o)} {o}</span><span class="muted">기다리는 것: {wf}</span><em>깨울 날 {d}</em></div>' for c, t, wf, d, o in it) + '</div>' for h, it in WAKE)
+D = f"""<div class="pg2 wide"><div class="h2top"><h1 style="margin:0;font-size:18px">관심 현장</h1><span class="muted">놓치면 안 되는 현장과, 때가 오면 다시 볼 현장</span><span class="sp"></span><span class="btn sm">담당 전체 ▾</span><span class="btn sm">건 유형 전체 ▾</span></div>
+<div class="kpis"><div><span>★ 중요 현장</span><b>4</b><em class="muted">연락 지남 1</em></div><div><span>👁 지켜볼 현장</span><b>5</b><em class="muted">이번 달 깨울 1</em></div><div><span>이번 주 바뀐 것</span><b>2</b><em class="muted">단계 ↑ 1 · 새 문의 1</em></div><div><span>후보 (확인 대기)</span><b>6</b><em class="muted">CRM 이 제안 · 담당이 정함</em></div><div><span>나머지 열린 리드</span><b>298</b><em class="muted">파이프라인에서</em></div></div>
+<div class="cd-h"><b>★ 중요 현장</b><span class="muted">지금 움직이고 · 놓치면 안 되는 건 · 주간 회의 목록 · 연락 주기대로 챙김</span></div>
+<table class="ds fixed"><colgroup><col style="width:15%"><col style="width:9%"><col style="width:9%"><col style="width:11%"><col style="width:10%"><col style="width:7%"><col style="width:7%"><col style="width:20%"><col style="width:12%"></colgroup>
+<thead><tr><th>현장 · 회사</th><th>건 유형</th><th>단계</th><th>서비스</th><th>담당</th><th>마지막 기록</th><th>다음 연락</th><th>왜 중요한가</th><th>이번 주</th></tr></thead><tbody>{irows}</tbody></table>
+<div class="cd-h" style="margin-top:14px"><b>👁 지켜볼 현장</b><span class="muted">지금은 진행이 없어도 때가 오면 기회 · 연락 주기 대신 "깨울 날" 기준이라 오래 걸려도 정체로 안 보임</span></div>
+<div class="wkb">{wcols}</div>
+<div class="cd-h" style="margin-top:14px"><b>후보 — CRM 이 제안, 담당이 ★ / 👁 / 아님 중 고름</b></div>
+<div class="cands"><span>공공기관 · 발주처 문의 <b>3</b></span><span>기존 고객의 새 현장 <b>1</b></span><span>"이번엔 진행 안 함" 고른 건 → 지켜볼까요? <b>2</b></span></div>
+<p class="cd-note" style="margin-top:8px">이유 · 기다리는 것 · 깨울 날은 예시 문장 · 회사 · 단계 · 담당 · 날짜는 10/23 실제 열린 리드</p></div>"""
+FD = frame('세일즈 › 관심 현장', '', D, h=900)
+
 # 메뉴 재구성 표
 MAP = [('마케팅', '<b>마케팅 효율</b>', '돈과 시간을 쓴 곳에서 문의 · 도입이 얼마나 나왔나 (주 · 월 · 분기 · 연)', '마케팅 분석(6탭) + 연간 비교', '아래 1'),
        ('마케팅', '<b>문의까지 가는 길</b>', '어디서 와서 무엇을 보고 어디서 멈추나', '방문자 여정 (세션 · 바운스 나열)', '아래 2'),
@@ -130,6 +153,11 @@ CSS = '''<style>
 #m-analytics-v3 .tags{display:flex;flex-wrap:wrap;gap:6px;font-size:12px}#m-analytics-v3 .tags span{border:1px solid var(--line);border-radius:4px;padding:1px 8px}
 #m-analytics-v3 .mono{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
 #m-analytics-v3 .seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;font-size:12px}#m-analytics-v3 .seg span{padding:2px 10px}#m-analytics-v3 .seg .on{background:var(--fg);color:var(--bg)}
+#m-analytics-v3 .wkb{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#m-analytics-v3 .wk{background:var(--bg-subtle,#f7f7f8);border-radius:8px;padding:8px;display:grid;gap:6px;align-content:start}#m-analytics-v3 .wh{font-size:12.5px;font-weight:600}
+#m-analytics-v3 .wc{background:var(--bg,#fff);border:1px solid var(--line);border-radius:6px;padding:6px 8px;display:grid;gap:2px;font-size:12px}#m-analytics-v3 .wc em{font-style:normal;color:#579bfc;font-size:11.5px}
+#m-analytics-v3 .cands{display:flex;gap:8px;flex-wrap:wrap;font-size:12.5px}#m-analytics-v3 .cands span{border:1px dashed var(--line);border-radius:6px;padding:4px 10px}
+#m-analytics-v3 td.duet{color:#b4233a;font-weight:600}
 #m-analytics-v3 td.hot{background:#fdecef;color:#b4233a;font-weight:600}#m-analytics-v3 td.warm{background:#fff4e5}
 #m-analytics-v3 .stk{display:flex;height:10px;border-radius:2px;overflow:hidden;background:var(--bg-subtle,#f7f7f8)}#m-analytics-v3 .stk i,#m-analytics-v3 i.lg{display:inline-block;height:100%}
 #m-analytics-v3 .stk .w,#m-analytics-v3 i.lg.lw{background:#00c875}#m-analytics-v3 .stk .l,#m-analytics-v3 i.lg.ll{background:#c4c4c4}#m-analytics-v3 .stk .o,#m-analytics-v3 i.lg.lo{background:#579bfc}
@@ -146,6 +174,20 @@ SEC = f'''<section id="m-analytics-v3">{CSS}<h2>분석 — 메뉴 재구성 v3 (
 <p class="rule">세션 · 바운스 나열 대신 "방문 → 서비스 페이지 → 문의 버튼 → 문의 남김 → 도입" 한 줄 흐름과, 들어온 곳별 문의 · 도입. 10월 문의 버튼 263번 → 문의 26건(10%)이라 문의 양식 점검이 첫 할 일. "서비스 페이지 봄" = 서비스 · 제품 소개 페이지(/pages · /products)를 한 번이라도 본 세션 — 이미 받는 GA 페이지 데이터로 계산(추가 설정 없음). 방문자가 소개를 보고 문의하는지, 첫 화면에서 바로 나가는지를 가름. 문의 직전 페이지는 지금 27건만 기록 — 모든 문의에 남기도록 고쳐야 함. 들어온 곳별 문의 주제는 어디나 "가격·견적 · AI CCTV"가 1 · 2위라 구분이 안 돼 표에서 뺌 (주제는 문의 내용 메뉴에서). 외주 글(miracleintip · boosterlink) 19건 · AI 검색 8건은 아직 도입 0.</p>
 <h3 class="ph3">3. 파이프라인 — 파이프라인 분석 + 전환 소요 기간 대체 (2026 문의 · 10/23 실데이터)</h3><div class="fwrap">{FC}</div>
 <p class="rule">지금 파이프라인 분석은 퍼널 · 담당 · 업종 · 채널 · 에이징 · 단계 변경을 한 화면에 나열. 새 화면은 질문 셋 — <b>어디에 쌓였나</b>(단계 × 지난 날), <b>얼마나 걸리나</b>(도입까지 날 · 문의한 달별 결과), <b>누가 무엇을 정리할까</b>(담당별 30일+ 기록 없음). 업종 · 채널별 전환은 코호트 · 마케팅 효율로 옮김. "휴면"은 단계가 아니라 표시 — 2023~25 이전 기록처럼 몇 년 뒤 다시 문의하는 경우가 많아 이탈로 닫지 않고, 다시 문의하면 같은 리드로 이어짐. 전성환 줄은 테스트 리드 포함(10/21 사용자: 그대로 둠).</p>
+<h3 class="ph3">3-b. 관심 현장 — 중요 현장 · 지켜볼 현장 (기획 초안 2026-10-23 · 마케팅팀 · 세일즈 논의용)</h3>
+<p class="rule">10/23 사용자: "휴면을 날짜로 정하기보다 관심 있게 지켜볼 현장을 따로 모아서 보는 것도 좋겠다 · 중요 현장과 지켜볼 현장 등으로 구별." 국장 정정(공공 30~90일 기본 · 설계 반영 1년 이상 · 날짜 하나로 휴면 금지)과 합침.</p>
+<table class="dg"><colgroup><col style="width:16%"><col style="width:42%"><col style="width:42%"></colgroup><thead><tr><th></th><th>★ 중요 현장</th><th>👁 지켜볼 현장</th></tr></thead><tbody>
+<tr><td><b>뜻</b></td><td>지금 움직이고 놓치면 안 되는 건 (공공 레퍼런스 · 큰 금액 · 여러 현장으로 번질 수 있음)</td><td>지금은 진행이 없어도 때가 오면 기회 (설계 단계 · 착공 전 · 예산 반영 대기 · 입찰 예정)</td></tr>
+<tr><td><b>붙이는 칸</b></td><td>왜 중요한가 (한 줄) · 다음 연락일</td><td>기다리는 것 (설계 확정 / 착공 / 예산 / 입찰 / 기타) · 깨울 날 · 한 줄 메모</td></tr>
+<tr><td><b>챙기는 기준</b></td><td>건 유형 연락 주기 (더 짧게) · 다음 연락일 지나면 "연락 지남"</td><td>깨울 날만 — 연락 주기 · 지난 날로 정체 표시 안 함</td></tr>
+<tr><td><b>보는 곳</b></td><td>세일즈 › 관심 현장 · 대시보드 · 주간 회의</td><td>세일즈 › 관심 현장(깨울 날 순) · 깨울 날 오면 대시보드 오늘 할 일</td></tr>
+<tr><td><b>깨우는 신호 (자동)</b></td><td colspan="2">깨울 날 도래 · 같은 회사 / 연락처 다시 문의(이미 자동 연결) · 같은 고객사 다른 현장 매출 시작(시트 동기화) · 견적 회신(견적서 연동 뒤) → 담당에게 알림</td></tr>
+<tr><td><b>누가 붙이나</b></td><td colspan="2">담당자. CRM 은 후보만 제안 — 공공기관 · 발주처 문의, 기존 고객의 새 현장, 예정 · 도입직전 단계, 담당이 "이번엔 진행 안 함"을 고를 때 "지켜볼 현장으로 둘까요?"</td></tr></tbody></table>
+<div class="cmp"><div><h4>나머지 리드 (표시 없음)</h4><ul><li>건 유형(민간 현장 · 공공 현장 · 설계 반영 · 기존 고객)별 연락 주기 기본값 → "연락 필요" · 다음 연락일 지나면 "연락 지남" (국장 정정안)</li><li>휴면은 자동으로 붙이지 않음 — 담당이 "진행 안 함"을 고를 때만, 그때 지켜볼 현장 후보로 먼저 물음</li><li>건 유형 첫 값: 기존 고객 = 매출 있는 고객사 연결 리드 자동 · 공공/민간 = 리드 "현장 분류"(2026 문의 51% 빈칸 → 매출 시트 값으로 채움) · 설계 반영 = 업종 발주처 · 건축사 후보를 담당이 확인</li></ul></div>
+<div><h4>분석 · 마케팅과 잇기</h4><ul><li>파이프라인: "관심 현장만" 필터 · 도입까지 걸린 날을 건 유형별로</li><li>마케팅: 지켜볼 현장을 주제 · 고객 유형 · 기다리는 것별 <b>건수</b>로 (연락처 없이) → 분기 재접촉 콘텐츠 기획 (회의록 6장 5번)</li><li>v4 프로젝트 구조가 생기면 표시는 리드 → 프로젝트로 옮김 (같은 현장의 견적 · 매출 · 장비와 한 곳)</li></ul></div></div>
+<h3 class="ph3">3-b 화면 — 세일즈 › 관심 현장 (10/23 실제 열린 리드 · 이유 · 깨울 날은 예시)</h3><div class="fwrap">{FD}</div>
+<div class="cmp"><div><h4>논의할 것 (마케팅팀 · 세일즈)</h4><ul><li>이름: 중요 현장 / 지켜볼 현장 (또는 핵심 / 관심)</li><li>중요 현장 상한 — 담당당 10건 안팎 권장 (다 중요하면 아무것도 안 중요)</li><li>"기다리는 것" 목록 (설계 확정 · 착공 · 예산 · 입찰 · 기타)</li><li>자동 후보 기준 · 주간 회의에서 이 화면을 쓸지</li><li>건 유형별 연락 주기 숫자 (국장 결정)</li></ul></div>
+<div><h4>결정됨</h4><ul><li>✔ 이탈 사유 칸은 만들지 않음 — <b>사용자 결정 10/23</b> ("의미 없음"). 회의록 6장 3번 · 8장 3순위 제외</li><li>✔ 휴면 = 날짜 하나로 정하지 않음 (국장 10/23)</li></ul></div></div>
 <div class="cmp"><div><h4>정해 주실 것</h4><ul><li>개요 없앰 · 손익 분석 숨김</li><li>파이프라인: 30일+ 기록 없는 리드 "휴면" 표시 · [정리 제안] (담당자 확인 후)</li><li>파이프라인: "다음 연락" 날짜 칸 (단계 변경 · 기록 때)</li><li>✔ 분석 메뉴 10 → 6 (10/22)</li><li>✔ 외주 · 행사 비용 = 사용자가 직접 [비용 입력] (10/22)</li><li>✔ 전화 출처는 묻지 않음 → GA 전화클릭 채널 분포로 (10/22)</li><li>✔ 서비스 페이지 봄 = GA 페이지 데이터로 (설정 추가 없음)</li></ul></div>
 <div><h4>순서 (합의 후)</h4><ul><li>1 마케팅 효율 · 문의까지 가는 길 (마케팅 2개)</li><li>2 파이프라인 · 문의 내용 (세일즈 2개)</li><li>3 매출 분석 (시트 동기화 데이터)</li><li>4 메뉴 정리 (개요 · 손익 · 연간 비교 · 방문자 여정 옛 화면 내림)</li></ul></div></div></section>'''
 
