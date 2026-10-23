@@ -1,7 +1,9 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const supabase = createServerSupabaseClient()
     const formData = await request.formData()

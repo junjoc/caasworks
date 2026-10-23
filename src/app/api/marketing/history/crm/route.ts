@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 // 마케팅 연간 비교: CRM 전환(2026.5~) 이후 달은 시트 대신 CRM 데이터로 월 요약을 만든다.
 // 광고비 = ad_performance (채널별 합), 문의 = pipeline_leads 문의일 기준, 도입 = 도입완료일(converted_at) 기준.
@@ -19,6 +20,7 @@ async function readAll<T>(q: (from: number, to: number) => PromiseLike<{ data: T
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   const from = request.nextUrl.searchParams.get('from') || '2026-05-01' // CRM 전환 월
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
   try {

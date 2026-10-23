@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 function getSupabase() {
   return createClient(
@@ -11,6 +12,7 @@ function getSupabase() {
 // POST /api/feedback/[id]/comments
 // Body: { comment, author_id, is_admin_directive?, is_claude_report? }
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const id = params.id
     const body = await request.json()

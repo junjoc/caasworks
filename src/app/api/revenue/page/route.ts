@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 // STEP 4-B: get_revenue_page RPC 래퍼.
 // 매출현황 페이지가 3천개 프로젝트를 batch 로 fetch 하지 않고, 서버 페이지네이션으로 소량만 받게 함.
@@ -12,6 +13,7 @@ function getSupabase() {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const { searchParams } = new URL(request.url)
     const year = Number(searchParams.get('year')) || new Date().getFullYear()

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 /**
  * 기존 파이프라인 리드의 레거시 채널명을 통합 채널명으로 일괄 변환
@@ -15,6 +16,7 @@ const LEGACY_MAP: Record<string, string> = {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

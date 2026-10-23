@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 const SHEET_ID = '1R9BkvzfbvtJap7Ymp7LtYdKsrvCtjfKrvxNw5mQPAHA'
 const SHEET_TAB = '인바운드'
@@ -126,6 +127,7 @@ function determineStage(row: Record<string, string>): string {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const auth = getAuth()
     const sheets = google.sheets({ version: 'v4', auth })
@@ -315,7 +317,8 @@ export async function POST(request: NextRequest) {
 }
 
 // GET: 시트 구조 확인용
-export async function GET() {
+export async function GET(request: Request) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const auth = getAuth()
     const sheets = google.sheets({ version: 'v4', auth })

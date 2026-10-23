@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { parseNaverBlogFile, saveNaverBlogParsed } from '@/lib/naver-blog-stats'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 // 네이버 블로그 통계 엑셀 업로드 (여러 파일 한 번에). 파일 종류는 내용(데이터명)으로 판별.
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   const form = await request.formData().catch(() => null)
   if (!form) return NextResponse.json({ error: '파일 업로드 형식이 아닙니다' }, { status: 400 })
   const files = form.getAll('files').filter((f): f is File => typeof f !== 'string')

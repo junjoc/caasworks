@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 function getSupabase() {
   return createClient(
@@ -10,6 +11,7 @@ function getSupabase() {
 
 // GET /api/feedback?status=submitted&page=1&limit=50
 export async function GET(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const sb = getSupabase()
     const { searchParams } = new URL(request.url)
@@ -37,6 +39,7 @@ export async function GET(request: NextRequest) {
 
 // POST /api/feedback  { title, description, category?, priority?, target_page?, created_by? }
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const body = await request.json()
     if (!body.title) return NextResponse.json({ error: 'title required' }, { status: 400 })

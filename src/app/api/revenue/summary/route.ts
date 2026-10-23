@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 // STEP 4-B: 매출 요약 (v_revenue_yearly, v_revenue_monthly 노출).
 // 대시보드/매출현황 요약 카드가 3천개 프로젝트 fetch 없이 서버 집계만 로드.
@@ -12,6 +13,7 @@ function getSupabase() {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const { searchParams } = new URL(request.url)
     const year = searchParams.get('year')

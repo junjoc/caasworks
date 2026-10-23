@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 // 디버그 엔드포인트 — ad_performance 테이블 접근 테스트
 export async function GET(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   const url = new URL(request.url)
   const year = Number(url.searchParams.get('year')) || new Date().getFullYear()
   const month = Number(url.searchParams.get('month')) || (new Date().getMonth() + 1)

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
 import { classifyLead, INFLOW_ORDER } from '@/lib/inflow-taxonomy'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 // 대시보드 데이터 — 위젯마다 따로 읽던 19번의 조회를 서버에서 한 번에 (2026-10-21, 디자인 정의 › 대시보드).
 // 사람별 값(내 담당 리드)은 담당자별로 모두 담아 보내고 화면이 고른다 → 캐시 하나로 전원. 1분 캐시.
@@ -111,6 +112,7 @@ async function build() {
 const cached = unstable_cache(build, ['dashboard-v1'], { revalidate: 60 })
 
 export async function GET(request: Request) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const t0 = Date.now()
     const fresh = new URL(request.url).searchParams.get('fresh') === '1'

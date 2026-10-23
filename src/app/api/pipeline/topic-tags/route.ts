@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { classifyTopics, TOPIC_TAGS } from '@/lib/topic-tags'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 // 리드 주제 태그
 // - { lead_ids, reset_manual? } : 규칙으로 재분류. 사람이 고친 리드(topic_tags_manual)는 reset_manual 일 때만.
 // - { lead_id, tags }           : 사람이 직접 지정 → topic_tags_manual = true (이후 재분류에서 제외)
 
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   const body = await request.json()
   const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 function getSupabase() {
   return createClient(
@@ -55,6 +56,7 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   const cors = corsHeaders(request.headers.get('origin'))
   try {
     // Accept both application/json and text/plain (cross-origin simple POST)
@@ -303,7 +305,8 @@ export async function POST(request: NextRequest) {
 }
 
 // GET: status check
-export async function GET() {
+export async function GET(request: Request) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   const supabase = getSupabase()
   const { count } = await supabase.from('invoices').select('*', { count: 'exact', head: true })
 

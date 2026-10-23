@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 const CALENDAR_ID = 'c_036pj2g4597caud3s5i654hcts@group.calendar.google.com'
 
@@ -20,6 +21,7 @@ function getAuth() {
 }
 
 export async function GET(request: Request) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const { searchParams } = new URL(request.url)
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()))

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { parseMarketingYearFile } from '@/lib/marketing-history'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 // 마케팅 연간 현황표(연도별 xlsx) 업로드. 파일 하나 = 연도 하나. 같은 연도를 다시 올리면 그 연도 데이터를 교체.
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   const form = await request.formData().catch(() => null)
   if (!form) return NextResponse.json({ error: '파일 업로드 형식이 아닙니다' }, { status: 400 })
   const files = form.getAll('files').filter((f): f is File => typeof f !== 'string')

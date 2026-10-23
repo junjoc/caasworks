@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -29,6 +30,7 @@ interface DebugLog { step: string; status: number | string; detail: string }
 interface StatRow { date: string; campNaverId: string; agNaverId: string; impressions: number; clicks: number; cost: number; conversions: number }
 
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   const debug: DebugLog[] = []
 
   try {

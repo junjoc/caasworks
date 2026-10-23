@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 function getSupabase() {
   return createClient(
@@ -10,6 +11,7 @@ function getSupabase() {
 
 // GET /api/feedback/[id] — returns feedback + comments
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const denied = await denyIfNotSignedIn(_req); if (denied) return denied
   try {
     const id = params.id
     const sb = getSupabase()
@@ -32,6 +34,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
 // PATCH /api/feedback/[id]
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const id = params.id
     const body = await request.json()
@@ -52,6 +55,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
 // DELETE
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const denied = await denyIfNotSignedIn(_req); if (denied) return denied
   try {
     const id = params.id
     const sb = getSupabase()

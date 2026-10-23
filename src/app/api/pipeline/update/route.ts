@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { syncLeadToAdPerformance, revertLeadFromAdPerformance } from '@/lib/sync-lead-to-ads'
 import { autoTagLead } from '@/lib/topic-tags'
 import { ACTIVITY_TYPE_LABELS, ACTIVITY_STAGE_MAP } from '@/lib/utils'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 // 다음 액션 이력 값: "데모하기 · 10.22"
 const nextLabel = (t: string | null | undefined, d: string | null | undefined) =>
@@ -32,6 +33,7 @@ function getSupabase() {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const body = await request.json()
     const { action, lead_id, ...payload } = body

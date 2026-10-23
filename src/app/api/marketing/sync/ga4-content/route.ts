@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 import { gaSegmentFilter, andFilters } from '@/lib/ga-segment'
 import { fetchBlogPublishDate } from '@/lib/blog-publish-date'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -14,6 +15,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 const PUBLISH_DATE_FETCH_LIMIT = 40 // 한 번 동기화에 발행일을 가져올 글 수 (글 페이지를 하나씩 읽음)
 
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const body = await request.json()
 

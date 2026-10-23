@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { inferLeadChannel, buildFirstTouch } from '@/lib/attribution'
 import { autoTagLead } from '@/lib/topic-tags'
 import { findOrCreateCustomer } from '@/lib/find-customer'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 function getSupabase() {
   return createClient(
@@ -12,6 +13,7 @@ function getSupabase() {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const body = await request.json()
     const supabase = getSupabase()

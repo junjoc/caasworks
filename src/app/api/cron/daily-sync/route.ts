@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { recomputeInquiries } from '@/lib/sync-lead-to-ads'
 import { runSheetSync } from '@/lib/sheet-sync'
+import { internalAuthHeader } from '@/lib/api-auth'
 
 // Vercel Cron Job — 매일 자동 동기화 (구글 광고 + 네이버 광고 + GA4 + 문의 다시 맞추기 + 매출 시트)
 // vercel.json 에서 매일 오전 8시(KST) — 10/22 사용자: 9~10시 출근 전에 끝나 있게
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
   try {
     const res = await fetch(`${baseUrl}/api/marketing/sync/google-ads`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...internalAuthHeader() },
       body: JSON.stringify({ year, month }),
     })
     results.google_ads = await res.json()
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
   try {
     const res = await fetch(`${baseUrl}/api/marketing/sync/naver-ads`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...internalAuthHeader() },
       body: JSON.stringify({ year, month }),
     })
     results.naver_ads = await res.json()
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
   try {
     const res = await fetch(`${baseUrl}/api/marketing/sync/ga4-content`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...internalAuthHeader() },
       body: JSON.stringify({ startDate, endDate }),
     })
     results.ga4_content = await res.json()
@@ -92,7 +93,7 @@ export async function GET(request: NextRequest) {
   try {
     const res = await fetch(`${baseUrl}/api/marketing/sync/ga4-sources`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...internalAuthHeader() },
       body: JSON.stringify({ startDate, endDate }),
     })
     results.ga4_sources = await res.json()
@@ -127,7 +128,7 @@ export async function GET(request: NextRequest) {
     try {
       const res = await fetch(`${baseUrl}/api/marketing/sync/google-ads`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...internalAuthHeader() },
         body: JSON.stringify({ year: prevYear, month: prevMonth }),
       })
       results.google_ads_prev = await res.json()
@@ -138,7 +139,7 @@ export async function GET(request: NextRequest) {
     try {
       const res = await fetch(`${baseUrl}/api/marketing/sync/naver-ads`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...internalAuthHeader() },
         body: JSON.stringify({ year: prevYear, month: prevMonth }),
       })
       results.naver_ads_prev = await res.json()

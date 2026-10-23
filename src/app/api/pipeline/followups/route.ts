@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 // "추가 진행" 리드: 도입완료 이후에 견적/제안/미팅/데모 활동이 기록된 리드.
 // 도입 시점은 pipeline_history → audit_logs → 계약체결 활동 → converted_at 순으로 찾는다
@@ -9,7 +10,8 @@ export const dynamic = 'force-dynamic'
 
 const FOLLOWUP_TYPES = ['QUOTATION', 'PROPOSAL', 'MEETING', 'DEMO']
 
-export async function GET() {
+export async function GET(request: Request) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

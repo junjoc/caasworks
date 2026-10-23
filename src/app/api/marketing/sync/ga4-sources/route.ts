@@ -5,6 +5,7 @@ import { gaSegmentFilter } from '@/lib/ga-segment'
 import { classifyNaverBlogId } from '@/lib/blog-channel'
 import { parseNaverBlogUrl } from '@/lib/naver-blog-url'
 import campaignMap from '@/config/ad_campaign_map.json'
+import { denyIfNotSignedIn } from '@/lib/api-auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -142,6 +143,7 @@ function paidTarget(source: string, medium: string, campaign: string): { channel
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await denyIfNotSignedIn(request); if (denied) return denied
   try {
     const body = await request.json()
     const dryRun = !!body.dryRun // 미리보기: GA 를 읽고 분류 결과만 돌려준다 (DB 쓰기 없음)
