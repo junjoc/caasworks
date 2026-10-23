@@ -134,13 +134,56 @@ D = f"""<div class="pg2 wide"><div class="h2top"><h1 style="margin:0;font-size:1
 <p class="cd-note" style="margin-top:8px">중요 프로젝트: 회사 · 상태 · 청구 · 입금 변화는 10/22 시트 동기화 실제 값, "다음에 올 것" 일부는 예시 · 관심 프로젝트: 회사 · 담당은 실제 열린 리드, 기다리는 것 · 예상 시점은 예시</p></div>"""
 FD = frame('세일즈 › 관심 · 중요 프로젝트', '', D, h=900)
 
+# ───────── 4. 문의 내용 (= 마케팅 리포트) · 2026 문의 651 실데이터 (10/23) ─────────
+TOP = [('동영상기록관리', 117, 32, 33, '직접 연락 · 검색'), ('AI CCTV', 147, 31, 34, '직접 연락 · 검색'), ('가격·견적', 231, 31, 52, '검색 · 자사 채널'), ('LH', 11, 2, 3, '직접 연락 · 자사 채널'),
+       ('체감온도·환경', 30, 3, 7, '검색 · 자사 채널'), ('공정·일보', 18, 2, 10, '검색 · 자사 채널'), ('TBM·안전교육', 52, 3, 17, '검색 · 자사 채널'), ('산안비', 13, 1, 4, '직접 연락 · 검색'),
+       ('자료요청', 19, 1, 8, '자사 채널 · 직접 연락'), ('제휴', 11, 4, 2, '직접 연락 · 자사 채널'), ('기타', 202, 29, 105, '검색 · 자사 채널')]
+trows = ''.join(f'<tr><td><b>{t}</b></td><td class="num">{n}</td><td class="num">{w}</td><td class="num">{l}</td><td class="num"><b>{w / (w + l) * 100:.0f}%</b></td><td class="c"><span class="mbar"><i style="width:{w / (w + l) * 100:.0f}%"></i></span></td><td class="muted">{g}</td></tr>' for t, n, w, l, g in TOP)
+WK = [('08.31', 11, '가격·견적 7 · 동영상기록 5'), ('09.07', 9, 'AI CCTV 4 · 가격·견적 3'), ('09.14', 8, '가격·견적 5 · AI CCTV 3'), ('09.21', 5, 'AI CCTV 4 · 가격·견적 2'),
+      ('09.28', 9, '가격·견적 4 · 제휴 2'), ('10.05', 8, '가격·견적 6 · TBM 2'), ('10.12', 15, '동영상기록 6 · 가격·견적 6'), ('10.19', 13, '가격·견적 8 · AI CCTV 5')]
+wrows = ''.join(f'<tr><td>{d} 주</td><td class="num"><b>{n}</b></td><td class="c"><span class="mbar"><i style="width:{n / 15 * 100:.0f}%"></i></span></td><td class="muted">{t}</td></tr>' for d, n, t in WK)
+FAQ = [('견적 · 단가 · 비용', 201, 23), ('설치 · 설치비', 66, 5), ('기간(몇 개월)', 51, 8), ('구매', 49, 6), ('전기 · 인터넷 없는 현장', 36, 5), ('렌탈 · 임대', 32, 5), ('공공 · 발주처 · 조달', 24, 4), ('자료 · 카탈로그 · 규격서', 19, 1), ('설계 반영', 15, 3), ('안전관리비 인정', 11, 1)]
+frows = ''.join(f'<tr><td><b>{q}</b></td><td class="num">{n}</td><td class="num">{w}</td><td><span class="fact">FAQ · 용어 글 후보</span></td></tr>' for q, n, w in FAQ)
+E4 = f"""<div class="pg2 wide"><div class="h2top"><h1 style="margin:0;font-size:18px">문의 내용</h1><span class="muted">무엇을 묻고 · 어떤 주제가 도입으로 가나</span><span class="sp"></span>
+<span class="seg"><span class="on">주</span><span>월</span><span>분기</span><span>연</span></span><span class="btn sm">2026년 ▾</span><span class="btn sm">유입 분류 전체 ▾</span><span class="btn sm">고객 유형 전체 ▾</span></div>
+<div class="kpis"><div><span>문의 (리드)</span><b>651</b><em class="muted">2026 · 이번 주 13</em></div><div><span>도입률 높은 주제</span><b>동영상기록 49%</b><em class="muted">AI CCTV 48%</em></div><div><span>가장 많이 묻는 것</span><b>가격 · 견적</b><em class="muted">231건 · 도입률 37%</em></div><div><span>주제 "기타"</span><b class="due">202</b><em class="muted">태그 규칙 보강 필요</em></div><div><span>원문 있는 문의</span><b>551</b><em class="muted">연락처 · 실명 숨김</em></div></div>
+<div class="ins"><div class="w"><b>동영상기록 · AI CCTV 문의는 둘 중 하나가 도입</b><span>도입률 49% · 48% (도입 ÷ 도입+이탈)</span></div><div class="w"><b>TBM · 공정 · 자료요청은 15~17%</b><span>문의는 많지만 도입이 드묾</span></div><div class="r"><b>"기타" 202건 — 주제가 안 잡힘</b><span>원문 다시 태그 → 14종 보강</span></div></div>
+<div class="g2"><div class="card2x"><div class="ch"><b>주제 × 도입</b><span class="muted">한 문의에 주제 여러 개 · 도입률 = 도입 ÷ (도입 + 이탈) · 주제를 누르면 원문 목록</span></div>
+<table class="ds fixed"><colgroup><col style="width:22%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:15%"><col style="width:26%"></colgroup><thead><tr><th>주제</th><th>문의</th><th>도입</th><th>이탈</th><th>도입률</th><th></th><th>많이 들어온 곳</th></tr></thead><tbody>{trows}</tbody></table></div>
+<div class="card2x"><div class="ch"><b>주간 — 주간 §0 그대로</b><span class="muted">월요일 시작 · 최근 8주</span></div>
+<table class="ds fixed"><colgroup><col style="width:20%"><col style="width:12%"><col style="width:24%"><col style="width:44%"></colgroup><thead><tr><th>주</th><th>문의</th><th></th><th>주제 상위 2</th></tr></thead><tbody>{wrows}</tbody></table>
+<div class="ch" style="margin-top:12px"><b>자주 나오는 질문 → 마케팅 FAQ · 용어 글</b><span class="muted">원문 551건 키워드 · 한 문의가 여러 개</span></div>
+<table class="ds fixed"><colgroup><col style="width:44%"><col style="width:14%"><col style="width:14%"><col style="width:28%"></colgroup><thead><tr><th>질문</th><th>문의</th><th>도입</th><th></th></tr></thead><tbody>{frows}</tbody></table></div></div></div>"""
+F4 = frame('분석 › 문의 내용', '문의 내용', E4, h=980)
+
+# ───────── 5. 매출 분석 (시트 동기화 · 2026 매출 현황 = CRM 1,985,176,968) ─────────
+MON = [106618310, 97119250, 138911425, 242929750, 167364650, 180861493, 274573982, 176192116, 219309892, 175805644, 115173978, 90316478]
+mx = max(MON)
+mbars = ''.join(f'<div class="mb{" fut" if i >= 10 else ""}"><i style="height:{v / mx * 100:.0f}%"></i><span>{i + 1}</span><em>{v / 1e6:.0f}</em></div>' for i, v in enumerate(MON))
+SVC = [('AI CCTV', 771214982), ('플랫폼', 320358424), ('기타', 164038402), ('타임랩스', 113776000), ('LTE · 인터넷 회선', 110654221), ('장비설치', 69419000), ('편집비용', 65216684), ('Wearable Cam', 57642000)]
+srows = ''.join(f'<tr><td><b>{n}</b></td><td class="num">{v / 1e6:,.1f}</td><td class="num">{v / 1985176968 * 100:.0f}%</td><td class="c"><span class="mbar"><i style="width:{v / 771214982 * 100:.0f}%"></i></span></td></tr>' for n, v in SVC)
+INF = [('직접 연락', 780747366), ('출처 모름 (리드 연결 없음)', 563019942), ('검색', 371406100), ('자사 채널', 178424424), ('미분류', 75987500), ('광고', 13892000), ('자사 블로그', 1699636)]
+irows2 = ''.join(f'<tr{" class=dimr" if "모름" in n else ""}><td><b>{n}</b></td><td class="num">{v / 1e6:,.1f}</td><td class="num">{v / 1985176968 * 100:.0f}%</td><td class="c"><span class="mbar"><i style="width:{v / 780747366 * 100:.0f}%"></i></span></td></tr>' for n, v in INF)
+TOPR = [('동영상기록관리', 238567184), ('AI CCTV', 140383818), ('LH', 105322000), ('제휴', 34615000), ('TBM · 안전교육', 25150000), ('공정 · 일보', 18500000), ('주제 없음 (기타 · 가격만)', 855739024)]
+prow2 = ''.join(f'<tr><td><b>{n}</b></td><td class="num">{v / 1e6:,.1f}</td></tr>' for n, v in TOPR)
+E5 = f"""<div class="pg2 wide"><div class="h2top"><h1 style="margin:0;font-size:18px">매출 분석</h1><span class="muted">매출이 어디서 · 무엇으로 · 누구에게서 나오나 — 매출 시트 동기화(매일 08시)</span><span class="sp"></span><span class="seg"><span>월</span><span>분기</span><span class="on">연</span></span><span class="btn sm">2026년 ▾</span><span class="btn sm">고객 유형 전체 ▾</span></div>
+<div class="kpis"><div><span>2026 매출 (시트)</span><b>19.85억</b><em class="muted">11 · 12월 예정 2.05억 포함</em></div><div><span>10월</span><b>1.76억</b><em class="muted">9월 2.19억</em></div><div><span>매출 고객사</span><b>243</b><em class="muted">신규 고객 매출 55%</em></div><div><span>공공 현장 매출</span><b>48%</b><em class="muted">9.52억 · 민간 10.33억</em></div><div><span>리드 연결률</span><b>72%</b><em class="muted">매출 기준 · 고객 157/243</em></div></div>
+<div class="ins"><div class="r"><b>매출 5.63억(28%)은 어느 문의에서 왔는지 모름</b><span>고객사 ↔ 리드 연결이 없음 · 이전 기록 · 매출 시트 고객사 ID 로 잇기</span></div><div class="w"><b>첫 문의가 직접 연락인 고객이 매출 7.81억</b><span>연결된 매출의 55%</span></div><div class="w"><b>주제가 잡힌 매출 1위 동영상기록관리 2.39억</b><span>AI CCTV 1.40억 · LH 1.05억</span></div></div>
+<div class="card2x"><div class="ch"><b>월 매출</b><span class="muted">백만 원 · 11 · 12월은 시트에 이미 잡힌 예정(선납 · 계약)</span></div><div class="mbs">{mbars}</div></div>
+<div class="g3"><div class="card2x"><div class="ch"><b>서비스별</b><span class="muted">백만 원</span></div><table class="ds fixed"><colgroup><col style="width:38%"><col style="width:22%"><col style="width:18%"><col style="width:22%"></colgroup><thead><tr><th>서비스</th><th>매출</th><th>비중</th><th></th></tr></thead><tbody>{srows}</tbody></table></div>
+<div class="card2x"><div class="ch"><b>첫 문의 유입 분류별</b><span class="muted">고객사의 가장 이른 리드 기준</span></div><table class="ds fixed"><colgroup><col style="width:42%"><col style="width:20%"><col style="width:18%"><col style="width:20%"></colgroup><thead><tr><th>유입 분류</th><th>매출</th><th>비중</th><th></th></tr></thead><tbody>{irows2}</tbody></table></div>
+<div class="card2x"><div class="ch"><b>첫 문의 주제별</b><span class="muted">백만 원 · 기타 · 가격만인 문의는 "주제 없음"</span></div><table class="ds fixed"><colgroup><col style="width:66%"><col style="width:34%"></colgroup><thead><tr><th>주제</th><th>매출</th></tr></thead><tbody>{prow2}</tbody></table>
+<div class="ch" style="margin-top:10px"><b>공공 / 민간</b></div><div class="pp"><i style="width:48%">공공 48%</i><i style="width:52%">민간 52%</i></div><p class="cd-note">LH · 발주처 구분은 v4 프로젝트의 "발주처" 칸이 생기면</p></div></div>
+<p class="cd-note" style="margin-top:8px">매출 = 매출 시트 "현장별 전체 매출" (CRM 동기화) · 금액을 누르면 고객사 · 프로젝트 목록 · 연결률 = 리드와 이어진 고객사의 매출 ÷ 전체</p></div>"""
+F5 = frame('분석 › 매출 분석', '매출 분석', E5, h=980)
+
 # 메뉴 재구성 표
 MAP = [('마케팅', '<b>마케팅 효율</b>', '돈과 시간을 쓴 곳에서 문의 · 도입이 얼마나 나왔나 (주 · 월 · 분기 · 연)', '마케팅 분석(6탭) + 연간 비교', '아래 1'),
        ('마케팅', '<b>문의까지 가는 길</b>', '어디서 와서 무엇을 보고 어디서 멈추나', '방문자 여정 (세션 · 바운스 나열)', '아래 2'),
        ('세일즈', '<b>파이프라인</b>', '지금 어디에 쌓여 있고 얼마나 걸리나 · 담당별 · 정리할 것', '파이프라인 분석 + 전환 소요 기간', '아래 3'),
-       ('세일즈', '<b>문의 내용</b>', '무엇을 묻고 어떤 주제가 도입으로 이어지나', '마케팅 리포트 (이름 변경)', '다음'),
+       ('세일즈', '<b>문의 내용</b>', '무엇을 묻고 어떤 주제가 도입으로 이어지나', '마케팅 리포트 (이름 변경)', '아래 4'),
        ('고객', '<b>코호트 · 생애 가치</b>', '언제 · 어디서 온 고객이 오래 남고 많이 내나', '유입 코호트 + 채널별 생애 가치 (탭 2)', '적용됨'),
-       ('매출', '<b>매출 분석</b> 🆕', '서비스별 · 공공/민간 · 신규/기존 월 매출 흐름 (시트 동기화 데이터)', '손익 분석 자리 (매입 연동 전까지 숨김)', '다음'),
+       ('매출', '<b>매출 분석</b> 🆕', '서비스별 · 공공/민간 · 신규/기존 월 매출 흐름 · 유입 · 주제별 매출 (시트 동기화 데이터)', '손익 분석 자리 (매입 연동 전까지 숨김)', '아래 5'),
        ('—', '<s>개요</s>', '대시보드 프리셋 5가 같은 역할', '없앰', '')]
 mrows = ''.join(f'<tr><td>{g}</td><td>{n}</td><td>{q}</td><td class="muted">{f}</td><td>{s}</td></tr>' for g, n, q, f, s in MAP)
 
@@ -173,6 +216,12 @@ CSS = '''<style>
 #m-analytics-v3 .ins>div button{justify-self:start;margin-top:4px}
 #m-analytics-v3 .flow2{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}#m-analytics-v3 .flow2>div{flex:1;min-width:110px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;display:grid;gap:1px}#m-analytics-v3 .flow2 span{font-size:11.5px;color:var(--fg3)}#m-analytics-v3 .flow2 b{font-size:18px}#m-analytics-v3 .flow2 em{font-style:normal;font-size:11px;color:var(--fg2)}#m-analytics-v3 .flow2 .ar{align-self:center;font-style:normal;color:var(--fg3)}
 #m-analytics-v3 .seg2{display:flex;gap:4px;align-items:center;font-size:12px;margin:8px 0}#m-analytics-v3 .seg2 span{border:1px solid var(--line);border-radius:999px;padding:1px 10px}#m-analytics-v3 .seg2 .on{background:var(--fg);color:var(--bg)}#m-analytics-v3 .seg2 em{font-style:normal;margin-left:6px}
+#m-analytics-v3 .g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+#m-analytics-v3 .mbs{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px;height:150px;align-items:end;padding-top:6px}
+#m-analytics-v3 .mb{display:grid;grid-template-rows:1fr auto auto;height:100%;text-align:center;font-size:11px}#m-analytics-v3 .mb i{align-self:end;display:block;background:#579bfc;border-radius:3px 3px 0 0}#m-analytics-v3 .mb.fut i{background:repeating-linear-gradient(45deg,#cfe0fd,#cfe0fd 3px,#e8f0fe 3px,#e8f0fe 6px)}
+#m-analytics-v3 .mb span{color:var(--fg3)}#m-analytics-v3 .mb em{font-style:normal;color:var(--fg2)}
+#m-analytics-v3 .pp{display:flex;height:22px;border-radius:4px;overflow:hidden;font-size:11.5px}#m-analytics-v3 .pp i{display:flex;align-items:center;justify-content:center;font-style:normal;color:#fff}#m-analytics-v3 .pp i:first-child{background:#579bfc}#m-analytics-v3 .pp i:last-child{background:#9b9ea6}
+#m-analytics-v3 tr.dimr td{color:var(--fg3);background:var(--bg-subtle,#f7f7f8)}
 #m-analytics-v3 td.hot{background:#fdecef;color:#b4233a;font-weight:600}#m-analytics-v3 td.warm{background:#fff4e5}
 #m-analytics-v3 .stk{display:flex;height:10px;border-radius:2px;overflow:hidden;background:var(--bg-subtle,#f7f7f8)}#m-analytics-v3 .stk i,#m-analytics-v3 i.lg{display:inline-block;height:100%}
 #m-analytics-v3 .stk .w,#m-analytics-v3 i.lg.lw{background:#00c875}#m-analytics-v3 .stk .l,#m-analytics-v3 i.lg.ll{background:#c4c4c4}#m-analytics-v3 .stk .o,#m-analytics-v3 i.lg.lo{background:#579bfc}
@@ -203,6 +252,10 @@ SEC = f'''<section id="m-analytics-v3">{CSS}<h2>분석 — 메뉴 재구성 v3 (
 <h3 class="ph3">3-b 화면 — 세일즈 › 관심 · 중요 프로젝트 (실데이터 + 예시 표시)</h3><div class="fwrap">{FD}</div>
 <div class="cmp"><div><h4>논의할 것 (마케팅팀 · 세일즈)</h4><ul><li>✔ 이름: 관심 프로젝트 ☆ / 중요 프로젝트 ★ · 흐름 관심 → (도입 결정) → 중요 (국장님 10/23)</li><li>✔ 뜻: 중요 = 도입 결정 뒤 진행 중 · 데일리 체크 / 관심 = 설계 중 · 결재 · 입찰 · 도입직전 (국장님 10/23)</li><li>✔ 연락 주기 기준 쓰지 않음 (국장님 10/23)</li><li>중요 프로젝트 "어제 이후 바뀐 것" 중 무엇을 위로 올릴지 (미납 · 장비 · VoC 우선순위)</li><li>중요 프로젝트 상한 — 담당당 10건 안팎 권장 (데일리로 볼 수 있는 양)</li><li>✔ "기다리는 것" 목록: 결재 · 입찰 · 발주처 사양 · 지침 확인 · 설계 확정 · 예산 · 착공 · 기타 (마케팅팀 10/23 — 항목별 영업 지원 자료를 마케팅팀이 만듦)</li><li>주간 회의 사용 · 중요 프로젝트 순서 · 상한 = 세일즈 · 국장님 결정 · 마케팅팀은 월 1회 "기다리는 것별 건수"</li><li>입찰 건: 낙찰되면 낙찰 시공사를 고객사로 잇고 현장(프로젝트)을 만듦 — 관심 → 중요로 넘어가는 지점 · (나중) 나라장터 공고 · 낙찰 결과 자동 확인</li><li>자동 후보 기준 · 주간 회의에서 이 화면을 쓸지</li></ul></div>
 <div><h4>결정됨</h4><ul><li>✔ 이탈 사유 칸은 만들지 않음 — <b>국장님 결정 10/23</b> ("의미 없음"). 회의록 6장 3번 · 8장 3순위 제외</li><li>✔ 휴면 = 날짜 하나로 정하지 않음 (국장 10/23)</li></ul></div></div>
+<h3 class="ph3">4. 문의 내용 — 마케팅 리포트 대체 (2026 문의 651 · 10/23 실데이터)</h3><div class="fwrap">{F4}</div>
+<p class="rule">마케팅팀 3-4장 반영: ① 주제 14종 × 도입률 ② 주제 × 유입 분류(많이 들어온 곳 · 필터) ③ 원문에서 자주 나오는 질문 → FAQ · 용어 글 후보 ④ 주간 §0 루틴 그대로(주 단위 기본) ⑤ 연락처 · 실명 숨김. 원문 키워드는 정규식 수(한 문의가 여러 질문). "기타" 태그 202건은 태그 규칙 보강 대상 — 원문을 다시 태그하면 14종 숫자가 바뀜.</p>
+<h3 class="ph3">5. 매출 분석 — 손익 분석 자리 (매출 시트 동기화 · 2026 = 1,985,176,968)</h3><div class="fwrap">{F5}</div>
+<p class="rule">마케팅팀 3-4장 반영: ① 리드 → 고객사 → 매출 연결률을 맨 위(매출 기준 72% · 고객 157/243), 연결 안 된 매출은 "출처 모름" 줄로 따로 ② 첫 문의 유입 분류 · 주제별 매출(2027 재설계 "매출 어디") ③ 공공 / 민간 — LH · 발주처는 v4 프로젝트 "발주처" 칸이 생기면. 11 · 12월은 시트에 이미 잡힌 예정 매출(선납 · 계약)이라 빗금. 첫 문의 기준 = 고객사의 가장 이른 리드 — 기존 고객의 추가 현장 매출도 처음 들어온 경로로 셈 (프로젝트 단위 유입은 v4 뒤).</p>
 <div class="cmp"><div><h4>정해 주실 것</h4><ul><li>개요 없앰 · 손익 분석 숨김</li><li>파이프라인: 휴면 · 연락 기준 대신 관심 · 중요 프로젝트(3-b)으로</li><li>✔ 분석 메뉴 10 → 6 (10/22)</li><li>✔ 외주 · 행사 비용 = 사용자가 직접 [비용 입력] (10/22)</li><li>✔ 전화 출처는 묻지 않음 → GA 전화클릭 채널 분포로 (10/22)</li><li>✔ 서비스 페이지 봄 = GA 페이지 데이터로 (설정 추가 없음)</li></ul></div>
 <div><h4>순서 (합의 후)</h4><ul><li>1 마케팅 효율 · 문의까지 가는 길 (마케팅 2개)</li><li>2 파이프라인 · 문의 내용 (세일즈 2개)</li><li>3 매출 분석 (시트 동기화 데이터)</li><li>4 메뉴 정리 (개요 · 손익 · 연간 비교 · 방문자 여정 옛 화면 내림)</li></ul></div></div></section>'''
 
