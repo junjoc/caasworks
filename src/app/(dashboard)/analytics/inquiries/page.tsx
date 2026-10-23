@@ -104,7 +104,7 @@ export default function InquiriesPage() {
             <div className="flex items-center gap-2 mb-2 h-5"><h2 className="text-[14px] font-medium text-ds-fg">주제 × 도입</h2><span className="text-[12px] text-ds-fg3">도입률 순 (도입 + 이탈 5건 미만은 아래) · 누르면 원문 목록</span></div>
             <div className="ds-wrap">
               <table className="ds-table is-clickable is-fixed is-clip">
-                <colgroup><col style={{ width: '22%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '24%' }} /><col style={{ width: '27%' }} /></colgroup>
+                <colgroup><col style={{ width: '22%' }} /><col style={{ width: '11%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '22%' }} /><col style={{ width: '25%' }} /></colgroup>
                 <thead><tr><th>주제</th><th>문의</th><th>도입</th><th>이탈</th><th>도입률</th><th>많이 들어온 곳</th></tr></thead>
                 <tbody>
                   {topics.map(t => (
