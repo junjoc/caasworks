@@ -47,6 +47,7 @@ const pageTitles: Record<string, string> = {
   '/analytics/conversion': '전환 소요 기간',
   '/analytics/cohort': '유입 코호트',
   '/analytics/channel-value': '채널별 생애 가치',
+  '/analytics/inquiries': '문의 내용',
   '/analytics/company': '회사 생애주기',
   // 세일즈
   '/pipeline/board': '세일즈 · 보드뷰',
