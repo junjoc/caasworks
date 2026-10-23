@@ -258,7 +258,8 @@ export async function POST(request: NextRequest) {
       if (inquiry) {
         // 문의폼이 문의내용에 붙인 utm 줄을 레퍼러보다 우선 (예: NAds 광고는 레퍼러가 중간 랜딩 도메인)
         const utm = parseUtmFromText([inquiry.extra_content, fullText].filter(Boolean).join('\n'))
-        const { channel: inquiryChannel, source: inquirySource } = inferLeadChannel({ ...utm, referrer: inquiry.referrer })
+        const firstReferrer = utm.referrer || inquiry.referrer  // 첫 화면 바깥 출처 우선 (utm_data.referrer)
+        const { channel: inquiryChannel, source: inquirySource } = inferLeadChannel({ ...utm, referrer: firstReferrer })
 
         // 재문의 처리 (2026-10-21) — 전에는 같은 날 같은 이메일·번호면 건너뛰어 두 번째 문의 내용이 CRM 에 남지 않았다.
         // 같은 사람(번호는 숫자만, 이메일은 대소문자 무시)의 리드를 찾아
@@ -338,14 +339,14 @@ export async function POST(request: NextRequest) {
           inquiry_date: today,
           inquiry_channel: inquiryChannel,
           inquiry_source: inquirySource,
-          referrer: inquiry.referrer,
+          referrer: firstReferrer,
           utm_source: utm.utm_source,
           utm_medium: utm.utm_medium,
           utm_campaign: utm.utm_campaign,
           utm_content: utm.utm_content,
           utm_term: utm.utm_term,
           landing_page: utm.landing_page,
-          first_touch: buildFirstTouch({ ...utm, referrer: inquiry.referrer }) as any,
+          first_touch: buildFirstTouch({ ...utm, referrer: firstReferrer }) as any,
           inquiry_content: [
             inquiry.extra_content,  // 레퍼러 주소 ↔ 실제 레퍼러 사이의 실제 문의 내용 (최우선)
             inquiry.referrer ? `레퍼러 주소: ${inquiry.referrer}` : null,

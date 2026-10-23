@@ -27,9 +27,10 @@ function hostOf(url: string): string | null {
 // 웹 문의폼이 문의내용에 붙이는 ">utm_source: NAds >utm_campaign: N_smart >landing_page: /pages/x" 줄 파싱.
 // 빈 값("utm_source: >landing_page: /")은 null.
 export function parseUtmFromText(text: string | null | undefined): AttributionInput {
+  // 같은 줄 안에서만 읽음 — 값이 빈 줄(GTM 이 utm 없이 utm_data 를 써 둔 경우)이 다음 줄 이름을 값으로 집지 않게 (10/23)
   const pick = (k: string) => {
-    const m = (text || '').match(new RegExp(`${k}\\s*:\\s*([^\\s>]+)`))
-    return m ? m[1] : null
+    const m = (text || '').match(new RegExp(`(?:^|[\\s>])${k}[ \\t]*:[ \\t]*([^\\s>]+)`, 'm'))
+    return m && !/:$/.test(m[1]) ? m[1] : null
   }
   return {
     utm_source: pick('utm_source'),
@@ -38,6 +39,8 @@ export function parseUtmFromText(text: string | null | undefined): AttributionIn
     utm_content: pick('utm_content'),
     utm_term: pick('utm_term'),
     landing_page: pick('landing_page'),
+    // utm_data.referrer = 세션 첫 화면의 바깥 출처. 문의 알림의 "레퍼러 주소"(제출 시점 페이지의 레퍼러, 대개 내부)보다 우선
+    referrer: pick('referrer'),
   }
 }
 
