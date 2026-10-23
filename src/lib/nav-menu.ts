@@ -70,14 +70,15 @@ export const NAV_MENU: NavSection[] = [
     // 분석은 한 곳에서: 보는 화면만 여기로 모으고 입력·운영 화면은 각 메뉴에 둔다 (2026-10-20). 주소는 그대로라 권한·북마크 유지
     label: '분석',
     children: [
-      { label: '개요', href: '/analytics' },
-      { label: '마케팅 분석', href: '/marketing/analytics', group: '마케팅' },
-      { label: '방문자 여정', href: '/marketing/journey', group: '마케팅' },
-      { label: '연간 비교', href: '/marketing/history', group: '마케팅' },
-      { label: '파이프라인 분석', href: '/pipeline/analytics', group: '세일즈' },
-      { label: '마케팅 리포트', href: '/marketing/report', group: '세일즈' },
-      { label: '전환 소요 기간', href: '/analytics/conversion', group: '세일즈' },
-      { label: '손익 분석', href: '/finance/analysis', group: '매출/재무' },
+      // 분석 재구성 v3 (10/22 합의 · 10/23 구현 시작): 10 → 6. 새 화면이 생기는 대로 옛 메뉴를 바꾼다 (옛 주소는 남김)
+      //  개요 = 대시보드 프리셋과 겹쳐 없앰 · 마케팅 리포트 → 문의 내용 · 손익 분석 → 매출 분석 (매입 연동 전까지 숨김)
+      { label: '마케팅 분석', href: '/marketing/analytics', group: '마케팅' },  // → 마케팅 효율 (3단계)
+      { label: '방문자 여정', href: '/marketing/journey', group: '마케팅' },    // → 문의까지 가는 길 (3단계)
+      { label: '연간 비교', href: '/marketing/history', group: '마케팅' },     // → 마케팅 효율에 합침 (3단계)
+      { label: '파이프라인 분석', href: '/pipeline/analytics', group: '세일즈' }, // → 파이프라인 (2단계)
+      { label: '전환 소요 기간', href: '/analytics/conversion', group: '세일즈' }, // → 파이프라인에 합침 (2단계)
+      { label: '문의 내용', href: '/analytics/inquiries', group: '세일즈' },
+      { label: '매출 분석', href: '/analytics/revenue', group: '매출/재무' },
       { label: '유입 코호트', href: '/analytics/cohort', group: '고객 생애주기' },
       { label: '채널별 생애 가치', href: '/analytics/channel-value', group: '고객 생애주기' },
     ],
