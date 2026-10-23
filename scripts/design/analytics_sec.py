@@ -77,10 +77,36 @@ B = f'''<div class="pg2 wide"><div class="h2top"><h1 style="margin:0;font-size:1
 <div class="ch" style="margin-top:12px"><b>문의 주제</b><span class="muted">7~10월 · 태그</span></div><div class="tags"><span>가격·견적 117</span><span>AI CCTV 72</span><span>동영상기록관리 43</span><span>TBM·안전교육 26</span><span>체감온도 16</span><span>자료요청 12</span><span>산안비 8</span></div></div></div></div>'''
 FB = frame('분석 › 문의까지 가는 길', '문의까지 가는 길', B, h=900)
 
+# ───────── 3. 파이프라인 (= 파이프라인 분석 + 전환 소요 기간) · 2026-10-23 실데이터 ─────────
+# 2026 문의 중 열린 리드 307 (컨텍 180 · 제안 93 · 예정 25 · 미팅 6 · 신규 2 · 도입직전 1), 30일+ 기록 없음 175, 다음 할 일 날짜 있는 리드 0
+STG = ['신규리드', '컨텍', '미팅', '제안', '예정', '도입직전']
+AGE = {'신규리드': [2, 0, 0, 0], '컨텍': [6, 12, 55, 107], '미팅': [0, 1, 1, 4], '제안': [4, 6, 20, 63], '예정': [1, 1, 8, 15], '도입직전': [0, 0, 0, 1]}
+def cell(v, k):
+    cls = ' class="num hot"' if k == 3 and v >= 10 else ' class="num warm"' if k == 2 and v >= 10 else ' class="num"'
+    return f'<td{cls}>{v or "—"}</td>'
+arows = ''.join(f'<tr><td><b>{st}</b></td>' + ''.join(cell(v, k) for k, v in enumerate(AGE[st])) + f'<td class="num"><b>{sum(AGE[st])}</b></td></tr>' for st in STG)
+OWN = [('최한별', 233, 166, 75, 162), ('박성언', 24, 10, 14, 17), ('김규재', 10, 0, 1, 1), ('유라예', 2, 0, 7, 16), ('전성환', 4, 1, 3, 23), ('미배정', 34, 4, 6, 18)]
+orows = ''.join(f'<tr><td>{av(n) if n != "미배정" else ""} <b>{n}</b></td><td class="num">{o}</td><td class="num{" hot" if st >= 50 else ""}">{st}</td><td class="num">{w}</td><td class="num">{l}</td><td class="num">{w / (w + l) * 100:.0f}%</td></tr>' for n, o, st, w, l in OWN)
+DUR = [('7일 안', 34), ('8~30일', 28), ('31~90일', 27), ('90일 넘어', 16)]
+drows = ''.join(f'<div class="fn"><span class="l">{n}</span><span class="bar"><i style="width:{v / 34 * 100:.0f}%"></i></span><b>{v}</b><span class="muted">{v / 105 * 100:.0f}%</span></div>' for n, v in DUR)
+MON = [('1월', 77, 13, 53), ('2월', 64, 10, 47), ('3월', 81, 18, 40), ('4월', 91, 13, 32), ('5월', 58, 6, 20), ('6월', 64, 17, 10), ('7월', 72, 12, 11), ('8월', 70, 6, 18), ('9월', 34, 4, 3), ('10월', 39, 7, 3)]
+mrows2 = ''.join(f'<tr><td>{m}</td><td class="num">{n}</td><td class="num">{w}</td><td class="num">{l}</td><td class="num">{n - w - l}</td><td class="c"><span class="stk"><i class="w" style="width:{w / n * 100:.0f}%"></i><i class="l" style="width:{l / n * 100:.0f}%"></i><i class="o" style="width:{(n - w - l) / n * 100:.0f}%"></i></span></td></tr>' for m, n, w, l in MON)
+C = f"""<div class="pg2 wide"><div class="h2top"><h1 style="margin:0;font-size:18px">파이프라인</h1><span class="muted">지금 어디에 쌓여 있고 · 얼마나 걸리고 · 무엇을 정리할까</span><span class="sp"></span><span class="btn sm">담당 전체 ▾</span><span class="btn sm">2026년 문의 ▾</span></div>
+<div class="kpis"><div><span>열린 리드</span><b>307</b><em class="muted">컨텍 180 · 제안 93</em></div><div><span>30일 넘게 기록 없음</span><b class="due">175</b><em class="muted">열린 리드의 57%</em></div><div><span>이번 달 도입</span><b>7</b><em class="muted">10월 문의 39 중</em></div><div><span>도입까지 (중앙값)</span><b>19일</b><em class="muted">올해 도입 105건</em></div><div><span>다음 연락일 있는 리드</span><b class="due">0</b><em class="muted">307 중</em></div></div>
+<div class="ins"><div class="r"><b>열린 307건 중 175건이 30일 넘게 기록 없음</b><span>그중 90일 넘은 컨텍 107 · 제안 63 — 실제로 진행 중인 건 130 안팎. [정리 제안]으로 "휴면" 표시 (지우지 않음 · 다시 문의하면 이어짐)</span></div><div class="w"><b>도입의 59%가 문의 후 30일 안</b><span>30일 넘으면 "다시 연락" 목록으로 · 90일 넘어 도입도 16건 — 휴면도 버리지 않음</span></div><div class="w"><b>다음 연락일이 적힌 리드가 0</b><span>단계를 바꾸거나 기록을 남길 때 "다음 연락" 날짜 한 칸 → 대시보드 오늘 할 일로</span></div></div>
+<div class="g2"><div class="card2x"><div class="ch"><b>단계 × 문의 후 지난 날</b><span class="muted">칸을 누르면 그 리드 목록</span></div>
+<table class="ds fixed"><colgroup><col style="width:24%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>단계</th><th>7일 안</th><th>8~30일</th><th>31~90일</th><th>90일 넘음</th><th>합계</th></tr></thead><tbody>{arows}</tbody></table>
+<div class="ch" style="margin-top:12px"><b>도입까지 걸린 날</b><span class="muted">2026 문의 → 도입 105건</span></div>{drows}</div>
+<div class="card2x"><div class="ch"><b>담당별</b><span class="muted">2026 문의 · 도입률 = 도입 ÷ (도입 + 이탈)</span></div>
+<table class="ds fixed"><colgroup><col style="width:28%"><col style="width:14%"><col style="width:18%"><col style="width:12%"><col style="width:12%"><col style="width:16%"></colgroup><thead><tr><th>담당</th><th>열림</th><th>30일+ 기록 없음</th><th>도입</th><th>이탈</th><th>도입률</th></tr></thead><tbody>{orows}</tbody></table>
+<div class="ch" style="margin-top:12px"><b>문의한 달별 결과</b><span class="muted"><i class="lg lw"></i>도입 <i class="lg ll"></i>이탈 <i class="lg lo"></i>아직 열림</span></div>
+<table class="ds fixed"><colgroup><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:40%"></colgroup><thead><tr><th>달</th><th>문의</th><th>도입</th><th>이탈</th><th>열림</th><th></th></tr></thead><tbody>{mrows2}</tbody></table></div></div></div>"""
+FC = frame('분석 › 파이프라인', '파이프라인', C, h=1040)
+
 # 메뉴 재구성 표
 MAP = [('마케팅', '<b>마케팅 효율</b>', '돈과 시간을 쓴 곳에서 문의 · 도입이 얼마나 나왔나 (주 · 월 · 분기 · 연)', '마케팅 분석(6탭) + 연간 비교', '아래 1'),
        ('마케팅', '<b>문의까지 가는 길</b>', '어디서 와서 무엇을 보고 어디서 멈추나', '방문자 여정 (세션 · 바운스 나열)', '아래 2'),
-       ('세일즈', '<b>파이프라인</b>', '지금 어디서 막혀 있고 얼마나 걸리나 · 담당별', '파이프라인 분석 + 전환 소요 기간', '다음'),
+       ('세일즈', '<b>파이프라인</b>', '지금 어디에 쌓여 있고 얼마나 걸리나 · 담당별 · 정리할 것', '파이프라인 분석 + 전환 소요 기간', '아래 3'),
        ('세일즈', '<b>문의 내용</b>', '무엇을 묻고 어떤 주제가 도입으로 이어지나', '마케팅 리포트 (이름 변경)', '다음'),
        ('고객', '<b>코호트 · 생애 가치</b>', '언제 · 어디서 온 고객이 오래 남고 많이 내나', '유입 코호트 + 채널별 생애 가치 (탭 2)', '적용됨'),
        ('매출', '<b>매출 분석</b> 🆕', '서비스별 · 공공/민간 · 신규/기존 월 매출 흐름 (시트 동기화 데이터)', '손익 분석 자리 (매입 연동 전까지 숨김)', '다음'),
@@ -92,7 +118,7 @@ CSS = '''<style>
 #m-analytics-v3 .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--line);border-radius:8px;margin:10px 0}
 #m-analytics-v3 .kpis div{padding:8px 12px;border-left:1px solid var(--line2);display:grid;gap:1px}#m-analytics-v3 .kpis div:first-child{border-left:0}
 #m-analytics-v3 .kpis span{font-size:11.5px;color:var(--fg3)}#m-analytics-v3 .kpis b{font-size:18px;font-variant-numeric:tabular-nums}#m-analytics-v3 .kpis b.due{color:var(--due,#b4233a)}#m-analytics-v3 .kpis em{font-style:normal;font-size:11.5px}
-#m-analytics-v3 .ins{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+#m-analytics-v3 .ins{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px;align-items:start}#m-analytics-v3 .ins>div{border:0;border-radius:0;height:auto;min-height:0;background:none}
 #m-analytics-v3 .ins div{border-left:3px solid var(--line);padding:4px 8px;font-size:12.5px;display:grid;align-content:start;gap:2px}#m-analytics-v3 .ins .w{border-color:#fdab3d}#m-analytics-v3 .ins .r{border-color:#b4233a}
 #m-analytics-v3 .ins span{color:var(--fg2);font-size:12px}
 #m-analytics-v3 .spk{color:var(--accent,#2563eb);vertical-align:middle}#m-analytics-v3 td.spkc{text-align:left}
@@ -104,6 +130,10 @@ CSS = '''<style>
 #m-analytics-v3 .tags{display:flex;flex-wrap:wrap;gap:6px;font-size:12px}#m-analytics-v3 .tags span{border:1px solid var(--line);border-radius:4px;padding:1px 8px}
 #m-analytics-v3 .mono{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
 #m-analytics-v3 .seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;font-size:12px}#m-analytics-v3 .seg span{padding:2px 10px}#m-analytics-v3 .seg .on{background:var(--fg);color:var(--bg)}
+#m-analytics-v3 td.hot{background:#fdecef;color:#b4233a;font-weight:600}#m-analytics-v3 td.warm{background:#fff4e5}
+#m-analytics-v3 .stk{display:flex;height:10px;border-radius:2px;overflow:hidden;background:var(--bg-subtle,#f7f7f8)}#m-analytics-v3 .stk i,#m-analytics-v3 i.lg{display:inline-block;height:100%}
+#m-analytics-v3 .stk .w,#m-analytics-v3 i.lg.lw{background:#00c875}#m-analytics-v3 .stk .l,#m-analytics-v3 i.lg.ll{background:#c4c4c4}#m-analytics-v3 .stk .o,#m-analytics-v3 i.lg.lo{background:#579bfc}
+#m-analytics-v3 i.lg{display:inline-block!important;width:8px!important;height:8px!important;border-radius:2px;margin:0 3px 0 8px;vertical-align:middle}
 </style>'''
 SEC = f'''<section id="m-analytics-v3">{CSS}<h2>분석 — 메뉴 재구성 v3 (시안 2026-10-22 · 실데이터 7~10월)</h2>
 <p class="rule">10/22 사용자: "마케팅 분석은 실제 업무에 참고가 잘 안 되는 부분이 있고, 방문자 여정도 새로 구성하면 좋겠다." 지금 분석 메뉴 10개 중 겹치는 것이 많고(연간 탭 = 연간 비교, 전환 소요 2곳), 마케팅 분석은 예산 · CPA 탭이 늘 펼쳐져 있어 지금처럼 예산 0 · 구글 광고 미집행인 달엔 빈 차트만 보임 (캠페인 일예산 21개 모두 0, 예산표 0건). 지금 비용은 네이버 검색광고 월 70만 원대 + 외주 블로그 월 200만 원. <b>10/22 사용자: 예산 · 구글 광고는 언제든 다시 할 수 있음</b> → 기능은 남기고, 데이터가 있을 때만 보이게.</p>
@@ -114,7 +144,9 @@ SEC = f'''<section id="m-analytics-v3">{CSS}<h2>분석 — 메뉴 재구성 v3 (
 <p class="rule">채널을 "돈 쓴 곳 · 돈 안 쓴 곳 · 전화" 3묶음으로. <b>묶음은 고정이 아니라 그 기간에 비용이 있느냐로 자동</b> — 구글 광고를 다시 켜면 그 달부터 "돈 쓴 곳"에 줄이 생기고, 예산을 넣으면 "예산 · 소진율" 칸이 붙음(캠페인 일예산 대비 어제까지 소진은 캠페인 관리 화면에서 매일). 광고 자동 수집(구글 · 네이버)은 그대로. 마케팅팀이 매달 보는 질문 = "200만 원 낸 외주 블로그가 값을 하나" "검색이 왜 줄었나" "전화 문의는 어디서 왔나". 외주 · 행사 비용은 [비용 입력]으로 월 단위 직접 입력 (광고는 자동). 전화 출처는 리드 통화 기록에 "어디서 보셨어요?" 한 칸을 더해 채움 — 도입 28건 중 18건이 전화라 이게 빠지면 효율 판단이 틀어짐.</p>
 <h3 class="ph3">2. 문의까지 가는 길 — 방문자 여정 대체 (10월 흐름 · 7~10월 들어온 곳)</h3><div class="fwrap">{FB}</div>
 <p class="rule">세션 · 바운스 나열 대신 "방문 → 서비스 페이지 → 문의 버튼 → 문의 남김 → 도입" 한 줄 흐름과, 들어온 곳별 문의 · 도입. 10월 문의 버튼 263번 → 문의 26건(10%)이라 문의 양식 점검이 첫 할 일. "서비스 페이지 봄" = 서비스 · 제품 소개 페이지(/pages · /products)를 한 번이라도 본 세션 — 이미 받는 GA 페이지 데이터로 계산(추가 설정 없음). 방문자가 소개를 보고 문의하는지, 첫 화면에서 바로 나가는지를 가름. 문의 직전 페이지는 지금 27건만 기록 — 모든 문의에 남기도록 고쳐야 함. 들어온 곳별 문의 주제는 어디나 "가격·견적 · AI CCTV"가 1 · 2위라 구분이 안 돼 표에서 뺌 (주제는 문의 내용 메뉴에서). 외주 글(miracleintip · boosterlink) 19건 · AI 검색 8건은 아직 도입 0.</p>
-<div class="cmp"><div><h4>정해 주실 것</h4><ul><li>개요 없앰 · 손익 분석 숨김</li><li>✔ 분석 메뉴 10 → 6 (10/22)</li><li>✔ 외주 · 행사 비용 = 사용자가 직접 [비용 입력] (10/22)</li><li>✔ 전화 출처는 묻지 않음 → GA 전화클릭 채널 분포로 (10/22)</li><li>✔ 서비스 페이지 봄 = GA 페이지 데이터로 (설정 추가 없음)</li></ul></div>
+<h3 class="ph3">3. 파이프라인 — 파이프라인 분석 + 전환 소요 기간 대체 (2026 문의 · 10/23 실데이터)</h3><div class="fwrap">{FC}</div>
+<p class="rule">지금 파이프라인 분석은 퍼널 · 담당 · 업종 · 채널 · 에이징 · 단계 변경을 한 화면에 나열. 새 화면은 질문 셋 — <b>어디에 쌓였나</b>(단계 × 지난 날), <b>얼마나 걸리나</b>(도입까지 날 · 문의한 달별 결과), <b>누가 무엇을 정리할까</b>(담당별 30일+ 기록 없음). 업종 · 채널별 전환은 코호트 · 마케팅 효율로 옮김. "휴면"은 단계가 아니라 표시 — 2023~25 이전 기록처럼 몇 년 뒤 다시 문의하는 경우가 많아 이탈로 닫지 않고, 다시 문의하면 같은 리드로 이어짐. 전성환 줄은 테스트 리드 포함(10/21 사용자: 그대로 둠).</p>
+<div class="cmp"><div><h4>정해 주실 것</h4><ul><li>개요 없앰 · 손익 분석 숨김</li><li>파이프라인: 30일+ 기록 없는 리드 "휴면" 표시 · [정리 제안] (담당자 확인 후)</li><li>파이프라인: "다음 연락" 날짜 칸 (단계 변경 · 기록 때)</li><li>✔ 분석 메뉴 10 → 6 (10/22)</li><li>✔ 외주 · 행사 비용 = 사용자가 직접 [비용 입력] (10/22)</li><li>✔ 전화 출처는 묻지 않음 → GA 전화클릭 채널 분포로 (10/22)</li><li>✔ 서비스 페이지 봄 = GA 페이지 데이터로 (설정 추가 없음)</li></ul></div>
 <div><h4>순서 (합의 후)</h4><ul><li>1 마케팅 효율 · 문의까지 가는 길 (마케팅 2개)</li><li>2 파이프라인 · 문의 내용 (세일즈 2개)</li><li>3 매출 분석 (시트 동기화 데이터)</li><li>4 메뉴 정리 (개요 · 손익 · 연간 비교 · 방문자 여정 옛 화면 내림)</li></ul></div></div></section>'''
 
 s = open(P, encoding='utf-8').read()
