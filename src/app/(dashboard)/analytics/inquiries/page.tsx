@@ -26,6 +26,11 @@ const median = (a: number[]) => { if (!a.length) return null; const s = [...a].s
 const weeksAgo = (d: string) => Math.floor((Date.parse(monday(today())) - Date.parse(monday(d))) / (7 * 86400000))
 const rateTxt = (w: number, l: number) => { const p = pct(w, l); return p == null ? '—' : `${p}%` }
 
+// 섹션 머리 한 줄 — 모든 표가 같은 높이 · 같은 글자
+function SecHead({ title, sub }: { title: string; sub?: string }) {
+  return <div className="flex items-baseline gap-2 mb-2 h-5 min-w-0"><h2 className="text-[14px] font-medium text-ds-fg shrink-0">{title}</h2>{sub && <span className="text-[12px] text-ds-fg3 truncate">{sub}</span>}</div>
+}
+
 function Rate({ w, l }: { w: number; l: number }) {
   const p = pct(w, l)
   return <span className="flex items-center gap-2"><span className="flex-1 min-w-0"><span className="block h-1.5 rounded-full bg-ds-line2 overflow-hidden"><span className="block h-full bg-ds-info rounded-full" style={{ width: `${p ?? 0}%` }} /></span></span><span className="w-9 shrink-0 text-right">{p == null ? '—' : `${p}%`}</span></span>
@@ -131,30 +136,35 @@ export default function InquiriesPage() {
         { label: '원문 있는 문의', value: `${withText}건`, sub: '연락처 · 실명 숨김' },
       ]} />
 
-      {!loading && base.length > 0 && (
-        <div className="grid md:grid-cols-3 gap-3 mb-5">
-          {[
-            { t: `공공 문의 도입률 ${rateTxt(site.pub.w, site.pub.l)} · 민간 ${rateTxt(site.pri.w, site.pri.l)}`, d: '같은 주제라도 공공이 높음 — 주제 표의 공공 · 민간 칸', tone: 'border-ds-info' },
-            { t: `주제 2개 이상 ${rateTxt(sp2.w, sp2.l)} · 주제 못 잡음 ${rateTxt(sp0.w, sp0.l)}`, d: '구체적으로 물을수록 도입 — 아래 「문의가 구체적일수록」', tone: 'border-ds-warn' },
-            rising ? { t: `최근 4주 ${rising.k} ${rising.prev} → ${rising.now}건`, d: '그 전 4주보다 가장 많이 늘어난 주제', tone: 'border-ds-warn' } : { t: '최근 4주 크게 늘어난 주제 없음', d: '그 전 4주 대비 3건 이상 늘어난 주제가 없음', tone: 'border-ds-line' },
-          ].map((c, i) => <div key={i} className={`border-l-[3px] ${c.tone} pl-3 py-0.5`}><p className="text-[13px] font-medium text-ds-fg">{c.t}</p><p className="text-[12px] text-ds-fg3">{c.d}</p></div>)}
-        </div>
-      )}
-
       {loading ? <Skeleton rows={8} /> : base.length === 0 ? <Empty text="조건에 맞는 문의가 없습니다" /> : (
-        <div className="grid lg:grid-cols-[minmax(0,1.4fr)_minmax(360px,1fr)] gap-5 items-start">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-2 h-5"><h2 className="text-[14px] font-medium text-ds-fg">주제 × 도입</h2><span className="text-[12px] text-ds-fg3">도입률 순 (도입 + 이탈 5건 미만은 아래) · 누르면 원문 목록</span></div>
+        <div className="space-y-6">
+          {/* 1. 숫자 사실 카드 3 — 같은 높이 */}
+          <div className="grid md:grid-cols-3 gap-3">
+            {[
+              { t: `공공 문의 도입률 ${rateTxt(site.pub.w, site.pub.l)} · 민간 ${rateTxt(site.pri.w, site.pri.l)}`, d: '같은 주제라도 공공이 높음 — 주제 표의 공공 · 민간 칸', tone: 'var(--ds-info)' },
+              { t: `주제 2개 이상 ${rateTxt(sp2.w, sp2.l)} · 주제 못 잡음 ${rateTxt(sp0.w, sp0.l)}`, d: '구체적으로 물을수록 도입 — 「문의가 구체적일수록」', tone: 'var(--ds-warn)' },
+              rising ? { t: `최근 4주 ${rising.k} ${rising.prev} → ${rising.now}건`, d: '그 전 4주보다 가장 많이 늘어난 주제', tone: 'var(--ds-warn)' } : { t: '최근 4주 크게 늘어난 주제 없음', d: '그 전 4주 대비 3건 이상 늘어난 주제가 없음', tone: 'var(--ds-line)' },
+            ].map((c, i) => (
+              <div key={i} className="h-full rounded-lg border border-ds-line bg-ds-bg px-4 py-3" style={{ borderLeft: `3px solid ${c.tone}` }}>
+                <p className="text-[13px] font-medium text-ds-fg truncate" title={c.t}>{c.t}</p><p className="text-[12px] text-ds-fg3 mt-0.5 truncate" title={c.d}>{c.d}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* 2. 주제 × 도입 — 주 표, 전체 폭 */}
+          <section>
+            <SecHead title="주제 × 도입" sub="도입률 순 (도입 + 이탈 5건 미만은 아래) · 누르면 원문 목록" />
             <div className="ds-wrap">
               <table className="ds-table is-clickable is-fixed is-clip">
-                <colgroup><col style={{ width: '19%' }} /><col style={{ width: '8%' }} /><col style={{ width: '17%' }} /><col style={{ width: '8%' }} /><col style={{ width: '8%' }} /><col style={{ width: '10%' }} /><col style={{ width: '11%' }} /><col style={{ width: '19%' }} /></colgroup>
+                <colgroup><col style={{ width: '18%' }} /><col style={{ width: '8%' }} /><col style={{ width: '18%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '18%' }} /></colgroup>
                 <thead><tr><th>주제</th><th>문의</th><th>도입률</th><th>공공</th><th>민간</th><th>도입까지</th><th>최근 4주</th><th>많이 들어온 곳</th></tr></thead>
                 <tbody>
                   {topics.map(t => (
                     <tr key={t.k} className={`ds-row ${pick?.kind === 'topic' && pick.key === t.k ? 'is-active' : ''}`} onClick={() => setPick({ kind: 'topic', key: t.k, label: `주제 ${t.k}` })}>
                       <td className={NO_TOPIC.includes(t.k) ? 'muted' : 'font-medium'} title={t.k}>{t.k}</td><td className="num">{t.n}</td>
                       <td className="num" title={`도입 ${t.w} · 이탈 ${t.l}`}><Rate w={t.w} l={t.l} /></td>
-                      <td className={`num ${t.pw + t.pl < MIN ? 'muted' : ''}`} title={`공공 도입 ${t.pw} · 이탈 ${t.pl}`}>{t.pw + t.pl < MIN ? '—' : rateTxt(t.pw, t.pl)}</td><td className={`num ${t.mw + t.ml < MIN ? 'muted' : ''}`} title={`민간 도입 ${t.mw} · 이탈 ${t.ml}`}>{t.mw + t.ml < MIN ? '—' : rateTxt(t.mw, t.ml)}</td>
+                      <td className={`num ${t.pw + t.pl < MIN ? 'muted' : ''}`} title={`공공 도입 ${t.pw} · 이탈 ${t.pl}`}>{t.pw + t.pl < MIN ? '—' : rateTxt(t.pw, t.pl)}</td>
+                      <td className={`num ${t.mw + t.ml < MIN ? 'muted' : ''}`} title={`민간 도입 ${t.mw} · 이탈 ${t.ml}`}>{t.mw + t.ml < MIN ? '—' : rateTxt(t.mw, t.ml)}</td>
                       <td className="num" title={`도입 ${t.days.length}건의 중앙값`}>{t.med != null ? `${t.med}일` : '—'}</td>
                       <td className="num" title={`그 전 4주 ${t.prev}건 → 최근 4주 ${t.now}건`}>{t.prev} → <b className={t.now - t.prev >= 3 ? 'text-ds-fg' : 'font-normal'}>{t.now}</b></td>
                       <td className="text-[12px] text-ds-fg2" title={t.top}>{t.top}</td>
@@ -163,61 +173,67 @@ export default function InquiriesPage() {
                 </tbody>
               </table>
             </div>
-            <div className="grid md:grid-cols-2 gap-5 mt-5">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-2 h-5"><h2 className="text-[14px] font-medium text-ds-fg">문의가 구체적일수록</h2><span className="text-[12px] text-ds-fg3">잡힌 주제 수</span></div>
-                <div className="ds-wrap"><table className="ds-table is-fixed is-clip">
-                  <colgroup><col style={{ width: '42%' }} /><col style={{ width: '18%' }} /><col style={{ width: '40%' }} /></colgroup>
-                  <thead><tr><th>문의</th><th>건수</th><th>도입률</th></tr></thead>
-                  <tbody>{specific.map(x => <tr key={x.k} className="ds-row" title={`도입 ${x.w} · 이탈 ${x.l}`}><td>{x.k}</td><td className="num">{x.n}</td><td className="num"><Rate w={x.w} l={x.l} /></td></tr>)}</tbody>
-                </table></div>
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-2 h-5"><h2 className="text-[14px] font-medium text-ds-fg">함께 묻는 주제</h2><span className="text-[12px] text-ds-fg3">5건 이상 조합</span></div>
-                <div className="ds-wrap"><table className="ds-table is-fixed is-clip">
-                  <colgroup><col style={{ width: '50%' }} /><col style={{ width: '14%' }} /><col style={{ width: '36%' }} /></colgroup>
-                  <thead><tr><th>조합</th><th>건수</th><th>도입률</th></tr></thead>
-                  <tbody>{pairs.map(x => <tr key={x.k} className="ds-row" title={`도입 ${x.w} · 이탈 ${x.l}`}><td title={x.k}>{x.k}</td><td className="num">{x.n}</td><td className="num"><Rate w={x.w} l={x.l} /></td></tr>)}</tbody>
-                </table></div>
-              </div>
-            </div>
-          </div>
+          </section>
 
-          <div className="min-w-0 space-y-5">
-            <div>
-              <div className="flex items-center gap-2 mb-2 h-5"><h2 className="text-[14px] font-medium text-ds-fg">{period === 'week' ? '주간 — 주간 §0' : period === 'month' ? '월별' : period === 'quarter' ? '분기별' : '연도별'}</h2><span className="text-[12px] text-ds-fg3">{period === 'week' ? '월요일 시작 · 최근 8주' : '최근 순'}</span></div>
-              <div className="ds-wrap">
+          {/* 3. 문의가 구체적일수록 — 4칸 한 줄 */}
+          <section>
+            <SecHead title="문의가 구체적일수록" sub="원문에서 잡힌 주제 수 · 도입률 = 도입 ÷ (도입 + 이탈)" />
+            <div className="grid grid-cols-2 md:grid-cols-4 border border-ds-line rounded-lg overflow-hidden">
+              {specific.map((x, i) => (
+                <div key={x.k} className={`px-4 py-3 ${i ? 'md:border-l border-ds-line' : ''}`} title={`도입 ${x.w} · 이탈 ${x.l}`}>
+                  <p className="text-[12px] text-ds-fg3">{x.k} · {x.n}건</p>
+                  <p className="text-[18px] font-semibold text-ds-fg tabular-nums mt-0.5">{rateTxt(x.w, x.l)}</p>
+                  <span className="block h-1.5 rounded-full bg-ds-line2 overflow-hidden mt-1.5"><span className="block h-full bg-ds-info rounded-full" style={{ width: `${pct(x.w, x.l) ?? 0}%` }} /></span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* 4. 보조 표 3 — 같은 폭 · 같은 높이 */}
+          <div className="grid lg:grid-cols-3 gap-5 items-stretch">
+            <section className="min-w-0 flex flex-col">
+              <SecHead title={period === 'week' ? '주간 — 주간 §0' : period === 'month' ? '월별' : period === 'quarter' ? '분기별' : '연도별'} sub={period === 'week' ? '월요일 시작 · 최근 8주' : '최근 순'} />
+              <div className="ds-wrap flex-1">
                 <table className="ds-table is-clickable is-fixed is-clip">
-                  <colgroup><col style={{ width: '20%' }} /><col style={{ width: '12%' }} /><col style={{ width: '20%' }} /><col style={{ width: '48%' }} /></colgroup>
-                  <thead><tr><th>기간</th><th>문의</th><th></th><th>주제 상위 2</th></tr></thead>
+                  <colgroup><col style={{ width: '24%' }} /><col style={{ width: '14%' }} /><col style={{ width: '62%' }} /></colgroup>
+                  <thead><tr><th>기간</th><th>문의</th><th>주제 상위 2</th></tr></thead>
                   <tbody>
                     {periods.map(p => (
                       <tr key={p.k} className={`ds-row ${pick?.kind === 'period' && pick.key === p.k ? 'is-active' : ''}`} onClick={() => setPick({ kind: 'period', key: p.k, label: periodLabel(p.k, period) })}>
-                        <td>{periodLabel(p.k, period)}</td><td className="num font-medium">{p.n}</td>
-                        <td><span className="block h-1.5 rounded-full bg-ds-line2 overflow-hidden"><span className="block h-full bg-ds-info rounded-full" style={{ width: `${p.n / pmax * 100}%` }} /></span></td>
+                        <td>{periodLabel(p.k, period)}</td><td className="num font-medium" title={`${p.n}건 (가장 많은 기간 ${pmax}건)`}>{p.n}</td>
                         <td className="text-[12px] text-ds-fg2" title={p.top}>{p.top || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-2 h-5"><h2 className="text-[14px] font-medium text-ds-fg">자주 나오는 질문</h2><span className="text-[12px] text-ds-fg3">FAQ · 용어 글 후보 · 원문 단어 기준</span></div>
-              <div className="ds-wrap">
+            </section>
+            <section className="min-w-0 flex flex-col">
+              <SecHead title="함께 묻는 주제" sub="5건 이상 조합 · 건수 순" />
+              <div className="ds-wrap flex-1">
+                <table className="ds-table is-fixed is-clip">
+                  <colgroup><col style={{ width: '56%' }} /><col style={{ width: '14%' }} /><col style={{ width: '30%' }} /></colgroup>
+                  <thead><tr><th>조합</th><th>건수</th><th>도입률</th></tr></thead>
+                  <tbody>{pairs.map(x => <tr key={x.k} className="ds-row" title={`${x.k} · 도입 ${x.w} · 이탈 ${x.l}`}><td>{x.k}</td><td className="num">{x.n}</td><td className="num">{rateTxt(x.w, x.l)}</td></tr>)}</tbody>
+                </table>
+              </div>
+            </section>
+            <section className="min-w-0 flex flex-col">
+              <SecHead title="자주 나오는 질문" sub="FAQ · 용어 글 후보 · 원문 단어 기준" />
+              <div className="ds-wrap flex-1">
                 <table className="ds-table is-clickable is-fixed is-clip">
-                  <colgroup><col style={{ width: '56%' }} /><col style={{ width: '22%' }} /><col style={{ width: '22%' }} /></colgroup>
+                  <colgroup><col style={{ width: '58%' }} /><col style={{ width: '21%' }} /><col style={{ width: '21%' }} /></colgroup>
                   <thead><tr><th>질문</th><th>문의</th><th>도입</th></tr></thead>
                   <tbody>
                     {qs.map(q => (
                       <tr key={q.k} className={`ds-row ${pick?.kind === 'q' && pick.key === q.k ? 'is-active' : ''}`} onClick={() => setPick({ kind: 'q', key: q.k, label: q.k })}>
-                        <td className="font-medium">{q.k}</td><td className="num">{q.n}</td><td className="num">{q.w}</td>
+                        <td className="font-medium" title={q.k}>{q.k}</td><td className="num">{q.n}</td><td className="num">{q.w}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
           </div>
         </div>
       )}
